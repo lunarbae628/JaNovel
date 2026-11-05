@@ -1,0 +1,458 @@
+<div id="application-overview" data-entry="registration" aria-label="지원 현황"><section class="ah-home"></section><section class="ah-editing" hidden><div class="ah-editors"></div></section><section class="ah-registration" hidden aria-label="공고 등록과 확인"></section></div>
+<style>
+#application-overview{color-scheme:light;--ah-paper:#fff;--ah-ink:#302B27;--ah-dim:#727272;--ah-line:#e6e6e6;--ah-soft:#f7f7f8;--ah-blue:#274690;--ah-active:#edf1fa;color:var(--ah-ink);background:var(--ah-paper);border:1px solid var(--ah-line);font:14px/1.7 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;min-height:700px;overflow-wrap:anywhere}
+#application-overview *{box-sizing:border-box}
+#application-overview [hidden]{display:none!important}
+#application-overview .ah-home{padding:30px 30px 40px}
+#application-overview .ah-heading{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-right:90px;margin-bottom:28px}
+#application-overview h1{font-weight:600;letter-spacing:-.03em;font-size:24px;margin:0}
+#application-overview .ah-demo{font-size:12px;color:var(--ah-dim)}
+#application-overview .ah-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;border-bottom:1px solid var(--ah-line);padding-bottom:14px}
+#application-overview .ah-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#application-overview .ah-button{font:inherit;color:inherit;border:0;background:transparent;padding:7px 12px;border-radius:4px;min-height:36px}
+#application-overview .ah-primary{background:var(--ah-blue);color:#fff}
+#application-overview .ah-link{color:var(--ah-blue)}
+#application-overview .ah-view[aria-pressed=true]{box-shadow:inset 0 -2px var(--ah-blue);color:var(--ah-blue);border-radius:0}
+#application-overview .ah-select,#application-overview .ah-input{font:inherit;border:1px solid var(--ah-line);background:#fff;color:var(--ah-ink);padding:6px 8px;border-radius:4px;max-width:100%;min-width:0}
+#application-overview .ah-label{font-size:12px;color:var(--ah-dim);display:flex;gap:8px;align-items:center}
+#application-overview .ah-table{border-collapse:collapse;table-layout:fixed;width:100%;text-align:left}
+#application-overview .ah-table th{font-size:12px;font-weight:400;color:var(--ah-dim);padding:15px 10px;border-bottom:1px solid var(--ah-line)}
+#application-overview .ah-table td{padding:20px 10px;border-bottom:1px solid var(--ah-line);vertical-align:middle}
+#application-overview .ah-table th:first-child,#application-overview .ah-table td:first-child{padding-left:0;width:34%}
+#application-overview .ah-table th:nth-child(2){width:22%}#application-overview .ah-table th:nth-child(3){width:20%}
+#application-overview .ah-company{display:block;padding:0;text-align:left;font:inherit;font-weight:500;color:var(--ah-ink);background:transparent;border:0}
+#application-overview .ah-company:hover{text-decoration:underline;text-underline-offset:4px;color:var(--ah-blue)}
+#application-overview .ah-role{display:block;font-size:12px;color:var(--ah-dim);margin-top:5px}
+#application-overview .ah-date{font-variant-numeric:tabular-nums}#application-overview .ah-sub{display:block;font-size:12px;color:var(--ah-dim)}
+#application-overview .ah-status{border:0;background:var(--ah-soft);padding:5px 8px;min-width:98px}
+#application-overview .ah-empty{padding:40px 0;color:var(--ah-dim)}
+#application-overview .ah-calendar-layout{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:24px;margin-top:24px}
+#application-overview .ah-month-bar{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:14px}
+#application-overview .ah-month-title{font-size:17px;font-weight:500}
+#application-overview .ah-weekdays,#application-overview .ah-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+#application-overview .ah-weekdays span{font-size:12px;color:var(--ah-dim);padding:8px;text-align:left}
+#application-overview .ah-month{border-top:1px solid var(--ah-line);border-left:1px solid var(--ah-line)}
+#application-overview .ah-day{font:inherit;color:inherit;display:flex;flex-direction:column;align-items:stretch;gap:5px;text-align:left;border:0;border-right:1px solid var(--ah-line);border-bottom:1px solid var(--ah-line);background:#fff;padding:9px 6px;min-height:91px;min-width:0}
+#application-overview .ah-day[aria-pressed=true]{background:var(--ah-active);box-shadow:inset 0 0 0 1px #b7c5e5}
+#application-overview .ah-outside{background:#fafafa;color:#a0a0a0}
+#application-overview .ah-day-number{font-size:12px}
+#application-overview .ah-event{font-size:11px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ah-ink);border-left:2px solid #b3b3b7;padding-left:4px}
+#application-overview .ah-event[data-kind=면접],#application-overview .ah-event[data-kind=과제]{border-left-color:var(--ah-blue);color:var(--ah-blue)}
+#application-overview .ah-agenda{border-left:1px solid var(--ah-line);padding-left:20px}
+#application-overview .ah-agenda h2{font-size:14px;font-weight:500;margin:4px 0 18px}
+#application-overview .ah-agenda-item{padding:0 0 16px;margin-bottom:16px;border-bottom:1px solid var(--ah-line)}
+#application-overview .ah-agenda-meta{font-size:12px;color:var(--ah-dim);margin:6px 0}
+#application-overview .ah-agenda-empty{font-size:13px;color:var(--ah-dim);padding:4px 0 24px}
+#application-overview .ah-undated{margin-top:28px;padding-top:18px;border-top:1px solid var(--ah-line)}
+#application-overview .ah-undated h2{font-size:13px;font-weight:500;margin:0 0 8px}
+#application-overview .ah-form{margin:22px 0;padding:20px;background:var(--ah-soft)}
+#application-overview .ah-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}
+#application-overview .ah-fields label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ah-dim);min-width:0}
+#application-overview .ah-error{color:#302B27;font-size:13px;margin-bottom:12px}
+#application-overview .ah-feedback{min-height:24px;font-size:12px;color:var(--ah-dim);margin-top:12px}
+#application-overview .application-editor{border:0}
+@media(max-width:760px){#application-overview .ah-home{padding:24px 18px}#application-overview .ah-calendar-layout{grid-template-columns:1fr;gap:24px}#application-overview .ah-agenda{border-left:0;border-top:1px solid var(--ah-line);padding:18px 0 0}#application-overview .ah-fields{grid-template-columns:1fr 1fr}#application-overview .ah-table th:last-child,#application-overview .ah-table td:last-child{display:none}#application-overview .ah-table th:first-child{width:44%}#application-overview .ah-table th:nth-child(2){width:28%}#application-overview .ah-table th:nth-child(3){width:28%}}
+@media(pointer:coarse){#application-overview .ah-button,#application-overview .ah-company,#application-overview .ah-select{min-height:44px}}
+@media(max-width:450px){#application-overview .ah-home{padding:20px 12px}#application-overview .ah-heading{padding-right:85px}#application-overview h1{font-size:21px}#application-overview .ah-toolbar{gap:10px}#application-overview .ah-toolbar>.ah-row:last-child{width:100%;justify-content:space-between}#application-overview .ah-table td{padding:18px 4px}#application-overview .ah-table th{padding:14px 4px}#application-overview .ah-status{min-width:0;width:100%;font-size:12px;padding:5px 2px}#application-overview .ah-table th:first-child{width:40%}#application-overview .ah-table th:nth-child(2){width:30%}#application-overview .ah-table th:nth-child(3){width:30%}#application-overview .ah-date{font-size:12px}#application-overview .ah-day{padding:7px 2px;min-height:76px}#application-overview .ah-weekdays span{padding:6px 2px}#application-overview .ah-event{padding-left:2px}#application-overview .ah-fields{grid-template-columns:1fr}}
+</style>
+
+<style>
+
+.application-editor{--p-bg:#ffffff;--p-ink:#302B27;--p-dim:#727272;--p-line:#e6e6e6;--p-soft:#f4f4f5;--p-blue:#274690;--p-highlight:#dce4f6;color-scheme:light;font:14px/1.75 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;color:var(--p-ink);background:var(--p-bg);border:1px solid var(--p-line);overflow-wrap:anywhere}
+.application-editor *{box-sizing:border-box}
+.application-editor button,.application-editor select,.application-editor textarea{font:inherit;color:inherit}
+.application-editor button{border:0;background:transparent;padding:7px 10px;min-height:36px;border-radius:4px}
+.application-editor button:disabled{opacity:.45;cursor:default}
+.application-editor .p-primary{background:#274690;color:#F5F3F5;padding:7px 14px}
+.application-editor .p-link{color:#274690}
+.application-editor .p-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.application-editor .p-shell-head{padding:17px 110px 17px 22px;background:#ffffff;color:#302B27;border-bottom:1px solid #e6e6e6;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.application-editor .p-company{font-weight:600;font-size:16px}.application-editor .p-job{font-size:12px;opacity:.8}
+.application-editor .p-company-info{display:flex;align-items:center;gap:14px;flex:1;flex-wrap:wrap;min-width:0}
+.application-editor .p-apply-slot{margin-left:auto;flex:none}
+.application-editor .p-shell-head .ar-apply-link{display:inline-flex;align-items:center;min-height:36px;padding:7px 12px;border:1px solid #302B27;background:#302B27;color:#fff;border-radius:4px;font-size:13px;text-decoration:none;white-space:nowrap}
+.application-editor .p-shell-head button.ar-apply-link:disabled{opacity:1;background:#6E6965;border-color:#6E6965;color:#fff}
+.application-editor .p-layout{display:grid;grid-template-columns:164px minmax(0,1fr) 29%;min-height:690px}
+.application-editor .p-versions{background:#f7f7f8;color:#302B27;padding:22px 12px;border-right:1px solid #e6e6e6;min-width:0}
+.application-editor .p-section-title{font-size:12px;letter-spacing:.02em;font-weight:500;margin:0 8px 20px;color:#727272}
+.application-editor .p-graph{position:relative;min-width:0}
+.application-editor .p-graph svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.application-editor .p-node{position:absolute;left:8px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:3px 6px 3px 23px;width:calc(100% - 12px);height:48px;color:#302B27;z-index:1}
+.application-editor .p-node:before{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:#ffffff;border:2px solid #9ca0aa;left:3px;top:19px}
+.application-editor .p-node small{color:#727272;font-size:11px}
+.application-editor .p-node[aria-pressed=true]{background:#edf1fa;color:#274690}
+.application-editor .p-node.p-working:before{background:#274690;border-color:#274690}
+.application-editor .p-center{min-width:0;background:#ffffff;display:flex;flex-direction:column}
+.application-editor .p-editor-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;min-height:54px;padding:8px 16px;border-bottom:1px solid var(--p-line);font-size:12px;color:var(--p-dim)}
+.application-editor .p-editor-toolbar .p-tools{margin-left:auto;min-width:0}
+.application-editor .p-editor-toolbar button{font-size:13px}
+.application-editor .p-active{color:#274690;box-shadow:inset 0 -2px #274690;border-radius:0}
+.application-editor main{padding:29px 26px 20px;flex:1;display:flex;flex-direction:column}
+.application-editor .p-document{display:flex;flex-direction:column;flex:1}
+.application-editor h2{font-size:19px;line-height:1.6;font-weight:600;margin:0 0 24px;letter-spacing:-.02em}
+.application-editor .p-editor{display:block;width:100%;min-height:440px;padding:0;resize:vertical;border:0;outline-offset:6px;background:#ffffff;color:#302B27;font-size:15px;line-height:2.05;flex:1}
+.application-editor .p-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--p-line);margin-top:22px;padding-top:12px;font-size:12px;color:var(--p-dim)}
+.application-editor .p-document-head{display:flex;align-items:baseline;justify-content:flex-start;gap:8px 10px;flex-wrap:wrap;margin-bottom:24px}
+.application-editor .p-document-head h2{margin:0}
+.application-editor .p-count{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12px;color:var(--p-dim)}
+.application-editor .p-notice{padding:0 26px 12px;min-height:28px;color:var(--p-dim);font-size:12px}
+.application-editor .p-notice:empty{display:none}
+.application-editor .p-chat-pane{background:#fafafa;border-left:1px solid #e6e6e6;display:flex;flex-direction:column;min-width:0}
+.application-editor .p-chat-head{background:#fafafa;color:#302B27;border-bottom:1px solid #e6e6e6;padding:18px 20px;font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.application-editor .p-chat-head span{font-size:12px}
+.application-editor .p-chat{display:flex;flex-direction:column;gap:22px;padding:22px 18px;flex:1;min-width:0}
+.application-editor .p-thread{display:flex;flex-direction:column;gap:22px;flex:1}
+.application-editor .p-you{align-self:flex-end;background:#eeeeef;padding:10px 12px;border-radius:8px 8px 2px 8px;max-width:96%;white-space:pre-wrap}
+.application-editor .p-reply{white-space:pre-wrap;line-height:1.95}
+.application-editor .p-result{border-top:1px solid #e0e0e2;border-bottom:1px solid #e0e0e2;margin-top:14px;padding:10px 0;display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap;font-size:12px}
+.application-editor .p-empty{font-size:13px;color:#727272;margin:7px 0}
+.application-editor .p-compose{display:flex;flex-direction:column;align-items:flex-end;border:1px solid #dedee1;background:#ffffff;border-radius:6px;padding:10px;gap:8px}
+.application-editor .p-compose textarea{width:100%;min-height:68px;resize:vertical;border:0;background:#ffffff;font-size:14px;line-height:1.7;color:#302B27;padding:0}
+.application-editor .p-chat-input{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.application-editor .p-chat-input>[data-action=request]{align-self:flex-start;padding:4px 0;font-size:12px}
+.application-editor .p-compare-head,.application-editor .p-compare{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.application-editor .p-compare-head{margin-bottom:20px;font-size:12px;color:var(--p-dim)}
+.application-editor .p-compare-head label{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.application-editor select{border:0;border-bottom:1px solid #d4d4d7;padding:4px;background:#ffffff;max-width:100%;min-width:65px}
+.application-editor .p-text{font-size:14px;line-height:2;white-space:pre-wrap;min-width:0}
+.application-editor .p-text+.p-text{padding-left:16px;border-left:1px solid var(--p-line)}
+.application-editor ins{color:#274690;background:#dce4f6;text-decoration:none}
+.application-editor .p-warning{border-top:1px solid var(--p-line);padding-top:12px;margin-top:20px;font-size:13px}
+.application-editor .p-mobile,.application-editor .p-mobile-nav{display:none}
+@media(min-width:1200px){.application-editor .p-layout{grid-template-columns:185px minmax(0,1fr) 320px}.application-editor main{padding:32px 36px}}
+@media(min-width:651px) and (max-width:850px){.application-editor .p-layout{grid-template-columns:145px minmax(0,1fr)}.application-editor .p-versions{grid-row:1/3}.application-editor .p-chat-pane{grid-column:2;border-top:1px solid #e6e6e6;min-height:340px}.application-editor .p-chat{min-height:300px}}
+@media(max-width:650px){.application-editor .p-shell-head{padding:16px 105px 16px 18px}.application-editor .p-job{display:block}.application-editor .p-layout{display:block;min-height:630px}.application-editor .p-mobile-nav{display:flex;padding:8px 12px;gap:16px;background:#f7f7f8;color:#302B27}.application-editor .p-mobile-nav button[aria-pressed=true]{box-shadow:inset 0 -2px #274690;color:#274690;border-radius:0}.application-editor .p-layout[data-mobile=write] .p-versions,.application-editor .p-layout[data-mobile=write] .p-chat-pane,.application-editor .p-layout[data-mobile=graph] .p-center,.application-editor .p-layout[data-mobile=graph] .p-chat-pane,.application-editor .p-layout[data-mobile=chat] .p-versions,.application-editor .p-layout[data-mobile=chat] .p-center{display:none}.application-editor .p-versions{min-height:630px;padding:22px}.application-editor .p-graph{max-width:240px}.application-editor .p-chat-pane{min-height:630px}.application-editor .p-chat{min-height:555px;padding:20px}.application-editor main{padding:25px 20px}.application-editor .p-editor{font-size:16px;min-height:390px}.application-editor .p-compare{grid-template-columns:1fr;gap:24px}.application-editor .p-text+.p-text{padding:24px 0 0;border-left:0;border-top:1px solid var(--p-line)}.application-editor .p-mobile{display:block;font-size:12px;color:var(--p-dim);margin-bottom:8px}}
+@media(pointer:coarse){.application-editor button,.application-editor select{min-height:44px}}
+.application-editor .p-question-list{display:flex;flex-wrap:wrap;gap:0 4px;min-width:0}
+.application-editor .p-question{display:inline-flex;align-items:center;justify-content:center;padding:7px 8px;min-height:36px;color:#727272;font-size:13px;white-space:nowrap;border-radius:0}
+.application-editor .p-question[aria-pressed=true]{box-shadow:inset 0 -2px #274690;color:#274690}
+.application-editor .p-node span,.application-editor .p-node small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.application-editor .p-branch-context{font-size:12px;color:var(--p-blue);margin-bottom:12px}
+.application-editor .p-branch-context small{display:block;font-size:12px;color:var(--p-dim);white-space:pre-wrap}
+.application-editor .p-snapshot-meta{font-size:13px;margin:0 0 18px;white-space:pre-wrap}
+.application-editor .p-snapshot-meta p{margin:4px 0 0;color:var(--p-dim);font-size:12px}
+.application-editor .p-record-dialog{box-sizing:border-box;width:min(420px,calc(100% - 32px));padding:24px;border:1px solid var(--p-line);border-radius:6px;background:#fff;color:var(--p-ink);font:inherit}
+.application-editor .p-record-dialog::backdrop{background:rgba(48,43,39,.25)}
+.application-editor .p-record-dialog h2{font-size:17px;margin:0 0 18px}
+.application-editor .p-record-dialog label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--p-dim);margin-bottom:14px}
+.application-editor .p-record-dialog input,.application-editor .p-record-dialog textarea{box-sizing:border-box;width:100%;font:inherit;font-size:14px;color:var(--p-ink);background:#fff;border:1px solid var(--p-line);border-radius:4px;padding:8px 10px}
+.application-editor .p-record-dialog textarea{min-height:88px;resize:vertical}
+.application-editor .p-record-dialog .p-tools{justify-content:flex-end}
+.application-editor .p-record-error{font-size:12px;margin-bottom:12px}
+.application-editor .p-record-error:empty{display:none}
+@media(max-width:650px){.application-editor .p-mobile-nav{gap:4px;align-items:center;flex-wrap:wrap}.application-editor .p-mobile-nav>.p-question-list{margin-right:auto}.application-editor .p-mobile-nav>button{font-size:12px;padding:7px 8px}.application-editor .p-record-dialog{padding:20px}}
+
+.application-editor .p-back{padding-left:0;color:#53535b;font-size:13px;margin-right:8px}
+.application-editor .p-back:hover{color:#274690}
+.application-editor .p-pane-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:54px;padding:8px 12px;color:#727272;font-size:12px}
+.application-editor .p-fold{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;min-height:32px;padding:6px;color:#727272}
+.application-editor .p-fold:hover{background:#e9e9ec;color:#302B27}
+.application-editor .p-versions{padding:0}
+.application-editor .p-version-content{padding:8px 12px 22px}
+.application-editor .p-chat-head{padding:8px 12px;min-height:54px;align-items:center;justify-content:flex-start}
+.application-editor .p-chat-head .p-pane-label{font-size:14px}
+.application-editor .p-chat-head .p-question-tag{margin-left:auto;color:#727272}
+.application-editor .p-chat-content{display:flex;flex-direction:column;flex:1;min-width:0}
+@media(min-width:651px){
+.application-editor .p-layout{--pane-left:164px;--pane-right:29%;grid-template-columns:var(--pane-left) minmax(0,1fr) var(--pane-right)}
+.application-editor .p-layout[data-left-closed=true]{--pane-left:40px}
+.application-editor .p-layout[data-right-closed=true]{--pane-right:40px}
+.application-editor .p-layout[data-left-closed=true] .p-version-content,.application-editor .p-layout[data-right-closed=true] .p-chat-content,.application-editor .p-layout[data-left-closed=true] .p-pane-heading .p-pane-label,.application-editor .p-layout[data-right-closed=true] .p-chat-head span{display:none}
+.application-editor .p-layout[data-left-closed=true] .p-pane-heading,.application-editor .p-layout[data-right-closed=true] .p-chat-head{padding:8px 4px;justify-content:center}
+}
+@media(min-width:1200px){.application-editor .p-layout:not([data-left-closed=true]){--pane-left:185px}.application-editor .p-layout:not([data-right-closed=true]){--pane-right:320px}}
+@media(min-width:651px) and (max-width:850px){
+.application-editor .p-layout{grid-template-columns:var(--pane-left) minmax(0,1fr)}
+.application-editor .p-layout:not([data-left-closed=true]){--pane-left:145px}
+.application-editor .p-layout[data-right-closed=true]{grid-template-columns:var(--pane-left) minmax(0,1fr) 40px}
+.application-editor .p-layout[data-right-closed=true]>.p-chat-pane{grid-column:3;grid-row:1;border-top:0;min-height:0}
+.application-editor .p-layout[data-right-closed=true]>.p-versions{grid-row:1}
+}
+@media(max-width:650px){.application-editor .p-fold,.application-editor .p-pane-heading{display:none}.application-editor .p-version-content{padding:22px}.application-editor .p-chat-head{padding:16px 20px}}
+@media(pointer:coarse){.application-editor .p-fold{width:36px;min-height:44px}.application-editor .p-layout[data-left-closed=true] .p-pane-heading,.application-editor .p-layout[data-right-closed=true] .p-chat-head{padding-left:1px;padding-right:1px}}
+.application-editor .p-merge-selectors{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:18px}
+.application-editor .p-merge-selectors label{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--p-dim);min-width:0}
+.application-editor .p-merge-row{padding:16px 0;border-top:1px solid var(--p-line)}
+.application-editor .p-merge-row h3{margin:0 0 10px;font-size:12px;font-weight:400;color:var(--p-dim)}
+.application-editor .p-merge-choices{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.application-editor .p-merge-choice{display:flex;align-items:flex-start;gap:8px;padding:10px;background:#f7f7f8;min-width:0;border-radius:4px;font-size:13px;white-space:pre-wrap}
+.application-editor .p-merge-choice:has(input:checked){background:#edf1fa;color:#274690}
+.application-editor .p-merge-choice input{margin-top:5px;flex:none;accent-color:#274690}
+.application-editor .p-merge-common{font-size:13px;white-space:pre-wrap;color:var(--p-dim)}
+.application-editor .p-merge-result{margin-top:20px;border-top:1px solid var(--p-line);padding-top:16px}
+.application-editor .p-merge-result-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;margin-bottom:12px}
+.application-editor .p-merge-result textarea{display:block;width:100%;min-height:240px;padding:12px;border:1px solid var(--p-line);border-radius:4px;background:#fff;color:var(--p-ink);font:inherit;line-height:1.9;resize:vertical}
+.application-editor .p-merge-result textarea:disabled{background:#f7f7f8;color:var(--p-dim)}
+.application-editor .p-merge-progress{font-size:12px;color:var(--p-dim);margin-bottom:10px}
+@media(max-width:650px){.application-editor .p-editor-toolbar{padding:8px 12px}.application-editor .p-merge-choices{grid-template-columns:1fr}.application-editor .p-merge-selectors{gap:8px}.application-editor .p-merge-choice{padding:10px}}
+@media(max-width:650px){.application-editor .p-shell-head{padding:12px 18px;gap:10px}.application-editor .p-shell-head .p-back{width:100%;margin:0;padding:0 90px 0 0;text-align:left}.application-editor .p-company-info{flex-direction:column;align-items:flex-start;gap:2px}}
+
+#application-overview .ar-page{padding:24px 28px 32px;min-height:700px}
+#application-overview .ar-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-right:85px;margin-bottom:24px}
+#application-overview .ar-top h1{font-size:22px;margin:0}
+#application-overview .ar-meta{font-size:12px;color:var(--ah-dim)}
+#application-overview .ar-apply-slot{margin-left:auto}
+#application-overview .ar-apply-link{display:inline-flex;align-items:center;min-height:36px;font:inherit;font-size:13px;color:var(--ah-blue);text-decoration:none;white-space:nowrap;border:0;background:transparent;padding:0}
+#application-overview .ar-apply-link:hover{text-decoration:underline;text-underline-offset:4px}
+#application-overview .ar-apply-link:disabled{color:var(--ah-dim);text-decoration:none;cursor:default}
+#application-overview .ar-top .ar-apply-link,#application-overview .p-shell-head .ar-apply-link{padding:7px 12px;border:1px solid var(--ah-line);border-radius:4px}
+#application-overview .ar-top .ar-apply-link:disabled,#application-overview .p-shell-head .ar-apply-link:disabled{background:var(--ah-soft);opacity:1}
+#application-overview .p-shell-head .ar-apply-link{background:#302B27;border-color:#302B27;color:#fff}
+#application-overview .p-shell-head .ar-apply-link:disabled{background:#6E6965;border-color:#6E6965;color:#fff}
+#application-overview .ar-application-url{margin-top:16px}
+#application-overview .ah-posting-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:6px}
+#application-overview .ah-posting-actions .ah-posting{margin:0}
+#application-overview .ah-posting-actions .ar-apply-link{font-size:12px}
+#application-overview .ar-input-page{max-width:680px;margin:38px auto 0}
+#application-overview .ar-tabs{display:flex;gap:20px;border-bottom:1px solid var(--ah-line);margin-bottom:24px}
+#application-overview .ar-tabs button{padding:10px 0;border-radius:0}
+#application-overview .ar-tabs button[aria-pressed=true]{color:var(--ah-blue);box-shadow:inset 0 -2px var(--ah-blue)}
+#application-overview .ar-label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--ah-dim);min-width:0}
+#application-overview .ar-label .ah-input{width:100%;font-size:14px;color:var(--ah-ink)}
+#application-overview .ar-source-input{width:100%;min-height:230px;resize:vertical}
+#application-overview .ar-input-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:22px}
+#application-overview .ar-note{font-size:12px;color:var(--ah-dim);margin:14px 0 0}
+#application-overview .ar-upload{background:var(--ah-soft);padding:26px 20px;display:flex;flex-direction:column;gap:16px}
+#application-overview .ar-upload input{max-width:100%;font:inherit;font-size:13px}
+#application-overview .ar-file-list{font-size:12px;color:var(--ah-dim)}
+#application-overview .ar-preview-grid{display:grid;grid-template-columns:minmax(0,0.8fr) minmax(0,1.4fr);gap:32px;align-items:start}
+#application-overview .ar-review-content{max-width:760px;margin:0 auto}
+#application-overview .ar-original{background:var(--ah-soft);padding:20px;min-width:0}
+#application-overview .ar-original h2{font-size:13px;font-weight:500;margin:0 0 16px}
+#application-overview .ar-original>summary{font-size:13px;font-weight:500}
+#application-overview .ar-original[open]>summary{margin-bottom:16px}
+#application-overview .ar-original pre{font:13px/1.9 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:var(--ah-ink)}
+#application-overview .ar-source-link{display:block;color:var(--ah-blue);font-size:12px;margin-bottom:16px;overflow-wrap:anywhere}
+#application-overview .ar-original img{display:block;width:100%;height:auto;margin:12px 0}
+#application-overview .ar-form{min-width:0}
+#application-overview .ar-section{border-bottom:1px solid var(--ah-line);padding:0 0 22px;margin-bottom:22px}
+#application-overview .ar-section h2{font-size:15px;font-weight:500;margin:0 0 16px}
+#application-overview .ar-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#application-overview .ar-deadline{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:16px}
+#application-overview .ar-check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ah-dim);min-height:36px}
+#application-overview .ar-check input{accent-color:var(--ah-blue)}
+#application-overview .ar-facts{margin-top:22px}
+#application-overview .ar-fact-group+.ar-fact-group{margin-top:16px}
+#application-overview .ar-fact-group h3{font-size:12px;font-weight:400;color:var(--ah-dim);margin:0 0 8px}
+#application-overview .ar-fact-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+#application-overview .ar-fact-row textarea{flex:1;min-width:0;min-height:40px;resize:vertical;font:inherit;line-height:1.6;overflow:hidden}
+#application-overview .ar-fact-group>[data-reg=add-fact]{font-size:12px;padding:4px 0}
+#application-overview .ar-saved-facts{padding-left:20px;margin:0;white-space:pre-wrap}
+#application-overview .ar-saved-facts li+li{margin-top:8px}
+#application-overview .ar-stages{list-style:none;padding:0;margin:0 0 10px;display:flex;flex-direction:column;gap:8px}
+#application-overview .ar-stage{display:flex;align-items:center;gap:8px;min-width:0}
+#application-overview .ar-order{font-size:12px;color:var(--ah-dim);width:18px;flex:none}
+#application-overview .ar-stage input{flex:1;width:0}
+#application-overview .ar-icon{display:inline-flex;align-items:center;justify-content:center;width:30px;min-height:32px;padding:5px;flex:none}
+#application-overview .ar-icon:hover{background:var(--ah-soft)}
+#application-overview .ar-icon:disabled{opacity:.3}
+#application-overview .ar-question{padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--ah-line)}
+#application-overview .ar-question:last-of-type{border-bottom:0;margin-bottom:0}
+#application-overview .ar-question-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:var(--ah-dim)}
+#application-overview .ar-question textarea{width:100%;resize:vertical;min-height:62px}
+#application-overview .ar-question-options{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px}
+#application-overview .ar-question-options .ar-label{flex-direction:row;align-items:center}
+#application-overview .ar-question-options input[type=number]{width:80px}
+#application-overview .ar-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#application-overview .ar-empty{color:var(--ah-dim);font-size:13px;margin-bottom:12px}
+#application-overview .ar-error{font-size:13px;margin:0 0 12px;color:var(--ah-ink)}
+#application-overview .ar-error:empty{display:none}
+#application-overview .ah-posting{font-size:12px;margin:6px 0 0;padding:0;color:var(--ah-blue)}
+@media(max-width:760px){#application-overview .ar-page{padding:20px 18px}#application-overview .ar-preview-grid{grid-template-columns:1fr;gap:24px}#application-overview .ar-input-page{margin-top:20px}#application-overview .ar-original{padding:16px}#application-overview .ar-original pre{font-size:12px}#application-overview .ar-top{gap:8px}#application-overview .ar-top h1{font-size:20px}}
+@media(max-width:450px){#application-overview .ar-page{padding:18px 12px}#application-overview .ar-two{grid-template-columns:1fr}#application-overview .ar-stage{gap:4px}#application-overview .ar-icon{width:28px;padding:4px}#application-overview .ar-question-options{gap:6px 12px}#application-overview .ar-bottom{align-items:flex-end}#application-overview .ar-bottom>.ah-row{width:100%;justify-content:flex-end}}
+@media(pointer:coarse){#application-overview .ar-icon{min-height:44px}}
+
+</style>
+<script>
+(()=>{
+
+function mountEditor(root,context){
+const editorId=root.id||('application-editor-'+root.dataset.application);root.id=editorId;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const texts={
+ q1a:'문서를 믿고 다시 찾을 수 있는 서비스를 만드는 일에 관심이 있습니다.\n\n문서 관리 프로젝트에서 데이터 저장 기능을 개발했습니다. 저장 이후에도 기록이 정확하게 남는지 확인하는 일이 중요하다고 느꼈습니다.\n\n이 경험을 문서 저장과 변경 이력을 다루는 업무로 이어가고 싶습니다.',
+ q1b:'문서를 믿고 다시 찾을 수 있는 서비스를 만드는 일에 관심이 있습니다.\n\n문서 관리 프로젝트에서 정상 저장뿐 아니라 실패한 요청이 남기는 데이터까지 확인했습니다. 생성 대상을 먼저 기록하고 보상 경로를 마련하며, 사용자가 맡긴 기록을 끝까지 관리하는 일에 흥미를 느꼈습니다.\n\n이 경험을 문서 저장과 변경 이력을 다루는 업무로 이어가고 싶습니다.',
+ q2:'서로 다른 저장소에 데이터를 저장할 때 일부 작업만 성공하는 상황을 다뤘습니다.\n\n실패한 요청의 데이터를 정리할 수 있도록 생성할 데이터의 식별자를 먼저 기록하고, 보상 작업을 재시도하는 구조를 설계했습니다.'
+};
+function question(id,title,prompt,versions,parent){return {id,title,prompt,versions,parent,draft:versions[parent].text,left:0,right:'draft',nextVersion:versions.length===1?2:3,messages:[],pending:null,review:null,applied:new Set(),composer:'',view:'write',branchLane:null,merge:null,recordForm:null,branches:Object.fromEntries([...new Set(versions.map(v=>v.lane))].map(lane=>[lane,{name:lane?'분기 '+lane:'기본',description:''}]))};}
+const demoItems=[
+ question('motivation','지원동기','지원한 이유를 작성해 주세요.',[
+ {label:'v1',note:'첫 초안',parent:null,lane:0,text:texts.q1a},
+ {label:'v2',note:'경험 보강',parent:0,lane:0,text:texts.q1b},
+ {label:'v2-A',note:'다른 도입',parent:0,lane:1,text:texts.q1a.replace('문서를 믿고 다시 찾을 수 있는 서비스를 만드는 일에 관심이 있습니다.','수정한 기록이 쌓여도 정확한 제출본을 찾을 수 있는 서비스를 만들고 싶습니다.')}
+ ],1),
+ question('problem','문제 해결','문제를 해결한 경험을 작성해 주세요.',[{label:'v1',note:'첫 초안',parent:null,lane:0,text:texts.q2}],0)
+];
+const editorContext=typeof context==='undefined'?null:context;
+const items=editorContext?.questions?editorContext.questions.map((q,i)=>({...question('registered-'+i,q.prompt.length>12?q.prompt.slice(0,12)+'…':q.prompt,q.prompt,[{label:'v1',note:'첫 초안',parent:null,lane:0,text:''}],0),limit:q.limit,spaces:q.spaces})):demoItems;
+const measure=(q,text)=>count(q.spaces===false?text.replace(/\s/g,''):text);
+const countLabel=q=>`${measure(q,q.draft)}${q.limit?' / '+q.limit:items===demoItems?' / 700':''}자`;
+const s={q:0,mobile:'write',notice:'',leftClosed:false,rightClosed:false};let requestSeq=0;
+const current=()=>items[s.q],count=t=>Array.from(t).length;
+const compactMedia=window.matchMedia('(max-width:650px)');compactMedia.addEventListener('change',()=>render());
+const branchInfo=q=>q.branches[q.branchLane??q.versions[q.parent].lane];
+function questionNav(){return `<nav class="p-question-list" aria-label="문항 선택">${items.map((x,i)=>`<button type="button" class="p-question cursor-interaction" data-question="${i}" aria-pressed="${s.q===i}" aria-label="Q${i+1} ${esc(x.prompt)}" data-tooltip="${esc(x.prompt)}">Q${i+1}</button>`).join('')}</nav>`;}
+function highlight(a,b){
+ const x=a.match(/\s+|[^\s]+/gu)||[],y=b.match(/\s+|[^\s]+/gu)||[];
+ const d=Array.from({length:x.length+1},()=>new Uint16Array(y.length+1));for(let i=x.length-1;i>=0;i--)for(let j=y.length-1;j>=0;j--)d[i][j]=x[i]===y[j]?1+d[i+1][j+1]:Math.max(d[i+1][j],d[i][j+1]);
+ let i=0,j=0,out='',added='';const flush=()=>{if(added){out+='<ins>'+esc(added)+'</ins>';added='';}};
+ while(i<x.length||j<y.length){if(i<x.length&&j<y.length&&x[i]===y[j]){flush();out+=esc(y[j++]);i++;}else if(j<y.length&&(i===x.length||d[i][j+1]>=d[i+1][j]))added+=y[j++];else i++;}flush();return out;
+}
+function options(q,value,withDraft){return q.versions.map((v,i)=>`<option value="${i}" ${String(value)===String(i)?'selected':''}>${esc(v.label+(v.name?' · '+v.name:''))}</option>`).join('')+(withDraft?`<option value="draft" ${value==='draft'?'selected':''}>작성 중</option>`:'');}
+function snapshotLabel(q,text){const i=q.versions.findLastIndex(v=>v.text===text);return i<0?'작성 중':q.versions[i].label;}
+const dirty=q=>q.draft!==q.versions[q.parent].text||q.branchLane!==null;
+function saveVersion(q,note,meta={}){q.versions.push({label:`v${q.nextVersion++}`,note,name:meta.name||'',description:meta.description||'',parent:q.parent,lane:q.branchLane??q.versions[q.parent].lane,text:q.draft});q.parent=q.versions.length-1;q.branchLane=null;}
+const nodeInfo=(q,v)=>[v.label,v.name||v.note,v.description,v.lane?q.branches[v.lane]?.name:'',v.lane?q.branches[v.lane]?.description:''].filter(Boolean).join(' · ');
+function graph(q){
+ const nodes=q.versions.map((v,i)=>({...v,index:i}));nodes.push({label:'작성 중',name:q.branchLane!==null?branchInfo(q).name:'',description:branchInfo(q).description,note:q.branchLane!==null?'새 분기':'현재 초안',parent:q.parent,lane:q.branchLane??q.versions[q.parent].lane,index:'draft'});
+ const paths=nodes.flatMap((n,i)=>[n.parent,n.mergeParent].filter(p=>p!==null&&p!==undefined).map(parent=>{const p=nodes[parent],x=15+n.lane*28,px=15+p.lane*28,y=30+i*64,py=30+parent*64;return `<path data-edge-from="${parent}" data-edge-to="${n.index}" d="M ${px} ${py} C ${px} ${py+32}, ${x} ${y-32}, ${x} ${y}"/>`;})).join('');
+ return `<h2 class="p-section-title">Q${s.q+1} 버전</h2><div class="p-graph" style="height:${nodes.length*64+10}px" aria-label="Q${s.q+1} ${esc(q.title)} 버전 그래프"><svg aria-hidden="true" style="color:#bfc2c9"><g fill="none" stroke="currentColor" stroke-width="2">${paths}</g></svg>${nodes.map((v,i)=>`<button type="button" class="p-node cursor-interaction ${v.index==='draft'?'p-working':''}" style="top:${i*64+6}px;left:${8+v.lane*28}px;width:calc(100% - ${12+v.lane*28}px)" data-version="${v.index}" aria-label="Q${s.q+1} ${esc(nodeInfo(q,v))}" data-tooltip="${esc(nodeInfo(q,v))}" aria-pressed="${v.index==='draft'?q.view==='write':q.view==='history'&&q.left===v.index}"><span>${esc(v.label)}</span><small>${esc(v.name||v.note)}</small></button>`).join('')}</div>`;
+}
+function render(){
+ if(!items.length){renderEmpty();return;}
+ const q=current();
+ root.innerHTML=`<header class="p-shell-head">${root.returnToOverview?'<button type="button" class="p-back cursor-interaction" data-action="back-to-list" aria-label="지원 현황으로 돌아가기">← 지원 현황</button>':''}<div class="p-company-info"><span class="p-company">${esc(context.company)}</span><span class="p-job">${esc(context.role)}</span></div><span class="p-apply-slot">${editorApplyLink()}</span></header><div class="p-mobile-nav" aria-label="작업 영역">${compactMedia.matches?questionNav():''}${[['graph','버전'],['write','작성'],['chat','채팅']].map(([v,l])=>`<button class="cursor-interaction" data-mobile="${v}" aria-pressed="${s.mobile===v}">${l}</button>`).join('')}</div>
+ <div class="p-layout" data-mobile="${s.mobile}" data-left-closed="${s.leftClosed}" data-right-closed="${s.rightClosed}"><aside class="p-versions" aria-label="선택 문항의 버전"><div class="p-pane-heading"><span class="p-pane-label">버전 기록</span>${foldButton('left',s.leftClosed)}</div><div class="p-version-content" id="${editorId}-versions">${graph(q)}</div></aside>
+ <section class="p-center" aria-label="자소서 작성과 비교"><div class="p-editor-toolbar">${compactMedia.matches?'':questionNav()}<div class="p-tools">${q.view==='merge'?'<button class="cursor-interaction" data-action="cancel-merge">병합 취소</button>':`${q.view!=='write'?'<button class="cursor-interaction" data-action="write">← 작성</button>':'<button class="cursor-interaction" data-action="history">비교</button>'}<button class="cursor-interaction" data-action="merge" ${q.versions.length<2?'disabled data-tooltip="스냅샷이 두 개 이상 필요해요"':''}>병합</button>${q.view==='write'?'<button class="p-primary cursor-interaction" data-action="save">스냅샷</button>':''}`}</div></div>
+ <main>${q.view==='merge'?mergeView(q):q.view==='write'?writer(q):comparison(q)}</main><div class="p-notice" role="status" aria-live="polite">${esc(s.notice)}</div></section>
+ <aside class="p-chat-pane" aria-label="AI 피드백 채팅"><div class="p-chat-head">${foldButton('right',s.rightClosed)}<span class="p-pane-label">AI 채팅</span><span class="p-question-tag">Q${s.q+1}</span></div><div class="p-chat-content" id="${editorId}-chat">${chat(q)}</div></aside></div>${recordDialog(q)}`;
+ bind();
+ if(q.recordForm){const dialog=root.querySelector('.p-record-dialog');dialog.showModal();dialog.querySelector(`[data-record-field="${q.recordForm.focusField||'name'}"]`).focus();}
+ if(window.lucide)lucide.createIcons({attrs:{width:16,height:16}});
+}
+function foldButton(side,closed){const label=(side==='left'?'버전 기록':'AI 채팅')+(closed?' 펼치기':' 접기'),direction=side==='left'?(closed?'right':'left'):(closed?'left':'right');return `<button type="button" class="p-fold cursor-interaction" data-action="toggle-${side}" aria-label="${label}" data-tooltip="${label}" aria-expanded="${!closed}" aria-controls="${editorId}-${side==='left'?'versions':'chat'}"><i data-lucide="chevrons-${direction}" aria-hidden="true"></i></button>`;}
+function editorApplyLink(){return typeof applicationLink==='function'?applicationLink(editorContext?.applicationUrl):'<button type="button" class="ar-apply-link" disabled data-tooltip="지원 링크를 입력하면 열 수 있어요">지원하러 가기 ↗</button>';}
+function renderEmpty(){root.innerHTML=`<header class="p-shell-head"><button type="button" class="p-back cursor-interaction" data-empty-back>← 지원 현황</button><div class="p-company-info"><span class="p-company">${esc(editorContext?.company||'')}</span><span class="p-job">${esc(editorContext?.role||'')}</span></div><span class="p-apply-slot">${editorApplyLink()}</span></header><main><h2>등록한 문항이 없습니다.</h2><label>문항<textarea class="p-editor" aria-label="추가할 문항" style="min-height:100px" data-empty-prompt></textarea></label><label>글자 수 제한 (선택) <input type="number" min="1" max="50000" data-empty-limit></label><div class="p-tools"><button type="button" class="p-primary cursor-interaction" data-empty-add>문항 추가</button></div><p role="alert" data-empty-error></p></main>`;root.querySelector('[data-empty-back]').onclick=()=>root.returnToOverview?.();root.querySelector('[data-empty-add]').onclick=()=>{const prompt=root.querySelector('[data-empty-prompt]').value.trim(),value=root.querySelector('[data-empty-limit]').value,limit=value?Number(value):null;if(!prompt||limit!==null&&(!Number.isInteger(limit)||limit<1||limit>50000)){root.querySelector('[data-empty-error]').textContent='문항과 올바른 글자 수 제한을 입력해 주세요.';return;}const q={prompt,limit,spaces:true};editorContext.questions.push(q);items.push({...question('registered-0',prompt.length>12?prompt.slice(0,12)+'…':prompt,prompt,[{label:'v1',note:'첫 초안',parent:null,lane:0,text:''}],0),limit,spaces:true});render();};}
+function branchContext(q){const b=branchInfo(q);return q.branchLane!==null||q.versions[q.parent].lane!==0?`<div class="p-branch-context">분기 · ${esc(b.name)}${b.description?`<small>${esc(b.description)}</small>`:''}</div>`:'';}
+function writer(q){return `<section class="p-document">${branchContext(q)}<div class="p-document-head"><h2>${esc(q.prompt)}</h2><span class="p-count" data-count>${countLabel(q)}</span></div><textarea class="p-editor" aria-label="Q${s.q+1} 답변" maxlength="50000">${esc(q.draft)}</textarea></section>`;}
+function recordDialog(q){const f=q.recordForm;if(!f)return '';const title=f.kind==='branch'?'분기 만들기':f.kind==='snapshot'&&!dirty(q)?'스냅샷 정보':'스냅샷 남기기';return `<dialog class="p-record-dialog" aria-labelledby="${editorId}-record-title"><form data-record-form><h2 id="${editorId}-record-title">${title}</h2><label>이름 (선택)<input data-record-field="name" maxlength="60" value="${esc(f.name)}" placeholder="${f.kind==='branch'?'예: 다른 지원동기':'예: 경험 구체화'}"></label><label>설명 (선택)<textarea data-record-field="description" maxlength="500" placeholder="변경한 내용이나 이유">${esc(f.description)}</textarea></label><div class="p-record-error" role="alert">${esc(f.error||'')}</div><div class="p-tools"><button type="button" class="cursor-interaction" data-action="dismiss-record">취소</button><button type="button" class="p-primary cursor-interaction" data-action="commit-record">${f.kind==='branch'?'분기 만들기':'확인'}</button></div></form></dialog>`;}
+function openRecord(q,kind){const editing=kind==='snapshot'&&!dirty(q),v=q.versions[q.parent];q.recordForm={kind,name:editing?v.name||'':'',description:editing?v.description||'':'',parent:q.parent,draft:q.draft,target:q.left,reviewId:q.review?.id,focusField:'name',error:''};}
+function commitRecord(q){const f=q.recordForm;if(!f)return;if(q.parent!==f.parent||q.draft!==f.draft){f.error='작성본이 바뀌었습니다. 취소 후 다시 시도해 주세요.';return;}const meta={name:f.name.trim(),description:f.description.trim()};
+ if(f.kind==='branch'){const lane=Math.max(...q.versions.map(v=>v.lane))+1;q.branches[lane]={name:meta.name||`분기 ${lane}`,description:meta.description,from:f.target};q.draft=q.versions[f.target].text;q.parent=f.target;q.branchLane=lane;s.notice=`${q.versions[f.target].label}에서 ${q.branches[lane].name} 분기`;}
+ if(f.kind==='snapshot'){if(dirty(q))saveVersion(q,q.branchLane!==null?'분기':'직접 수정',meta);else Object.assign(q.versions[q.parent],meta);s.notice=`Q${s.q+1} ${q.versions[q.parent].label} 스냅샷`;}
+ if(f.kind==='merge'){if(!q.merge||!mergeReady(q)||!q.merge.result.trim()){f.error='병합할 문단과 결과를 확인해 주세요.';return;}const m=q.merge;q.versions.push({label:`v${q.nextVersion++}`,note:`${q.versions[m.left].label} + ${q.versions[m.right].label} 병합`,...meta,parent:m.left,mergeParent:m.right,lane:q.versions[m.left].lane,text:m.result});q.parent=q.versions.length-1;q.draft=m.result;q.branchLane=null;q.merge=null;s.notice=`Q${s.q+1} ${q.versions[q.parent].label} 병합 스냅샷`;}
+ if(f.kind==='ai'){const r=q.review;if(!r||r.id!==f.reviewId||q.applied.has(r.id)||q.draft!==r.source){f.error='피드백 원문이 바뀌었습니다. 다시 요청해 주세요.';return;}q.draft=r.candidate;saveVersion(q,'AI 피드백 반영',meta);q.applied.add(r.id);s.notice=`Q${s.q+1} ${q.versions[q.parent].label} 스냅샷 · AI 반영`;}
+ q.recordForm=null;q.view='write';}
+function chat(q){return `<section class="p-chat" aria-label="Q${s.q+1} 피드백 대화"><div class="p-thread">${q.messages.length?q.messages.map(m=>m.role==='user'?`<div class="p-you">${esc(m.text)}</div>`:`<div class="p-reply">${esc(m.text)}<div class="p-result"><span>Q${s.q+1} 수정안</span><button class="p-link cursor-interaction" data-review="${m.id}">${q.applied.has(m.id)?'적용한 수정안 보기':'비교하기 →'}</button></div></div>`).join(''):'<div class="p-empty">이 문항에 대해 무엇을 고치고 싶나요?</div>'}${q.pending?'<p class="p-empty" role="status">답변 작성 중…</p>':''}</div><div class="p-chat-input"><button class="p-link cursor-interaction" data-action="request" ${q.pending?'disabled':''}>피드백 요청</button><div class="p-compose" role="group" aria-label="메시지 입력"><textarea aria-label="피드백 메시지" aria-description="Enter로 전송, Shift+Enter로 줄바꿈" enterkeyhint="send" placeholder="메시지 입력 · Enter로 전송" maxlength="1000">${esc(q.composer)}</textarea></div></div></section>`;}
+function mergeParts(q){const m=q.merge,a=q.versions[m.left].text.split('\n\n'),b=q.versions[m.right].text.split('\n\n');return Array.from({length:Math.max(a.length,b.length)},(_,i)=>({a:a[i]??'',b:b[i]??''}));}
+function resetMerge(q,left,right){const old=q.merge;q.merge={left,right,baseParent:old?.baseParent??q.parent,baseDraft:old?.baseDraft??q.draft,returnView:old?.returnView??q.view,choices:[],result:'',manual:false};q.merge.choices=mergeParts(q).map(row=>row.a===row.b?'a':null);updateMergeResult(q);}
+function updateMergeResult(q){const m=q.merge;m.result=mergeParts(q).map((row,i)=>row[m.choices[i]??'a']).filter(text=>text!=='').join('\n\n');m.manual=false;}
+const mergeStale=q=>q.parent!==q.merge.baseParent||q.draft!==q.merge.baseDraft;
+const mergeReady=q=>q.merge.left!==q.merge.right&&q.merge.choices.every(Boolean)&&!mergeStale(q);
+function startMerge(q){if(dirty(q)){s.notice='병합 전에 작성 중인 답변을 스냅샷으로 남겨 주세요.';return;}if(q.versions.length<2)return;const left=q.view==='history'?q.left:q.parent;let right=q.versions.findLastIndex((v,i)=>i!==left&&v.lane!==q.versions[left].lane);if(right<0)right=q.versions.findIndex((v,i)=>i!==left);q.merge=null;resetMerge(q,left,right);q.view='merge';s.mobile='write';}
+function mergeView(q){const m=q.merge,rows=mergeParts(q),remaining=m.choices.filter(x=>!x).length,ready=mergeReady(q);return `<h2>${esc(q.prompt)}</h2><div class="p-merge-selectors"><label>왼쪽 <select aria-label="병합할 왼쪽 스냅샷" data-merge-select="left" ${m.manual?'disabled':''}>${options(q,m.left,false)}</select></label><label>오른쪽 <select aria-label="병합할 오른쪽 스냅샷" data-merge-select="right" ${m.manual?'disabled':''}>${options(q,m.right,false)}</select></label></div>${m.left===m.right?'<p class="p-warning">서로 다른 스냅샷을 선택해 주세요.</p>':''}<div class="p-merge-progress">${remaining?`선택이 필요한 문단 ${remaining}개`:'문단 선택 완료'}</div>${rows.map((row,i)=>`<section class="p-merge-row"><h3>문단 ${i+1}${row.a===row.b?' · 동일':''}</h3>${row.a===row.b?`<div class="p-merge-common">${esc(row.a||'빈 문단')}</div>`:`<div class="p-merge-choices">${['a','b'].map((side,j)=>`<label class="p-merge-choice cursor-interaction"><input type="radio" name="${editorId}-merge-${s.q}-${i}" data-merge-choice="${i}" value="${side}" ${m.choices[i]===side?'checked':''} ${m.manual?'disabled':''} aria-label="문단 ${i+1}: ${esc(q.versions[j?m.right:m.left].label)} 선택"><span>${esc(q.versions[j?m.right:m.left].label)}\n${esc(row[side]||'문단 없음')}</span></label>`).join('')}</div>`}</section>`).join('')}<section class="p-merge-result"><div class="p-merge-result-head"><span>병합 결과</span><span class="p-count" data-merge-count>${measure(q,m.result)}자</span><button type="button" class="p-link cursor-interaction" data-action="reset-merge-result" ${m.manual?'':'hidden'}>직접 수정 초기화</button></div><textarea aria-label="병합 결과 편집" data-merge-result maxlength="50000" ${ready?'':'disabled'}>${esc(m.result)}</textarea></section>${mergeStale(q)?'<div class="p-warning" role="alert">작성본이 바뀌었습니다. 병합을 다시 시작해 주세요.</div>':''}<div class="p-foot"><span>${esc(q.versions[m.left].label)} + ${esc(q.versions[m.right].label)}</span><button type="button" class="p-primary cursor-interaction" data-action="confirm-merge" ${ready&&m.result.trim()?'':'disabled'}>병합 스냅샷</button></div>`;}
+function comparison(q){const ai=q.view==='review',r=q.review,a=ai?r.source:q.versions[q.left].text,b=ai?r.candidate:q.right==='draft'?q.draft:q.versions[Number(q.right)].text,done=ai&&q.applied.has(r.id),stale=ai&&q.draft!==r.source;
+ return `<h2>${esc(q.prompt)}</h2>${!ai&&(q.versions[q.left].name||q.versions[q.left].description)?`<div class="p-snapshot-meta">${esc(q.versions[q.left].name||q.versions[q.left].label)}${q.versions[q.left].description?`<p>${esc(q.versions[q.left].description)}</p>`:''}</div>`:''}<div class="p-compare-head">${ai?`<span>요청한 글 · ${esc(r.label)}</span><span>AI 수정안</span>`:`<label>이전 <select aria-label="이전 버전" data-select="left">${options(q,q.left,false)}</select></label><label>이후 <select aria-label="이후 버전" data-select="right">${options(q,q.right,true)}</select></label>`}</div><div class="p-compare"><div class="p-text"><span class="p-mobile">원문</span>${esc(a)}</div><div class="p-text"><span class="p-mobile">수정본</span>${highlight(a,b)}</div></div>${ai&&stale&&!done?'<div class="p-warning" role="alert">요청 후 글이 바뀌었습니다. 현재 글로 다시 피드백을 요청해 주세요.</div>':''}<div class="p-foot"><span>${measure(q,a)} → ${measure(q,b)}자</span>${ai?`<button class="p-primary cursor-interaction" data-action="apply" ${done||stale?'disabled':''}>${done?'적용 완료':'수정안 적용'}</button>`:'<button class="p-link cursor-interaction" data-action="branch">여기서 분기하기</button>'}</div>`;
+}
+function ask(q,text){if(q.pending)return;const source=q.draft,id=++requestSeq,label=snapshotLabel(q,source);q.messages.push({role:'user',text});q.pending=id;q.composer='';s.mobile='chat';s.rightClosed=false;s.notice='';render();
+ setTimeout(()=>{
+ const paragraphs=source.split('\n\n'),edited=q.id==='motivation'?'문서 관리 프로젝트에서 저장 성공 여부뿐 아니라 실패 후 남는 데이터까지 추적했습니다. 생성 대상을 먼저 기록하고 보상 작업을 재시도하도록 설계한 경험을, 사용자가 자신의 기록을 믿고 다시 찾는 기능으로 이어가고 싶습니다.':'생성할 데이터의 식별자를 먼저 기록해, 저장 도중 실패하더라도 정리 대상을 찾을 수 있도록 했습니다. 보상 작업이 실패할 때는 다시 실행할 수 있게 설계했습니다. 다만 지연된 원 요청과 보상 사이의 경합은 별도 한계로 남겼습니다.';
+ const candidate=q.id.startsWith('registered-')?source:q.id==='motivation'?[paragraphs[0],edited,paragraphs.slice(2).join('\n\n')].filter(Boolean).join('\n\n'):[paragraphs[0],edited].join('\n\n');
+ q.messages.push({role:'assistant',id,questionId:q.id,label,source,candidate,text:q.id.startsWith('registered-')?'공고의 업무·요건과 경험이 연결되는 부분을 구체적으로 설명해 보세요. 이 응답은 화면 확인용 예시이며 실제 AI 분석은 아닙니다.':q.id==='motivation'?'지원 이유는 드러나지만, 경험과 포부가 반복돼요. 어떤 문제를 끝까지 살폈는지 한 번만 구체적으로 연결해 보세요.':'무엇을 바꿨는지는 보여요. 실패했을 때 정리 대상을 어떻게 찾는지 설명하고, 해결하지 않은 한계는 구분해 두면 좋겠습니다.'});q.pending=null;render();
+ },700);
+}
+function bind(){
+ const q=current();root.querySelectorAll('button').forEach(el=>{if(!el.hasAttribute('type'))el.type='button';});
+ const record=root.querySelector('[data-record-form]');if(record){record.onsubmit=e=>{e.preventDefault();commitRecord(q);render();};record.querySelectorAll('[data-record-field]').forEach(el=>{el.oninput=()=>{q.recordForm[el.dataset.recordField]=el.value;q.recordForm.focusField=el.dataset.recordField;};el.onfocus=()=>{q.recordForm.focusField=el.dataset.recordField;};if(el.tagName==='INPUT')el.onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();commitRecord(q);render();}};});root.querySelector('.p-record-dialog').oncancel=e=>{e.preventDefault();q.recordForm=null;render();};}
+ const editor=root.querySelector('.p-editor');if(editor)editor.oninput=()=>{q.draft=editor.value;root.querySelector('[data-count]').textContent=countLabel(q);s.notice='';root.querySelector('.p-notice').textContent='';};
+ const composer=root.querySelector('.p-compose textarea');composer.oninput=()=>{q.composer=composer.value;};composer.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();const t=composer.value.trim();if(t&&!q.pending){ask(q,t);root.querySelector('.p-compose textarea').focus();}}};
+ root.querySelectorAll('[data-question]').forEach(el=>el.onclick=()=>{s.q=Number(el.dataset.question);s.notice='';render();root.querySelector(`[data-question="${s.q}"]`).focus();});
+ root.querySelectorAll('button[data-mobile]').forEach(el=>el.onclick=()=>{s.mobile=el.dataset.mobile;render();});
+ root.querySelectorAll('[data-version]').forEach(el=>el.onclick=()=>{if(el.dataset.version==='draft')q.view='write';else{q.left=Number(el.dataset.version);q.right='draft';q.view='history';}s.mobile='write';s.notice='';render();});
+ root.querySelectorAll('[data-select]').forEach(el=>el.onchange=()=>{q[el.dataset.select]=el.dataset.select==='left'?Number(el.value):el.value;render();});
+ root.querySelectorAll('[data-merge-select]').forEach(el=>el.onchange=()=>{resetMerge(q,el.dataset.mergeSelect==='left'?Number(el.value):q.merge.left,el.dataset.mergeSelect==='right'?Number(el.value):q.merge.right);render();});
+ root.querySelectorAll('[data-merge-choice]').forEach(el=>el.onchange=()=>{q.merge.choices[Number(el.dataset.mergeChoice)]=el.value;updateMergeResult(q);render();});
+ const merged=root.querySelector('[data-merge-result]');if(merged)merged.oninput=()=>{q.merge.result=merged.value;q.merge.manual=true;root.querySelectorAll('[data-merge-select],[data-merge-choice]').forEach(el=>el.disabled=true);root.querySelector('[data-action=reset-merge-result]').hidden=false;root.querySelector('[data-merge-count]').textContent=measure(q,merged.value)+'자';root.querySelector('[data-action=confirm-merge]').disabled=!mergeReady(q)||!merged.value.trim();};
+ root.querySelectorAll('[data-review]').forEach(el=>el.onclick=()=>{q.review=q.messages.find(m=>m.id===Number(el.dataset.review));q.view='review';s.mobile='write';s.notice='';render();});
+ root.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{const a=el.dataset.action;s.notice='';
+ if(a==='back-to-list'){root.returnToOverview?.();return;}
+ if(a==='toggle-left')s.leftClosed=!s.leftClosed;
+ if(a==='toggle-right')s.rightClosed=!s.rightClosed;
+ if(a==='write')q.view='write';
+ if(a==='history'){q.left=q.versions[q.parent].parent??q.parent;q.right='draft';q.view='history';}
+ if(a==='save')openRecord(q,'snapshot');
+ if(a==='branch'){if(dirty(q)){s.notice='작성 중인 내용을 먼저 스냅샷으로 남겨 주세요.';}else openRecord(q,'branch');}
+ if(a==='merge')startMerge(q);
+ if(a==='cancel-merge'){q.view=q.merge.returnView;q.merge=null;}
+ if(a==='reset-merge-result')updateMergeResult(q);
+ if(a==='confirm-merge'){if(!q.merge||!mergeReady(q)||!q.merge.result.trim())return;openRecord(q,'merge');}
+ if(a==='dismiss-record')q.recordForm=null;
+ if(a==='commit-record')commitRecord(q);
+ if(a==='request'){ask(q,'이 문항의 피드백과 수정안을 부탁해.');return;}
+ if(a==='apply'){const r=q.review;if(r.questionId!==q.id||q.applied.has(r.id)||q.draft!==r.source)return;openRecord(q,'ai');}
+ render();if(a==='toggle-left'||a==='toggle-right')root.querySelector(`[data-action="${a}"]`).focus();});
+}
+render();
+}
+
+const hub=document.getElementById('application-overview'),home=hub.querySelector('.ah-home'),editing=hub.querySelector('.ah-editing'),editorHosts=hub.querySelector('.ah-editors');
+const escapeText=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const statuses=['관심','작성 중','제출','전형 진행','종료'];
+const apps=[
+ {id:'mono',company:'모노랩',role:'Java / Spring 백엔드',status:'작성 중',deadline:'2026-11-03',time:'18:00'},
+ {id:'root',company:'루트페이',role:'결제 플랫폼 개발',status:'관심',deadline:'2026-11-05',time:null},
+ {id:'onyu',company:'온유시스템즈',role:'서비스 백엔드',status:'전형 진행',deadline:'2026-10-28',time:'17:00'},
+ {id:'page',company:'페이지웍스',role:'문서 플랫폼 개발',status:'제출',deadline:'2026-11-12',time:null},
+ {id:'flow',company:'플로우데이터',role:'데이터 서비스 개발',status:'작성 중',deadline:null,time:null},
+ {id:'orbit',company:'오빗소프트',role:'서버 개발',status:'관심',deadline:null,time:null,rolling:true}
+];
+const schedules=[{id:1,app:'onyu',kind:'면접',date:'2026-11-06',time:'14:00',title:'1차 기술 면접'},{id:2,app:'page',kind:'과제',date:'2026-11-10',time:null,title:'과제 제출'}];
+const state={view:'list',filter:'전체',month:'2026-11',selected:'2026-11-03',form:false,formError:'',notice:'',active:null};let nextSchedule=3;
+const pad=n=>String(n).padStart(2,'0');
+const parsed=date=>date.split('-').map(Number);
+const iso=(year,month,day)=>`${year}-${pad(month)}-${pad(day)}`;
+const dateLabel=date=>{const [y,m,d]=parsed(date);return `${m}.${pad(d)} (${['일','월','화','수','목','금','토'][new Date(Date.UTC(y,m-1,d)).getUTCDay()]})`;};
+const visibleApps=()=>apps.filter(a=>state.filter==='전체'||a.status===state.filter);
+const find=id=>apps.find(a=>a.id===id);
+function allEvents(){return [...apps.filter(a=>a.deadline).map(a=>({id:'deadline-'+a.id,app:a.id,kind:'마감',date:a.deadline,time:a.time,title:'지원 마감'})),...schedules];}
+function events(){const ids=new Set(visibleApps().map(a=>a.id));return allEvents().filter(e=>ids.has(e.app));}
+function statusOptions(a){return `<optgroup label="지원 상태">${statuses.map(x=>`<option value="${x}" ${a.status===x&&!a.currentStage?'selected':''}>${x}</option>`).join('')}</optgroup>${a.stages?.length?`<optgroup label="채용 절차">${a.stages.map(s=>`<option value="stage:${s.id}" ${a.currentStage===s.id?'selected':''}>${escapeText(s.name)}</option>`).join('')}</optgroup>`:''}`;}
+function upcoming(a){const next=allEvents().filter(e=>e.app===a.id&&e.kind!=='마감'&&e.date>='2026-11-01').sort((x,y)=>x.date.localeCompare(y.date))[0];return next?`${dateLabel(next.date)} ${next.kind}`:'—';}
+function deadline(a){return a.rolling?'상시채용':a.deadline?`<span class="ah-date">${dateLabel(a.deadline)}</span><span class="ah-sub">${a.time||'시간 미정'}</span>`:'날짜 미확인';}
+function list(){const rows=visibleApps();return `<table class="ah-table"><thead><tr><th scope="col">회사 · 직무</th><th scope="col">마감</th><th scope="col">상태</th><th scope="col">다음 일정</th></tr></thead><tbody>${rows.map(a=>`<tr><td><button type="button" class="ah-company cursor-interaction" data-open="${a.id}">${escapeText(a.company)}</button><span class="ah-role">${escapeText(a.role)}</span>${a.source?`<span class="ah-posting-actions"><button type="button" class="ah-button ah-posting cursor-interaction" data-posting="${a.id}">공고 보기</button>${applicationLink(a.applicationUrl)}</span>`:''}</td><td>${deadline(a)}</td><td><select class="ah-select ah-status" aria-label="${escapeText(a.company)} 지원 상태" data-status="${a.id}">${statusOptions(a)}</select></td><td>${upcoming(a)}</td></tr>`).join('')}</tbody></table>${rows.length?'':'<div class="ah-empty">해당 상태의 지원 건이 없습니다.</div>'}`;}
+function agenda(){const selected=events().filter(e=>e.date===state.selected).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));return `<aside class="ah-agenda" aria-label="선택한 날짜의 일정"><h2>${dateLabel(state.selected)}</h2>${selected.length?selected.map(e=>{const a=find(e.app);return `<div class="ah-agenda-item"><button type="button" class="ah-company cursor-interaction" data-open="${a.id}">${escapeText(a.company)}</button><div class="ah-agenda-meta">${e.kind} · ${e.time||'시간 미정'}</div><span>${escapeText(e.title)}</span></div>`;}).join(''):'<div class="ah-agenda-empty">등록된 일정이 없습니다.</div>'}<button class="ah-button ah-link cursor-interaction" data-action="add">이 날짜에 일정 추가</button></aside>`;}
+function calendar(){const [year,month]=state.month.split('-').map(Number),start=new Date(Date.UTC(year,month-1,1)),first=new Date(start);first.setUTCDate(1-start.getUTCDay());const lastDay=new Date(Date.UTC(year,month,0)).getUTCDate(),cells=Math.ceil((start.getUTCDay()+lastDay)/7)*7;
+const days=Array.from({length:cells},(_,i)=>{const d=new Date(first);d.setUTCDate(first.getUTCDate()+i);const date=iso(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate()),ev=events().filter(e=>e.date===date),inside=date.startsWith(state.month);return `<button type="button" class="ah-day cursor-interaction ${inside?'':'ah-outside'}" data-day="${date}" aria-pressed="${state.selected===date}" aria-label="${date} 일정 ${ev.length}개"><span class="ah-day-number">${d.getUTCDate()}</span>${ev.slice(0,2).map(e=>`<span class="ah-event" data-kind="${e.kind}" data-tooltip="${escapeText(find(e.app).company+' '+e.kind+' '+(e.time||'시간 미정'))}">${e.kind}·${escapeText(find(e.app).company)}</span>`).join('')}${ev.length>2?`<span class="ah-event">+${ev.length-2}</span>`:''}</button>`;});
+const unknown=visibleApps().filter(a=>!a.deadline&&!a.rolling),rolling=visibleApps().filter(a=>a.rolling);
+return `<div class="ah-calendar-layout"><section aria-label="월간 지원 일정"><div class="ah-month-bar"><span class="ah-month-title">${year}년 ${month}월</span><div class="ah-row"><button class="ah-button cursor-interaction" data-shift="-1" aria-label="이전 달">←</button><button class="ah-button cursor-interaction" data-shift="1" aria-label="다음 달">→</button></div></div><div class="ah-weekdays" aria-hidden="true">${['일','월','화','수','목','금','토'].map(x=>`<span>${x}</span>`).join('')}</div><div class="ah-month">${days.join('')}</div></section>${agenda()}</div>${unknown.length||rolling.length?`<section class="ah-undated" aria-label="날짜가 정해지지 않은 공고">${unknown.length?`<h2>마감일 미확인</h2><div class="ah-row">${unknown.map(a=>`<button class="ah-button ah-link cursor-interaction" data-open="${a.id}">${escapeText(a.company)}</button>`).join('')}</div>`:''}${rolling.length?`<h2>상시채용</h2><div class="ah-row">${rolling.map(a=>`<button class="ah-button ah-link cursor-interaction" data-open="${a.id}">${escapeText(a.company)}</button>`).join('')}</div>`:''}</section>`:''}`;
+}
+function scheduleForm(){return `<section class="ah-form" aria-label="일정 추가"><div class="ah-fields"><label>지원 건<select class="ah-select" data-field="app">${apps.map(a=>`<option value="${a.id}">${escapeText(a.company)}</option>`).join('')}</select></label><label>종류<select class="ah-select" data-field="kind"><option>면접</option><option>과제</option><option>기타</option></select></label><label>일정명<input class="ah-input" data-field="title" placeholder="예: 1차 면접" maxlength="60"></label><label>날짜<input class="ah-input" data-field="date" type="date" value="${state.selected}"></label><label>시간 (선택)<input class="ah-input" data-field="time" type="time"></label></div><div class="ah-error" role="alert">${state.formError}</div><div class="ah-row"><button class="ah-button ah-primary cursor-interaction" data-action="save-event">저장</button><button class="ah-button cursor-interaction" data-action="cancel">취소</button></div></section>`;}
+function renderHome(){home.innerHTML=`<div class="ah-heading"><h1>지원 현황</h1><span class="ah-demo">예시 데이터</span><button type="button" class="ah-button ah-primary cursor-interaction" data-action="register">+ 공고 등록</button></div><div class="ah-toolbar"><div class="ah-row"><button class="ah-button ah-view cursor-interaction" data-view="list" aria-pressed="${state.view==='list'}">목록</button><button class="ah-button ah-view cursor-interaction" data-view="calendar" aria-pressed="${state.view==='calendar'}">캘린더</button></div><div class="ah-row"><label class="ah-label">상태<select class="ah-select" data-filter><option>전체</option>${statuses.map(x=>`<option ${state.filter===x?'selected':''}>${x}</option>`).join('')}</select></label><button class="ah-button cursor-interaction" data-action="add">일정 추가</button></div></div>${state.form?scheduleForm():''}${state.view==='list'?list():calendar()}<div class="ah-feedback" role="status" aria-live="polite">${escapeText(state.notice)}</div>`;bindHome();}
+function openEditor(id){const a=find(id);state.active=id;home.hidden=true;editing.hidden=false;editorHosts.querySelectorAll('.application-editor').forEach(x=>x.hidden=true);let el=editorHosts.querySelector(`[data-application="${id}"]`);if(!el){el=document.createElement('div');el.className='application-editor';el.dataset.application=id;el.returnToOverview=()=>{home.hidden=false;editing.hidden=true;renderHome();};editorHosts.append(el);mountEditor(el,a);}el.hidden=false;}
+function bindHome(){home.querySelectorAll('[data-posting]').forEach(el=>el.onclick=()=>showPosting(el.dataset.posting));home.querySelectorAll('button').forEach(el=>el.type='button');home.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEditor(el.dataset.open));home.querySelectorAll('[data-view]').forEach(el=>el.onclick=()=>{state.view=el.dataset.view;renderHome();});home.querySelector('[data-filter]').onchange=e=>{state.filter=e.target.value;state.notice='';renderHome();};home.querySelectorAll('[data-status]').forEach(el=>el.onchange=()=>{const a=find(el.dataset.status);if(el.value.startsWith('stage:')){a.currentStage=el.value.slice(6);a.status='전형 진행';}else{a.status=el.value;a.currentStage=null;}state.notice=a.company+' 상태 변경됨';renderHome();});home.querySelectorAll('[data-day]').forEach(el=>el.onclick=()=>{state.selected=el.dataset.day;state.month=state.selected.slice(0,7);renderHome();});home.querySelectorAll('[data-shift]').forEach(el=>el.onclick=()=>{const [y,m]=state.month.split('-').map(Number),d=new Date(Date.UTC(y,m-1+Number(el.dataset.shift),1));state.month=iso(d.getUTCFullYear(),d.getUTCMonth()+1,1).slice(0,7);state.selected=state.month+'-01';renderHome();});home.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>{const action=el.dataset.action;if(action==='register'){showRegistration();return;}if(action==='add'){state.form=true;state.formError='';}if(action==='cancel'){state.form=false;state.formError='';}if(action==='save-event'){const field=n=>home.querySelector(`[data-field="${n}"]`).value.trim(),date=field('date'),title=field('title');if(!date||!title){state.formError='일정명과 날짜를 입력해 주세요.';home.querySelector('.ah-error').textContent=state.formError;return;}schedules.push({id:nextSchedule++,app:field('app'),kind:field('kind'),date,time:field('time')||null,title});state.form=false;state.formError='';state.view='calendar';state.selected=date;state.month=date.slice(0,7);state.filter='전체';state.notice='일정 저장됨';}renderHome();});}
+
+const registration=hub.querySelector('.ah-registration');
+const samplePosting={
+ company:'라인업랩',role:'Java / Spring 백엔드 개발',applicationUrl:'',deadline:'2026-11-20',time:'',rolling:false,
+ duties:['지원 기록과 문서 버전 관리 API 개발','서비스 장애 분석과 데이터 정합성 개선'],requirements:['Java, Spring Boot 기반 개발 경험','RDBMS와 트랜잭션에 대한 이해'],
+ stages:[{id:'s1',name:'서류 전형'},{id:'s2',name:'코딩테스트'},{id:'s3',name:'기술 면접'},{id:'s4',name:'최종 면접'}],
+ questions:[{prompt:'라인업랩에 지원한 이유와 입사 후 이루고 싶은 목표를 작성해 주세요.',limit:700,spaces:true},{prompt:'개발 과정에서 가장 어려웠던 문제와 해결 과정을 설명해 주세요.',limit:1000,spaces:true}]
+};
+const sampleOriginal='라인업랩 | 백엔드 개발자\n\n주요 업무\n· 지원 기록과 문서 버전 관리 API 개발\n· 서비스 장애 분석과 데이터 정합성 개선\n\n자격 요건\n· Java, Spring Boot 기반 개발 경험\n· RDBMS와 트랜잭션에 대한 이해\n\n접수 마감: 2026년 11월 20일 (시간 미기재)\n\n채용 절차\n서류 전형 → 코딩테스트 → 기술 면접 → 최종 면접\n\n자기소개서\n1. 라인업랩에 지원한 이유와 입사 후 이루고 싶은 목표를 작성해 주세요. (공백 포함 700자)\n2. 개발 과정에서 가장 어려웠던 문제와 해결 과정을 설명해 주세요. (공백 포함 1,000자)';
+let reg={mode:'link',step:'input',url:'',text:'',files:[],sample:false,data:null,error:''},regSeq=0;
+const freshPosting=()=>({company:'',role:'',applicationUrl:'',deadline:'',time:'',rolling:false,duties:[],requirements:[],stages:[],questions:[]});
+function applicationLink(url){return validUrl(url)?`<a class="ar-apply-link cursor-interaction" href="${escapeText(url.trim())}" target="_blank" rel="noopener noreferrer" aria-label="지원하러 가기 (새 탭)">지원하러 가기 ↗</a>`:'<button type="button" class="ar-apply-link" disabled data-tooltip="지원 링크를 입력하면 열 수 있어요">지원하러 가기 ↗</button>';}
+function applicationUrlField(){return `<label class="ar-label ar-application-url">지원 링크 (선택)<input class="ah-input" type="url" data-reg-field="applicationUrl" placeholder="https://…" value="${escapeText(reg.data.applicationUrl)}"></label>`;}
+function showRegistration(){home.hidden=true;editing.hidden=true;registration.hidden=false;reg.error='';renderRegistration();}
+function closeRegistration(){registration.hidden=true;home.hidden=false;editing.hidden=true;renderHome();}
+function sourceMarkup(source){if(source.sample)return `<pre>${escapeText(sampleOriginal)}</pre>`;if(source.mode==='link'&&!validUrl(source.url))return `<pre>${escapeText(source.url||'원문을 아직 추가하지 않았습니다.')}</pre>`;if(source.mode==='link')return `<a class="ar-source-link" href="${escapeText(source.url)}" target="_blank" rel="noopener noreferrer">${escapeText(source.url)} ↗</a><p class="ar-note">원문을 열어 정보를 확인해 주세요.</p>`;if(source.mode==='image')return source.files.map(f=>`<div class="ar-meta">${escapeText(f.name)}</div><img src="${f.data}" alt="${escapeText(f.name)} 공고 원문">`).join('');return `<pre>${escapeText(source.text||'원문을 아직 추가하지 않았습니다.')}</pre>`;}
+const regSource=()=>({mode:reg.mode,url:reg.url,text:reg.text,files:reg.files,sample:reg.sample});
+const iconButton=(action,icon,label,attrs='')=>`<button type="button" class="ah-button ar-icon cursor-interaction" data-reg="${action}" aria-label="${label}" data-tooltip="${label}" ${attrs}><i data-lucide="${icon}" aria-hidden="true"></i></button>`;
+function factsMarkup(field,label){return `<section class="ar-fact-group" aria-label="${label}"><h3>${label}</h3>${reg.data[field].map((text,i)=>`<div class="ar-fact-row"><textarea class="ah-input" rows="1" data-fact-field="${field}" data-fact-index="${i}" aria-label="${label} ${i+1}">${escapeText(text)}</textarea>${iconButton('remove-fact','x',`${label} ${i+1} 삭제`,`data-fact-field="${field}" data-fact-index="${i}"`)}</div>`).join('')}<button type="button" class="ah-button ah-link cursor-interaction" data-reg="add-fact" data-fact-field="${field}">+ ${label} 추가</button></section>`;}
+function bindFacts(){registration.querySelectorAll('textarea[data-fact-field]').forEach(el=>{const resize=()=>{el.style.height='auto';el.style.height=Math.max(40,el.scrollHeight+2)+'px';};el.oninput=()=>{reg.data[el.dataset.factField][Number(el.dataset.factIndex)]=el.value;resize();};resize();});}
+const savedFacts=items=>items.length?`<ul class="ar-saved-facts">${items.map(text=>`<li>${escapeText(text)}</li>`).join('')}</ul>`:'미확인';
+function registrationInput(){return `<div class="ar-input-page"><div class="ar-tabs" aria-label="공고 입력 방식">${[['link','링크'],['image','스크린샷'],['text','텍스트']].map(([v,l])=>`<button type="button" class="ah-button cursor-interaction" data-mode="${v}" aria-pressed="${reg.mode===v}">${l}</button>`).join('')}</div>${reg.mode==='link'?`<label class="ar-label">공고 링크<input class="ah-input" type="url" data-source="url" placeholder="https://…" value="${escapeText(reg.url)}"></label>`:reg.mode==='text'?`<label class="ar-label">공고 본문<textarea class="ah-input ar-source-input" data-source="text" placeholder="채용 공고와 자소서 문항을 붙여 넣으세요.">${escapeText(reg.text)}</textarea></label>`:`<label class="ar-upload">공고 스크린샷<input type="file" accept="image/png,image/jpeg,image/webp" multiple data-files><span class="ar-file-list">${reg.files.length?reg.files.map(f=>escapeText(f.name)).join(' · '):'PNG, JPG, WEBP'}</span></label>`}<p class="ar-note">이 미리보기에서는 예시 결과를 보거나 직접 입력할 수 있어요.</p><div class="ar-error" role="alert">${escapeText(reg.error)}</div><div class="ar-input-actions"><button type="button" class="ah-button ah-link cursor-interaction" data-reg="sample">예시 결과 보기</button><div class="ah-row"><button type="button" class="ah-button cursor-interaction" data-reg="manual">직접 입력</button><button type="button" class="ah-button ah-primary cursor-interaction" data-reg="continue">정보 확인 →</button></div></div></div>`;}
+function registrationReview(){const d=reg.data;return `<div class="ar-review-content"><form class="ar-form" novalidate><section class="ar-section"><h2>기본 정보</h2><div class="ar-two"><label class="ar-label">회사명<input class="ah-input" data-reg-field="company" value="${escapeText(d.company)}" required></label><label class="ar-label">직무<input class="ah-input" data-reg-field="role" value="${escapeText(d.role)}" required></label></div>${applicationUrlField()}<div class="ar-deadline"><label class="ar-label">마감일<input class="ah-input" type="date" data-reg-field="deadline" value="${d.deadline}" ${d.rolling?'disabled':''}></label><label class="ar-label">시간 (선택)<input class="ah-input" type="time" data-reg-field="time" value="${d.time}" ${d.rolling||!d.deadline?'disabled':''}></label><label class="ar-check"><input type="checkbox" data-reg-field="rolling" ${d.rolling?'checked':''}>상시채용</label></div><div class="ar-facts">${factsMarkup('duties','주요 업무')}${factsMarkup('requirements','자격 요건')}</div></section><section class="ar-section"><h2>채용 절차</h2>${d.stages.length?'':'<div class="ar-empty">확인된 절차가 없습니다. 나중에 추가해도 돼요.</div>'}<ol class="ar-stages">${d.stages.map((s,i)=>`<li class="ar-stage"><span class="ar-order">${i+1}</span><input class="ah-input" aria-label="${i+1}단계 이름" data-stage-name="${s.id}" value="${escapeText(s.name)}">${iconButton('up','chevron-up',`${i+1}단계 위로`,`data-stage="${s.id}" ${i===0?'disabled':''}`)}${iconButton('down','chevron-down',`${i+1}단계 아래로`,`data-stage="${s.id}" ${i===d.stages.length-1?'disabled':''}`)}${iconButton('remove-stage','x',`${i+1}단계 삭제`,`data-stage="${s.id}"`)}</li>`).join('')}</ol><button type="button" class="ah-button ah-link cursor-interaction" data-reg="add-stage">+ 단계 추가</button></section><section class="ar-section"><h2>자기소개서 문항</h2>${d.questions.length?'':'<div class="ar-empty">문항을 확인하지 못했다면 비워 두세요.</div>'}${d.questions.map((q,i)=>`<div class="ar-question"><div class="ar-question-head"><span>Q${i+1}</span>${iconButton('remove-question','x',`Q${i+1} 삭제`,`data-question-index="${i}"`)}</div><textarea class="ah-input" aria-label="Q${i+1} 문항" data-q-prompt="${i}">${escapeText(q.prompt)}</textarea><div class="ar-question-options"><label class="ar-label">최대<input class="ah-input" type="number" min="1" max="50000" placeholder="미확인" aria-label="Q${i+1} 글자 수 제한" data-q-limit="${i}" value="${q.limit??''}">자</label><label class="ar-check"><input type="checkbox" data-q-spaces="${i}" ${q.spaces?'checked':''}>공백 포함</label></div></div>`).join('')}<button type="button" class="ah-button ah-link cursor-interaction" data-reg="add-question">+ 문항 추가</button></section><div class="ar-error" role="alert">${escapeText(reg.error)}</div><div class="ar-bottom"><button type="button" class="ah-button cursor-interaction" data-reg="back">← 입력으로</button><div class="ah-row"><button type="button" class="ah-button cursor-interaction" data-reg="save">공고 저장</button><button type="button" class="ah-button ah-primary cursor-interaction" data-reg="write">저장 후 작성</button></div></div></form></div>`;}
+function renderRegistration(){registration.innerHTML=`<div class="ar-page"><header class="ar-top"><button type="button" class="ah-button cursor-interaction" data-reg="close">← 지원 현황</button><h1>${reg.step==='input'?'공고 등록':'공고 확인'}</h1><span class="ar-meta">${reg.step==='input'?'화면 미리보기':reg.sample?'예시 추출 결과':'직접 입력'}</span><span class="ar-apply-slot">${reg.step==='review'?applicationLink(reg.data.applicationUrl):''}</span></header>${reg.step==='input'?registrationInput():registrationReview()}</div>`;bindRegistration();bindFacts();if(window.lucide)lucide.createIcons({attrs:{width:16,height:16}});}
+function regError(message){reg.error=message;registration.querySelector('.ar-error').textContent=message;}
+function validUrl(v){try{return ['https:','http:'].includes(new URL(v).protocol);}catch{return false;}}
+function registerPosting(write){const d=reg.data;if(d.applicationUrl.trim()&&!validUrl(d.applicationUrl)){regError('지원 링크는 http 또는 https 주소로 입력해 주세요.');return;}if(!d.company.trim()||!d.role.trim()){regError('회사명과 직무를 입력해 주세요.');return;}if(d.stages.some(s=>!s.name.trim())){regError('추가한 단계의 이름을 입력하거나 삭제해 주세요.');return;}if(d.questions.some(q=>!q.prompt.trim())){regError('추가한 문항을 입력하거나 삭제해 주세요.');return;}if(d.questions.some(q=>q.limit!==null&&(!Number.isInteger(q.limit)||q.limit<1||q.limit>50000))){regError('글자 수 제한은 1~50,000 사이의 정수로 입력해 주세요.');return;}const a={...structuredClone(d),duties:d.duties.map(x=>x.trim()).filter(Boolean),requirements:d.requirements.map(x=>x.trim()).filter(Boolean),id:'new-'+(++regSeq),company:d.company.trim(),role:d.role.trim(),status:'관심',currentStage:null,source:structuredClone(regSource()),deadline:d.rolling?null:d.deadline||null,time:d.rolling||!d.deadline?null:d.time||null};apps.unshift(a);state.filter='전체';state.view='list';state.notice=a.company+' 공고 저장됨';registration.hidden=true;reg={mode:'link',step:'input',url:'',text:'',files:[],sample:false,data:null,error:''};if(write)openEditor(a.id);else{home.hidden=false;editing.hidden=true;renderHome();}}
+function bindRegistration(){registration.querySelector('form')?.addEventListener('submit',e=>e.preventDefault());registration.querySelectorAll('[data-mode]').forEach(el=>el.onclick=()=>{reg.mode=el.dataset.mode;reg.sample=false;reg.data=null;reg.error='';renderRegistration();});registration.querySelectorAll('[data-source]').forEach(el=>el.oninput=()=>{reg[el.dataset.source]=el.value;reg.sample=false;reg.data=null;});const files=registration.querySelector('[data-files]');if(files)files.onchange=async()=>{const selected=Array.from(files.files);if(selected.some(f=>!['image/png','image/jpeg','image/webp'].includes(f.type))){regError('PNG, JPG, WEBP 이미지를 선택해 주세요.');return;}reg.files=await Promise.all(selected.map(f=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({name:f.name,data:reader.result});reader.onerror=reject;reader.readAsDataURL(f);}))).catch(()=>null);if(!reg.files){reg.files=[];regError('이미지를 읽지 못했습니다. 다시 선택해 주세요.');return;}reg.sample=false;reg.data=null;renderRegistration();};registration.querySelectorAll('[data-reg-field]').forEach(el=>{const k=el.dataset.regField;el.oninput=()=>{reg.data[k]=el.type==='checkbox'?el.checked:el.value;if(k==='applicationUrl')registration.querySelector('.ar-apply-slot').innerHTML=applicationLink(el.value);};if(k==='rolling'||k==='deadline')el.onchange=()=>{reg.data[k]=el.type==='checkbox'?el.checked:el.value;renderRegistration();};});registration.querySelectorAll('[data-stage-name]').forEach(el=>el.oninput=()=>{reg.data.stages.find(s=>s.id===el.dataset.stageName).name=el.value;});registration.querySelectorAll('[data-q-prompt]').forEach(el=>el.oninput=()=>{reg.data.questions[Number(el.dataset.qPrompt)].prompt=el.value;});registration.querySelectorAll('[data-q-limit]').forEach(el=>el.oninput=()=>{reg.data.questions[Number(el.dataset.qLimit)].limit=el.value===''?null:Number(el.value);});registration.querySelectorAll('[data-q-spaces]').forEach(el=>el.onchange=()=>{reg.data.questions[Number(el.dataset.qSpaces)].spaces=el.checked;});registration.querySelectorAll('[data-reg]').forEach(el=>el.onclick=()=>{const action=el.dataset.reg;reg.error='';if(action==='add-fact'){reg.data[el.dataset.factField].push('');renderRegistration();const fields=registration.querySelectorAll(`textarea[data-fact-field="${el.dataset.factField}"]`);fields[fields.length-1].focus();return;}if(action==='remove-fact')reg.data[el.dataset.factField].splice(Number(el.dataset.factIndex),1);if(action==='close'){closeRegistration();return;}if(action==='sample'){reg.sample=true;reg.data=structuredClone(samplePosting);reg.step='review';}if(action==='continue'){if(reg.mode==='link'&&!validUrl(reg.url)){regError('http 또는 https 공고 링크를 입력해 주세요.');return;}if(reg.mode==='text'&&!reg.text.trim()){regError('공고 본문을 입력해 주세요.');return;}if(reg.mode==='image'&&!reg.files.length){regError('공고 스크린샷을 선택해 주세요.');return;}reg.data=reg.sample?freshPosting():reg.data||freshPosting();if(!reg.data.applicationUrl&&validUrl(reg.url))reg.data.applicationUrl=reg.url.trim();reg.sample=false;reg.step='review';}if(action==='manual'){reg.data=reg.sample?freshPosting():reg.data||freshPosting();if(!reg.data.applicationUrl&&validUrl(reg.url))reg.data.applicationUrl=reg.url.trim();reg.sample=false;reg.step='review';}if(action==='back')reg.step='input';if(action==='add-stage')reg.data.stages.push({id:'s-'+(++regSeq),name:''});if(action==='remove-stage')reg.data.stages=reg.data.stages.filter(s=>s.id!==el.dataset.stage);if(action==='up'||action==='down'){const i=reg.data.stages.findIndex(s=>s.id===el.dataset.stage),j=i+(action==='up'?-1:1);if(j>=0&&j<reg.data.stages.length)[reg.data.stages[i],reg.data.stages[j]]=[reg.data.stages[j],reg.data.stages[i]];}if(action==='add-question')reg.data.questions.push({prompt:'',limit:null,spaces:true});if(action==='remove-question')reg.data.questions.splice(Number(el.dataset.questionIndex),1);if(action==='save'||action==='write'){registerPosting(action==='write');return;}renderRegistration();});}
+function showPosting(id){const a=find(id);home.hidden=true;editing.hidden=true;registration.hidden=false;registration.innerHTML=`<div class="ar-page"><header class="ar-top"><button type="button" class="ah-button cursor-interaction" data-close-posting>← 지원 현황</button><h1>${escapeText(a.company)}</h1><span class="ar-meta">${escapeText(a.role)}</span><span class="ar-apply-slot">${applicationLink(a.applicationUrl)}</span></header><div class="ar-preview-grid"><aside class="ar-original"><h2>등록한 원문</h2>${sourceMarkup(a.source)}</aside><section class="ar-form"><section class="ar-section"><h2>주요 업무</h2><div style="white-space:pre-wrap">${savedFacts(a.duties)}</div></section><section class="ar-section"><h2>자격 요건</h2><div style="white-space:pre-wrap">${savedFacts(a.requirements)}</div></section><section class="ar-section"><h2>채용 절차</h2>${a.stages.length?a.stages.map(s=>escapeText(s.name)).join(' → '):'미확인'}</section><section class="ar-section"><h2>자기소개서 문항</h2>${a.questions.length?a.questions.map((q,i)=>`<p>Q${i+1} ${escapeText(q.prompt)}</p>`).join(''):'미확인'}</section><button type="button" class="ah-button ah-primary cursor-interaction" data-posting-write>자소서 작성</button></section></div></div>`;registration.querySelector('[data-close-posting]').onclick=closeRegistration;registration.querySelector('[data-posting-write]').onclick=()=>{registration.hidden=true;openEditor(id);};}
+
+renderHome();
+if(hub.dataset.entry==='editor')openEditor('mono');
+if(hub.dataset.entry==='registration')showRegistration();
+if(hub.dataset.entry==='review'){reg.sample=true;reg.data=structuredClone(samplePosting);reg.step='review';showRegistration();}
+})();
+</script>

@@ -1,0 +1,16 @@
+{
+  "checked_at": "2026-11-01",
+  "document_version": "v1.3",
+  "key_content_coverage": {
+    "plan": true,
+    "review": true,
+    "sources": true
+  },
+  "broken_anchors": [],
+  "missing_local_links": [],
+  "duplicate_ids": [],
+  "unresolved_placeholders": [],
+  "tables": 13,
+  "scope": "Static key-content coverage in Markdown and generated HTML, anchors, local Markdown/HTML links, IDs and placeholder checks. Not full text equivalence or product behavior tests.",
+  "visual_review": "Not completed: earlier browser file URL preview rejected by URL security policy; no bypass attempted. Visual review not rerun."
+}
