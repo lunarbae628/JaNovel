@@ -18,7 +18,7 @@ Docsa 코드를 바탕으로 별도 프로젝트를 만들 예정이다. 현재�
 
 ## 문서
 
-- [제품 기획서 v1.3](docs/planning/01-product-plan.md) — 6절: 포함·제외 범위, 10절: 완료 기준, 11절: 선택 이유와 남은 확인
+- [제품 기획서 v1.5](docs/planning/01-product-plan.md) — 6절: 포함·제외 범위, 10절: 완료 기준, 11절: 선택 이유와 남은 확인
 - [경쟁력 검토·의문점·검증 계획](docs/planning/02-critical-review.md)
 - [근거와 조사 한계](docs/planning/03-sources.md)
 - [전체 문서 HTML](docs/planning/index.html)
@@ -28,6 +28,18 @@ Docsa 코드를 바탕으로 별도 프로젝트를 만들 예정이다. 현재�
 - [공고 등록 화면](docs/design/06-posting-registration.md) — 링크·이미지·텍스트 입력, 원문 확인, 문항·절차 수정과 저장
 - [스냅샷·분기·병합](docs/design/07-snapshots-branch-merge.md) — 가운데 작성 도구와 문항별 갈래·문단 선택 병합
 - [화면 점검과 다음 단계](docs/design/08-readiness-review.md) — 빠진 동선, AI 연결의 미확정 사항과 디자인·구현으로 넘어갈 순서
+- [Figma 디자인 초안](https://www.figma.com/design/ArLSPAcNklUKhcpk8V4zyf?node-id=5-530) — 작성·비교·집중·휴대폰·스냅샷 다섯 상태. [작업 기준](docs/design/09-figma-design-brief.md)
+
+- [스냅샷·작성 중 비교 규칙](docs/design/16-snapshot-working-draft-comparison.md) — 선택한 스냅샷과 작성 중 초안 비교, 오른쪽 대상 선택, 시연 범위
+
+- [디자인 점검 결과](docs/design/17-design-review.md) — 회사·문항 맥락, 제출 버전 선택, 병합 완료, 패널 접기의 남은 문제와 보완 순서
+- [최신 제품 디자인 고도화·검증 결과](docs/design/18-product-design-workflow.md) — UI UX Pro Max 적용 범위, 글자·간격 기준, 프로토타입 보완과 검증
+- [비교 화면 수정과 디자인 시안 A/B/C](docs/design/19-comparison-concepts.md) — 개별 글자 수, 작업 아이콘, 헤더 정렬과 대표 화면 선택
+- [선택한 디자인 방향과 아이콘 수정](docs/design/20-icon-refinement.md) — A 기반, 회색 비교 정보 줄·블루 지원 버튼, 얇은 아이콘과 분기·병합 구분
+- [선택 기록 중심의 버전 지도](docs/design/21-focused-version-map.md) — Docsa 기술 검토, 카메라·전체 보기 규칙과 React Flow 동작 시안
+- [촘촘한 Git 로그형 추가 시안](docs/design/22-compact-history-log.md) — 32px 기록 행, 14px 브랜치 간격과 지도형 비교
+- [로그인·가입과 패널 조절·브랜치별 작업장](docs/design/23-auth-resize-workspaces.md) — 인증 화면과 별도 초안 편집 검토
+- [Figma 화면 흐름·OAuth·두 병합안](docs/design/24-figma-flow-oauth-merge-alternatives.md) — 정리된 파일 위치와 아직 결정하지 않은 병합 정책
 
 ## 폴더 구성
 
