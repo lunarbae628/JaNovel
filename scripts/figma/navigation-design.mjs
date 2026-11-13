@@ -208,7 +208,7 @@ try{
   const targets={...state.screens,writer:'5:530',posting:'42:1257',submission:state.dialogs['제출본 확인']||'42:1411',detail:'42:1128',솔빛테크:'89:50209',브릭스:'89:50425',루트페이:'89:50641'};
   const owners=new Map();for(const id of Object.values(state.screens)){const d=await info(id);for(const n of walk(d))owners.set(n.id,id);}
   const entries=state.links.filter(l=>l.to==='CLOSE'||owners.get(l.id)!==targets[l.to]);
-  const links=entries.map(l=>({nodeId:l.id,reactions:l.to==='CLOSE'?[{trigger:{type:'ON_CLICK'},actions:[{type:'CLOSE'}]}]:[{trigger:{type:'ON_CLICK'},actions:[{type:'NODE',destinationId:state.dialogs?.[l.to]||targets[l.to],navigation:state.dialogs?.[l.to]?'OVERLAY':'NAVIGATE',transition:null}]}]}));
+  const links=entries.map(l=>({nodeId:l.id,reactions:l.to==='CLOSE'?[{trigger:{type:'ON_CLICK'},actions:[{type:'CLOSE'}]}]:[{trigger:{type:'ON_CLICK'},actions:[{type:'NODE',destinationId:state.dialogs?.[l.to]||targets[l.to],navigation:l.navigation||(state.dialogs?.[l.to]?'OVERLAY':'NAVIGATE'),transition:null}]}]}));
   const missing=state.links.filter(l=>l.to!=='CLOSE'&&!state.dialogs?.[l.to]&&!targets[l.to]);if(missing.length)throw Error('Missing targets '+JSON.stringify(missing));
   const before=await call('janovel_inspect_reactions',{nodeIds:Object.values(state.screens)});fs.writeFileSync(dir+'/reactions-before.json',JSON.stringify(before));
   const allBefore=await call('janovel_inspect_reactions',{nodeIds:[...Object.values(state.screens),...Object.values(state.dialogs)]});
@@ -387,6 +387,73 @@ try{
   const band=await frame(cal.id,'기간 할 일 / 11.16–11.18',384,518,366,23,'#F0F1F4');await call('set_corner_radius',{nodeId:band.id,radius:4});await icon(band.id,'square',4,2);await text(band.id,'포트폴리오 정리 · 11.16–18',30,2,324,11,'ink');link(band.id,'기간 할 일');
   state.links=state.links.filter(l=>!removed.has(l.id));for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});
   state.periods={startEndDates:true,allDayRange:true,example:'2026-11-16/2026-11-18'};save();console.log(JSON.stringify({rangeDialog:range.id,...state.periods}));
+ }
+ if(mode==='daily-options'){
+  if(state.dailyOptions)throw Error('Daily/options revision already exists; inspect before retrying');
+  const removed=new Set();async function drop(n){walk(n).forEach(n=>removed.add(n.id));await call('delete_node',{nodeId:n.id});}
+  const {renderToStaticMarkup}=await import('../../frontend/node_modules/react-dom/server.node.js');const React=(await import('../../frontend/node_modules/react/index.js')).default;const icons=await import('../../frontend/node_modules/lucide-react/dist/cjs/lucide-react.js');
+  Object.assign(state.icons,(await call('janovel_compact_assets',{svgs:{'repeat-2':renderToStaticMarkup(React.createElement(icons.Repeat2,{size:18,strokeWidth:1.5})),'check-white':renderToStaticMarkup(React.createElement(icons.Check,{size:18,strokeWidth:1.5,color:'#FFFFFF'}))}})).icons);
+  const swap=(id,to)=>state.links.push({id,to,navigation:'SWAP'});
+  const variants={normal:'개인 할 일',check:'개인 체크리스트',daily:'매일 개인 일정',dailyCheck:'매일 체크리스트'};
+  for(const[key,x]of [['dailyCheck',2528],['check',3148],['daily',3768]]){const n=await frame(state.section,variants[key],x,3240,560,680,'paper',true);await call('set_corner_radius',{nodeId:n.id,radius:10});state.dialogs[variants[key]]=n.id;save();}
+  async function form(id,{daily=false,checklist=false,range=false}={}){
+   const old=await info(id);for(const n of old.children)await drop(n);const offset=range?90:0;await call('resize_node',{nodeId:id,width:560,height:680-offset});
+   await text(id,'개인 일정',24,22,512,20,'ink','bold');
+   async function field(label,value,x,y,w=240){await text(id,label,x,y,w,12,'muted');const f=await frame(id,label+' 입력',x,y+30,w,42,'paper',true);await call('set_corner_radius',{nodeId:f.id,radius:6});await text(f.id,value,12,9,w-24,14);}
+   await field('제목',range?'포트폴리오 정리':'알고리즘 2문제 풀기',24,80,512);await field('시작일',range?'2026.11.16':'2026.11.19',24,176);await field('종료일',range?'2026.11.18':'2026.11.19',296,176);await icon(id,range?'square-check':'square',24,272);await text(id,'종일',52,269,484,13);
+   if(!range){await field('시작 시간 · 선택','19:00',24,310);await field('종료 시간 · 선택','20:00',296,310);}
+   await text(id,'반복',24,402-offset,240,12,'muted');
+   const none=await box(id,'반복 안 함',24,432-offset,120,!daily),every=await box(id,'매일',156,432-offset,120,daily);
+   if(daily)swap(none.id,checklist?variants.check:variants.normal);else swap(every.id,checklist?variants.dailyCheck:variants.daily);
+   if(daily){await text(id,'반복 종료',296,402-offset,240,12,'muted');await box(id,'종료 없음',296,432-offset,240,false);}
+   await text(id,'관리 방식',24,490-offset,512,12,'muted');
+   const normal=await box(id,'일반 일정',24,520-offset,248,!checklist),check=await box(id,'체크리스트',288,520-offset,248,checklist);
+   if(checklist)swap(normal.id,daily?variants.daily:variants.normal);else swap(check.id,daily?variants.dailyCheck:variants.check);
+   if(checklist)await text(id,daily?'완료는 해당 날짜에만 반영됩니다.':'완료 여부를 체크할 수 있습니다.',24,572-offset,512,12,'muted');
+   await box(id,'취소',304,618-offset,100,false,'CLOSE');await box(id,'확인',420,618-offset,116,true,'CLOSE');
+  }
+  await form(state.dialogs[variants.normal]);await form(state.dialogs[variants.check],{checklist:true});await form(state.dialogs[variants.daily],{daily:true});await form(state.dialogs[variants.dailyCheck],{daily:true,checklist:true});await form(state.dialogs['기간 할 일'],{range:true});
+  const cal=await info(state.screens['일정']);
+  for(const n of walk(cal).filter(n=>n.name.startsWith('개인 할 일 / ')||n.name.startsWith('기간 할 일 / '))){
+   for(const child of n.children.filter(c=>c.type==='INSTANCE'))await drop(child);
+   const t=n.children.find(c=>c.type==='TEXT');if(t){await call('move_node',{nodeId:t.id,x:10,y:2});pending.push({id:t.id,width:n.absoluteBoundingBox.width-18});}
+  }
+  const task=walk(cal).find(n=>n.name==='개인 할 일 상세');if(task)await drop(task);
+  const heading=walk(cal).find(n=>n.type==='TEXT'&&n.characters==='개인 할 일 1');if(heading)await call('set_text_content',{nodeId:heading.id,text:'체크리스트 1'});
+  const card=await frame(cal.id,'선택한 체크리스트',1184,526,210,104,'paper',true);await call('set_corner_radius',{nodeId:card.id,radius:8});const check=await frame(card.id,'이 날짜 완료',12,16,22,22,'paper',true);await call('set_corner_radius',{nodeId:check.id,radius:5});link(check.id,'개인 할 일 완료');await text(card.id,'알고리즘 2문제 풀기',48,12,148,13,'ink','medium');await text(card.id,'19:00 · 매일',48,68,148,12,'muted');
+  const manage=walk(cal).find(n=>n.type==='INSTANCE'&&n.name==='할 일 수정');if(manage){await call('move_node',{nodeId:manage.id,x:1184,y:654});const l=state.links.find(l=>l.id===manage.id);if(l)l.to='반복 항목 관리';}
+  for(const day of [19,20,21]){
+   const cell=walk(cal).find(n=>n.name==='날짜 / '+day),event=cell.children.find(n=>n.name.startsWith('일정 / '));
+   if(event&&day===20){await call('resize_node',{nodeId:event.id,width:114,height:44});await call('move_node',{nodeId:event.id,x:6,y:32});const detail=event.children.filter(n=>n.type==='TEXT')[1];await call('move_node',{nodeId:detail.id,x:8,y:23});}
+   let row=cell.children.find(n=>n.name==='개인 할 일 / 알고리즘 2문제');if(!row){row=await frame(cell.id,'매일 반복 / '+day,6,80,114,23,'paper');await text(row.id,'알고리즘 2문제',8,2,82,10);}
+   else{const t=row.children.find(n=>n.type==='TEXT');await call('move_node',{nodeId:t.id,x:8,y:2});pending.push({id:t.id,width:82});state.links=state.links.filter(l=>l.id!==row.id);}
+   await icon(row.id,'repeat-2',92,2);link(row.id,'반복 항목 관리');
+  }
+  const done=await info(state.dialogs['개인 할 일 완료']);for(const n of done.children)await drop(n);await text(done.id,'11월 19일 완료',24,22,512,20,'ink','bold');const checked=await frame(done.id,'완료',24,90,22,22,'blue');await call('set_corner_radius',{nodeId:checked.id,radius:5});await icon(checked.id,'check-white',2,2);await text(done.id,'알고리즘 2문제 풀기',62,87,474,16,'ink','medium');await text(done.id,'다른 날짜의 완료 상태는 바뀌지 않습니다.',24,148,512,13,'muted');await box(done.id,'완료 취소',288,230,116,false,'CLOSE');await box(done.id,'닫기',420,230,116,true,'CLOSE');
+  const actions=await frame(state.section,'반복 항목 관리',668,3600,560,350,'paper',true);await call('set_corner_radius',{nodeId:actions.id,radius:10});state.dialogs['반복 항목 관리']=actions.id;await text(actions.id,'매일 반복 · 11월 19일',24,22,512,20,'ink','bold');await text(actions.id,'알고리즘 2문제 풀기',24,76,512,14);
+  await box(actions.id,'이 날짜만 수정',24,120,512,false,variants.check);await box(actions.id,'전체 반복 수정',24,174,512,false,variants.dailyCheck);await box(actions.id,'이 날짜만 건너뛰기',24,228,512,false,'CLOSE');await box(actions.id,'닫기',424,290,112,false,'CLOSE');
+  state.links=state.links.filter(l=>!removed.has(l.id));for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});state.dailyOptions={dailyRepeat:true,optionalChecklist:true};save();console.log(JSON.stringify(state.dailyOptions));
+ }
+ if(mode==='calendar-colors'){
+  if(state.calendarColors)throw Error('Color revision already exists; inspect before retrying');
+  const palette=[['기본','#66758A'],['파랑','#274690'],['보라','#8465A0'],['초록','#3D7F75'],['황토','#A4793E'],['분홍','#A4687D']];
+  for(const key of ['개인 할 일','개인 체크리스트','매일 개인 일정','매일 체크리스트','기간 할 일']){
+   const d=await info(state.dialogs[key]),offset=key==='기간 할 일'?90:0;
+   for(const n of d.children){if(n.type==='INSTANCE'&&(n.name==='취소'||n.name==='확인'))await call('move_node',{nodeId:n.id,x:n.absoluteBoundingBox.x-d.absoluteBoundingBox.x,y:n.absoluteBoundingBox.y-d.absoluteBoundingBox.y+70});if(n.type==='TEXT'&&/완료는 해당 날짜|완료 여부를 체크/.test(n.characters))await call('delete_node',{nodeId:n.id});}
+   await call('resize_node',{nodeId:d.id,width:560,height:d.absoluteBoundingBox.height+70});await text(d.id,'색상',24,576-offset,512,12,'muted');
+   for(const[i,[name,color]]of palette.entries()){
+    const choice=await frame(d.id,'색상 선택 / '+name,24+i*82,606-offset,76,38,'paper',i===0);await call('set_corner_radius',{nodeId:choice.id,radius:6});if(i===0)await call('set_stroke_color',{nodeId:choice.id,color:{...rgb(C.blue),a:1},weight:1.5});
+    const dot=await frame(choice.id,name,27,8,22,22,color);await call('set_corner_radius',{nodeId:dot.id,radius:11});if(i===0)await icon(dot.id,'check-white',2,2);await text(d.id,name,36+i*82,648-offset,64,12,'muted');
+   }
+  }
+  const cal=await info(state.screens['일정']);for(const n of walk(cal)){
+   if(n.type==='TEXT'&&n.characters==='□ 개인 할 일')await call('set_text_content',{nodeId:n.id,text:'개인 일정'});
+   if(n.name==='기간 할 일 / 11.16–11.18')await call('set_fill_color',{nodeId:n.id,...rgb('#F1EDF6')});
+   if(n.name==='개인 할 일 / 운동 30분'){await call('set_fill_color',{nodeId:n.id,...rgb('#EAF2EF')});state.links=state.links.filter(l=>l.id!==n.id);}
+   if(n.name==='개인 할 일 / 알고리즘 2문제'||n.name.startsWith('매일 반복 / '))await call('set_fill_color',{nodeId:n.id,...rgb(C.soft)});
+  }
+  const kind=await info(state.dialogs['일정 종류']);for(const n of kind.children)if(n.type==='INSTANCE'&&n.name==='개인 할 일'){const t=n.children.find(n=>n.type==='TEXT');await call('set_text_content',{nodeId:t.id,text:'개인 일정'});}
+  for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});state.calendarColors={palette,defaultType:'일반 일정',completionSeparateFromColor:true};save();console.log(JSON.stringify({presetColors:palette.length,optionalChecklist:true}));
  }
  if(mode==='export'||mode==='export-voice'||mode==='export-focused'||mode==='export-periods'){
   const names=mode==='export-periods'?['일정']:mode==='export-focused'?['면접 상세','연습 화면']:mode==='export-voice'?['일정','면접 상세','연습 화면','연습 기록']:['지원 현황','일정','면접 상세','연습 기록'];

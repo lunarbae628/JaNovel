@@ -42,9 +42,9 @@ const html = `<!doctype html>
 </head>
 <body id="top">
 <div class="reading-line" aria-hidden="true"></div>
-<header><span class="brand">DOCSA → NEW PROJECT</span><span class="meta">주제별 작성안 · 2026.11.13 · v1.8</span></header>
+<header><span class="brand">DOCSA → NEW PROJECT</span><span class="meta">주제별 작성안 · 2026.11.13 · v1.9</span></header>
 <div class="layout"><aside aria-label="문서 목차"><div class="nav-label">CONTENTS</div>${toc}<div class="note">첫 버전 범위와 완료 기준을 정리했습니다.<br>수치와 실험 기준은 검증 전 가설입니다.</div></aside>
-<main><section class="hero"><div class="eyebrow">자소서 버전관리를 중심으로</div><h1>어떻게 고쳤고,<br>무엇을 제출했는지.</h1><p>공고에서 자소서, 제출본과 면접 준비까지.<br>Docsa 코드를 바탕으로 시작하는 별도 프로젝트의 기획과 검토.</p><div class="status"><span>첫 버전 기획 v1.8</span><span class="pending">경쟁력·유료 수요 미검증</span></div></section>
+<main><section class="hero"><div class="eyebrow">자소서 버전관리를 중심으로</div><h1>어떻게 고쳤고,<br>무엇을 제출했는지.</h1><p>공고에서 자소서, 제출본과 면접 준비까지.<br>Docsa 코드를 바탕으로 시작하는 별도 프로젝트의 기획과 검토.</p><div class="status"><span>첫 버전 기획 v1.9</span><span class="pending">경쟁력·유료 수요 미검증</span></div></section>
 ${sections.join('\n')}
 <footer>Markdown 원문과 동일한 내용을 담은 검토본입니다. 확정된 첫 버전 범위와 검증 전 가정을 구분했으며 제품 구현과 사용자 실험은 아직 진행하지 않았습니다. <a class="top" href="#top">맨 위로 ↑</a></footer></main></div>
 <script>
