@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createMergeState,chooseMergeRegion,editMergeText} from '../src/merge-state.js';
+import {createMergeState,chooseMergeRegion,editMergeText,appendMergeSource} from '../src/merge-state.js';
 const texts=['처음에는 Java로 개발했습니다.\n\n끝에는 테스트로 검증했습니다.','처음에는 Kotlin으로 개발했습니다.\n\n끝에는 통합 테스트로 검증했습니다.'];
+test('서로 다른 두 주제의 전체 본문을 순서대로 넣고 직접 쓴 문장을 보존한다',()=>{let s=createMergeState('기술 경험입니다.','협업 경험입니다.');s=appendMergeSource(s,'기술 경험입니다.');assert.equal(s.text,'기술 경험입니다.');s=editMergeText(s,s.text+'\n직접 쓴 연결 문장.');s=appendMergeSource(s,'협업 경험입니다.');assert.equal(s.text,'기술 경험입니다.\n직접 쓴 연결 문장.\n\n협업 경험입니다.');});
 test('양쪽 전체 본문을 복구할 수 있는 공통 구간과 변경 구절을 만든다',()=>{const s=createMergeState(...texts);for(const[side,index]of[['left',0],['right',1]])assert.equal(s.segments.map(p=>p.type==='equal'?p.text:p[side]).join(''),texts[index]);assert.equal(s.text,s.segments.filter(p=>p.type==='equal').map(p=>p.text).join(''));});
 test('한 구절의 좌우 선택을 바꿔도 다른 구절의 선택을 유지한다',()=>{let s=createMergeState(...texts);const changes=s.segments.filter(p=>p.type==='change');assert.ok(changes.length>=2);s=chooseMergeRegion(s,changes[0].id,'left');s=chooseMergeRegion(s,changes[1].id,'right');const otherChoice=s.choices[changes[1].id];s=chooseMergeRegion(s,changes[0].id,'right');assert.equal(s.choices[changes[1].id],otherChoice);assert.ok(s.text.includes(changes[0].right));s=chooseMergeRegion(s,changes[0].id,'right');assert.equal(s.choices[changes[0].id],null);});
 test('추가·삭제 구절은 비어 있는 쪽도 선택할 수 있고 원문을 재현한다',()=>{for(const pair of [['시작\n\n추가 내용','시작'],['시작','시작\n\n추가 내용'],['','완전히 새 본문']]){for(const[side,index]of[['left',0],['right',1]]){let s=createMergeState(...pair);for(const p of s.segments.filter(p=>p.type==='change'))s=chooseMergeRegion(s,p.id,side);assert.equal(s.text,pair[index]);}}});

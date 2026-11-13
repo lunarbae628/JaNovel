@@ -3,6 +3,7 @@ import ReactFlow,{Background,BaseEdge,Handle,Position,ReactFlowProvider,useReact
 import 'reactflow/dist/style.css';
 import {Network,List,LocateFixed,Minus,Plus} from 'lucide-react';
 import {visibleGraphRecords,branchColor} from '../model.js';
+import {historyTracks} from '../graph-tracks.js';
 import {IconButton} from './UI.jsx';
 
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -13,7 +14,6 @@ function graphData(question){
  const rows=visibleGraphRecords(question).map(row=>({...row,lane:lanes.get(row.branchId),branch:branches.find(b=>b.id===row.branchId),color:branchColor(branches.find(b=>b.id===row.branchId))}));
  return {rows,branches,bySnapshot:new Map(rows.filter(r=>r.kind==='snapshot').map(r=>[r.id,r]))};
 }
-function edgeColor(parent,row){return row.parentIds.length>1?parent.color:row.color;}
 function HistoryLog({data,selected,onSelect}){
  const scroll=useRef(null);
  const {rows}=data;
@@ -25,11 +25,11 @@ function HistoryLog({data,selected,onSelect}){
   <div className="graph-scroll" ref={scroll}>
    <div className="log-graph" style={{height:rows.length*32,'--graph-width':width+'px',minWidth:width+100}}>
     <svg className="log-tracks" width={width} height={rows.length*32} aria-hidden="true">
-     <g fill="none" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{rows.flatMap(row=>row.parentIds.map(id=>{
-      const parent=data.bySnapshot.get(id),p=points.get(parent.key),t=points.get(row.key);
-      const path=p.x===t.x?`M ${p.x} ${p.y} V ${t.y}`:`M ${p.x} ${p.y} L ${t.x} ${p.y+16} V ${t.y}`;
-      return <path key={id+'>'+row.key} d={path} stroke={edgeColor(parent,row)} strokeDasharray={row.kind==='draft'?'3 3':undefined}/>;
-     }))}</g>
+     <g fill="none" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{rows.map(row=>{
+      const parents=row.parentIds.map(id=>{const parent=data.bySnapshot.get(id);return {...points.get(parent.key),color:parent.color};});
+      const tracks=historyTracks(parents,{...points.get(row.key),color:row.color});
+      return <g key={row.key} strokeDasharray={row.kind==='draft'?'3 3':undefined}>{tracks.incoming.map((track,i)=><path key={row.parentIds[i]} d={track.d} stroke={track.color}/>)}{tracks.shared&&<path d={tracks.shared.d} stroke={tracks.shared.color}/>}</g>;
+     })}</g>
     </svg>
     {rows.map(row=><button key={row.key} className={'graph-record '+(selected===row.key?'selected':'')} style={{'--branch-color':row.color}} aria-label={label(row)} aria-current={selected===row.key?'true':undefined} title={recordTitle(row,row.branch)} onClick={()=>onSelect(row.key)}>
      <span className={'log-dot '+(row.kind==='draft'?'draft':'')} style={{left:points.get(row.key).x}}/>
@@ -47,9 +47,9 @@ function MapNode({data}){
   <span className={'map-dot '+(row.kind==='draft'?'draft':'')}/><strong>{row.kind==='draft'?'작성 중':row.label}</strong><small>{row.title}</small>
  </button>;
 }
-function HistoryEdge({id,sourceX:sx,sourceY:sy,targetX:tx,targetY:ty,style}){
- const path=sx===tx?`M ${sx} ${sy} V ${ty}`:`M ${sx} ${sy} C ${sx} ${sy+20}, ${tx} ${sy+20}, ${tx} ${sy+40} V ${ty}`;
- return <BaseEdge id={id} path={path} style={style} interactionWidth={0}/>;
+function HistoryEdge({id,targetX:tx,targetY:ty,style,data}){
+ const tracks=historyTracks(data.parents,{x:tx,y:ty,color:data.color},true),track=tracks.incoming[data.index];
+ return <><BaseEdge id={id} path={track.d} style={{...style,stroke:track.color}} interactionWidth={0}/>{data.index===0&&tracks.shared&&<BaseEdge id={id+'-shared'} path={tracks.shared.d} style={{...style,stroke:tracks.shared.color}} interactionWidth={0}/>}</>;
 }
 const nodeTypes={record:MapNode},edgeTypes={history:HistoryEdge};
 function MapGraph({data,selected,onSelect,expanded}){
@@ -61,7 +61,11 @@ function MapGraph({data,selected,onSelect,expanded}){
    depths.set(row.key,depth);laneDepth.set(row.lane,depth);
    return {id:row.key,type:'record',position:{x:row.lane*60,y:depth*76},width:56,height:68,draggable:false,data:{row,active:row.key===selected,onSelect}};
   });
-  const edges=data.rows.flatMap(row=>row.parentIds.map(id=>({id:id+'>'+row.key,source:'snapshot:'+id,target:row.key,type:'history',style:{stroke:edgeColor(data.bySnapshot.get(id),row),strokeWidth:1.2,strokeDasharray:row.kind==='draft'?'4 4':undefined}})));
+  const positions=new Map(nodes.map(n=>[n.id,n.position]));
+  const edges=data.rows.flatMap(row=>{
+   const parents=row.parentIds.map(id=>{const p=positions.get('snapshot:'+id);return {x:p.x+29,y:p.y+18,color:data.bySnapshot.get(id).color};});
+   return row.parentIds.map((id,index)=>({id:id+'>'+row.key,source:'snapshot:'+id,target:row.key,type:'history',data:{parents,index,color:row.color},style:{strokeWidth:1.2,strokeDasharray:row.kind==='draft'?'4 4':undefined}}));
+  });
   return {nodes,edges};
  },[data,selected,onSelect]);
  const center=useCallback((duration=320)=>{

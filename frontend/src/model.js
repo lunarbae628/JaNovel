@@ -1,6 +1,6 @@
-const legacyColors=['#274690','#39816F','#A4753E','#8869A4','#63758C','#657D55'];
-export const colors=['#2563EB','#D97706','#7C3AED','#0D9488','#DB2777','#6A7F16','#0891B2','#9A3412'];
-export function branchColor(b){if(!legacyColors.includes(b.color)&&!colors.includes(b.color))return b.color;return colors[b.order]||`hsl(${Math.round(b.order*137.508)%360} 65% 42%)`;}
+const previousColors=['#2563EB','#D97706','#7C3AED','#0D9488','#DB2777','#6A7F16','#0891B2','#9A3412'];
+export const colors=['#274690','#39816F','#A4753E','#8869A4','#63758C','#657D55','#4B7E97','#9B5E77'];
+export function branchColor(b){if(!previousColors.includes(b.color)&&!colors.includes(b.color))return b.color;return colors[b.order]||`hsl(${Math.round(b.order*137.508)%360} 30% 44%)`;}
 
 export const uid=(prefix='id')=>prefix+'-'+crypto.randomUUID();
 const now=()=>new Date().toISOString();
@@ -61,6 +61,7 @@ export function validateStore(data){
     check(object(b)&&str(b.id)&&b.id&&str(b.name)&&/^#[0-9a-f]{6}$/i.test(b.color)&&Number.isFinite(b.order)&&object(b.draft)&&str(b.draft.text)&&typeof b.draft.dirty==='boolean'&&refs(b.snapshotIds,snapshots)&&refs(b.fromIds,snapshots)&&refs(b.draft.baseIds,snapshots));
     if(b.draft.closed!==undefined)check(typeof b.draft.closed==='boolean');
     if(b.autoFromId!==undefined)check(str(b.autoFromId)&&snapshots.has(b.autoFromId)&&b.snapshotIds.length===0);
+    if(b.sources!==undefined)check(list(b.sources)&&b.sources.every(s=>object(s)&&['optionId','optionName','recordKey','label','title','text'].every(k=>str(s[k]))));
     check(b.snapshotIds.every(id=>q.snapshots.find(s=>s.id===id).branchId===b.id));owned.push(...b.snapshotIds);
    }
    check(owned.length===q.snapshots.length&&unique(owned));

@@ -52,3 +52,4 @@ export function editMergeText(state,text){
  const edits=editGroups(matcher.diff_main(state.text,text));
  return {...state,text,manual:true,ranges:moveRanges(state.ranges,edits)};
 }
+export function appendMergeSource(state,text){const untouched=!state.manual&&!Object.values(state.choices).some(Boolean);return editMergeText(state,untouched||!state.text?text:state.text+'\n\n'+text);}
