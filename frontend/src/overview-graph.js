@@ -1,5 +1,9 @@
 export function overviewGraphQuestion(question){
  const q=structuredClone(question);
+ const snapshots=new Map(q.snapshots.map(s=>[s.id,s]));
+ const independentParents=(ids,owner)=>ids.length>1?ids:ids.filter(id=>snapshots.get(id)?.branchId===owner);
+ for(const s of q.snapshots)s.parentIds=independentParents(s.parentIds,s.branchId);
+ for(const b of q.branches)b.draft.baseIds=independentParents(b.draft.baseIds,b.id);
  for(const b of [...q.branches]){
   if(!b.sources?.length)continue;
   const result=q.snapshots.filter(s=>s.branchId===b.id).sort((a,b)=>a.order-b.order)[0];if(!result)continue;
