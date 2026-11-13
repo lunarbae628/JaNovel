@@ -4,12 +4,14 @@ import 'reactflow/dist/style.css';
 import {Network,List,LocateFixed,Minus,Plus} from 'lucide-react';
 import {visibleGraphRecords,branchColor} from '../model.js';
 import {historyTracks} from '../graph-tracks.js';
+import {overviewGraphQuestion} from '../overview-graph.js';
 import {IconButton} from './UI.jsx';
 
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const label=r=>r.kind==='draft'?'작성 중 · '+r.title:r.label+' · '+r.title;
 function recordTitle(r,branch){return `${label(r)}\n${r.description||''}${r.description?'\n':''}${branch?.name||''}`;}
-function graphData(question){
+function graphData(original){
+ const question=overviewGraphQuestion(original);
  const branches=[...question.branches].sort((a,b)=>a.order-b.order),lanes=new Map(branches.map((b,i)=>[b.id,i]));
  const rows=visibleGraphRecords(question).map(row=>({...row,lane:lanes.get(row.branchId),branch:branches.find(b=>b.id===row.branchId),color:branchColor(branches.find(b=>b.id===row.branchId))}));
  return {rows,branches,bySnapshot:new Map(rows.filter(r=>r.kind==='snapshot').map(r=>[r.id,r]))};
@@ -101,7 +103,9 @@ function GraphFooter({map,onLocate,zoom,onZoomIn,onZoomOut}){
   <IconButton label="선택 기록으로" className="graph-locate" onClick={onLocate}><LocateFixed size={18}/></IconButton>
  </div>;
 }
-export default function VersionGraph({question,selected,onSelect,expanded}){
- const[map,setMap]=useState(false),data=useMemo(()=>graphData(question),[question]);
- return <ViewContext.Provider value={setMap}>{map?<ReactFlowProvider><MapGraph data={data} selected={selected} onSelect={onSelect} expanded={expanded}/></ReactFlowProvider>:<HistoryLog data={data} selected={selected} onSelect={onSelect}/>}</ViewContext.Provider>;
+export default function VersionGraph({question,selected,onSelect,onPreview,expanded}){
+ const[map,setMap]=useState(true),data=useMemo(()=>graphData(question),[question]);
+ const select=key=>{const row=data.rows.find(r=>r.key===key);if(row?.sourcePreview)onPreview(row.sourcePreview);else onSelect(key);};
+ if(!data.rows.length)return <div className="option-history-empty">스냅샷 없음</div>;
+ return <ViewContext.Provider value={setMap}>{map?<ReactFlowProvider><MapGraph data={data} selected={selected} onSelect={select} expanded={expanded}/></ReactFlowProvider>:<HistoryLog data={data} selected={selected} onSelect={select}/>}</ViewContext.Provider>;
 }
