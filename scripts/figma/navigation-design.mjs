@@ -257,7 +257,8 @@ try{
    const out=all.filter(n=>n.visible!==false&&n.absoluteBoundingBox).filter(n=>{const b=n.absoluteBoundingBox;return b.x<bounds.x-1||b.y<bounds.y-1||b.x+b.width>bounds.x+bounds.width+1||b.y+b.height>bounds.y+bounds.height+1});
    const images=all.filter(n=>n.fills?.some(f=>f.type==='IMAGE'));
    const forbidden=all.filter(n=>/경험.?자료/.test(n.name)||/경험.?자료/.test(n.characters||''));
-   reports.push({name,id,nodes:all.length,fonts,out:out.map(n=>({id:n.id,name:n.name,bounds:n.absoluteBoundingBox})),images:images.length,excludedExperienceNodes:forbidden.length});
+   const typedAnswers=name==='연습 화면'?all.filter(n=>/답변 작성|답변을 작성|답변 확인|메시지 입력|텍스트 연습/.test(n.name+' '+(n.characters||''))):[];
+   reports.push({name,id,nodes:all.length,fonts,out:out.map(n=>({id:n.id,name:n.name,bounds:n.absoluteBoundingBox})),images:images.length,excludedExperienceNodes:forbidden.length,...(name==='연습 화면'?{typedAnswerControls:typedAnswers.length}:{})});
   }
   fs.writeFileSync(dir+'/verification.json',JSON.stringify(reports,null,2));console.log(JSON.stringify(reports));
   const reactions=await call('janovel_inspect_reactions',{nodeIds:[...Object.values(state.screens),...Object.values(state.dialogs)]});
@@ -273,10 +274,101 @@ try{
   const app=await info(state.screens['지원 현황']);for(const n of app.children.filter(n=>n.name==='구분선'&&n.absoluteBoundingBox?.width===1152&&n.absoluteBoundingBox.y-app.absoluteBoundingBox.y>700))await call('delete_node',{nodeId:n.id});
   fs.rmSync(dir+'/경험·자료.png',{force:true});save();console.log(JSON.stringify({mutedTextImproved:changed}));
  }
- if(mode==='export'){
-  for(const name of ['지원 현황','일정','면접 상세','연습 기록']){
+ if(mode==='voice-tasks'){
+  if(state.voiceTasks)throw Error('Voice/task revision exists; inspect before retrying');
+  const removed=new Set();
+  async function drop(n){walk(n).forEach(n=>removed.add(n.id));await call('delete_node',{nodeId:n.id});}
+  async function clearBody(id,all=false){const d=await info(id);for(const n of d.children)if(all||n.absoluteBoundingBox?.y-d.absoluteBoundingBox.y>=105)await drop(n);return d;}
+  const {renderToStaticMarkup}=await import('../../frontend/node_modules/react-dom/server.node.js');
+  const React=(await import('../../frontend/node_modules/react/index.js')).default;
+  const lucide=await import('../../frontend/node_modules/lucide-react/dist/cjs/lucide-react.js');
+  const glyphs={'square':'Square','square-check':'SquareCheck','pause':'Pause','play':'Play','mic-off':'MicOff','volume-2':'Volume2','phone-off':'PhoneOff'};
+  Object.assign(state.icons,(await call('janovel_compact_assets',{svgs:Object.fromEntries(Object.entries(glyphs).map(([key,name])=>[key,renderToStaticMarkup(React.createElement(lucide[name],{size:18,strokeWidth:1.5}))]))})).icons);save();
+  async function tabs(parent,active){
+   for(const[i,[label,to]]of [['예상 질문','면접 상세'],['모의면접','모의면접 설정'],['연습 기록','연습 기록']].entries()){
+    const t=await text(parent,label,252+i*120,124,110,14,label===active?'blue':'muted',label===active?'medium':'regular');if(label!==active)link(t.id,to);else await frame(parent,'현재 면접 영역',252+i*120,157,68,2,'blue');
+   }
+   await rule(parent,252,174,1152);
+  }
+  const prep=await clearBody(state.screens['면접 상세']);await call('rename_node',{nodeId:prep.id,name:'예상 질문 · 솔빛테크'});
+  await tabs(prep.id,'예상 질문');
+  const sources=await frame(prep.id,'면접 기준 자료',252,204,320,622,'panel');await call('set_corner_radius',{nodeId:sources.id,radius:8});
+  await sectionTitle(sources.id,'기준 자료',20,18,280);await sourceLine(sources.id,'제출본 · 11.10','Q1–Q3 · 제출 당시 내용',20,68,280,'submission');await sourceLine(sources.id,'채용 공고','서버 개발자 · Java / Spring',20,136,280,'detail');await box(sources.id,'기준 변경',20,210,280,false,'자료 선택');
+  await text(sources.id,'다음 면접',20,306,280,12,'muted');await text(sources.id,'11.19 (목) 14:00\n온라인 · 기술 면접',20,338,280,14);await text(sources.id,'질문 근거',20,442,280,12,'muted');await text(sources.id,'제출한 주장과 채용 요건을 바탕으로\n준비할 질문을 정리합니다.',20,474,280,13);
+  await sectionTitle(prep.id,'예상 질문 6',604,204,600);await box(prep.id,'질문 추가',1264,196,140,false,'질문 추가');
+  const questions=[['설계','실패한 요청의 복구 경로를 어떻게 설계했나요?','제출본 Q2 · 실패 복구'],['검증','정합성이 개선됐다는 것을 어떻게 확인했나요?','제출본 Q2 · 검증 방법'],['협업','리뷰에서 의견이 달랐을 때 어떻게 조율했나요?','제출본 Q3 · 협업'],['설계','작업 기록 자체가 실패하면 어떻게 처리하나요?','Q2 꼬리 질문 · 실패 경로'],['직무','이 경험을 서버 운영에 어떻게 활용할 수 있나요?','채용 공고 · 안정적인 운영'],['지원','이 회사와 직무를 선택한 이유는 무엇인가요?','제출본 Q1 · 지원동기']];
+  for(const[i,[type,q,source]]of questions.entries()){
+   const r=await frame(prep.id,'예상 질문 / '+(i+1),604,256+i*78,800,66,'paper');await tag(r.id,type,0,5,54,'panel');await text(r.id,q,72,2,650,14,'ink','medium');await text(r.id,source,72,31,650,12,'muted');await icon(r.id,'chevron-right',774,14);link(r.id,'질문 추가');await rule(prep.id,604,330+i*78,800);
+  }
+  await box(prep.id,'모의면접 시작',604,776,180,true,'모의면접 설정');await text(prep.id,'정리한 질문으로 음성 면접을 연습합니다.',808,784,596,13,'muted');
+
+  const practice=await clearBody(state.screens['연습 화면'],true);await call('rename_node',{nodeId:practice.id,name:'모의면접 · 음성 대화'});
+  await text(practice.id,'JaNovel.',28,22,150,21,'#1B264F','bold');const back=await text(practice.id,'← 면접 준비',210,29,200,13,'muted');link(back.id,'면접 상세');await text(practice.id,'솔빛테크 · 기술 면접',588,25,500,16,'ink','medium');await box(practice.id,'종료',1312,18,100,false,'면접 종료');await rule(practice.id,0,76,1440);
+  await text(practice.id,'질문 2 / 6',64,126,700,13,'blue','medium');await text(practice.id,'진행 시간 04:28',824,126,220,13,'muted');
+  await text(practice.id,'정합성이 개선됐다는 것을\n어떻게 확인했나요?',108,216,880,28,'ink','bold');
+  const voice=await frame(practice.id,'음성 입력 상태',464,408,168,168,'soft');await call('set_corner_radius',{nodeId:voice.id,radius:84});const mic=await icon(voice.id,'mic',75,75);await call('resize_node',{nodeId:mic.id,width:24,height:24});await call('move_node',{nodeId:mic.id,x:72,y:72});
+  const heights=[12,23,38,54,38,26,42,62,46,28,17,34,50,32,18];for(const[i,h]of heights.entries())await frame(practice.id,'음성 파형 '+i,445+i*14,628-h/2,5,h,'blue');
+  await text(practice.id,'듣고 있어요',476,682,260,16,'ink','medium');await text(practice.id,'답변이 끝나면 다음 질문으로 이어집니다.',312,720,640,13,'muted');
+  await box(practice.id,'마이크',298,804,120,false,'마이크 설정');await box(practice.id,'일시정지',434,804,132,false,'면접 일시정지');await box(practice.id,'다음 질문',582,804,132,false,'다음 질문');
+  await frame(practice.id,'대화 기록 경계',1080,76,1,824,'line');await frame(practice.id,'읽기 전용 대화 기록',1081,77,359,823,'panel');await text(practice.id,'대화 기록',1105,111,311,16,'ink','medium');await text(practice.id,'음성 대화가 텍스트로 표시됩니다.',1105,149,311,12,'muted');await rule(practice.id,1105,188,311);
+  await text(practice.id,'면접관',1105,222,311,12,'blue','medium');await text(practice.id,'정합성이 개선됐다는 것을 어떻게 확인했나요?',1105,254,311,14);await text(practice.id,'나',1105,352,311,12,'muted','medium');await text(practice.id,'복구 동작이 실제로 수행되는지 통합 테스트로 확인했습니다. 반복해서 실행했을 때에도…',1105,384,311,14);await text(practice.id,'음성 인식 중',1105,505,311,12,'blue');
+
+  const record=await info(state.screens['연습 기록']);for(const n of walk(record))if(n.type==='TEXT'){
+   if(n.characters==='11.12 · 텍스트 연습')pending.push({id:n.id,text:'11.12 · 음성 모의면접 · 08:42'});
+   if(n.characters==='내 답변')pending.push({id:n.id,text:'내 답변 · 음성 전사'});
+   if(n.characters==='복기 메모')pending.push({id:n.id,text:'다음 연습에서 확인할 것'});
+  }
+  const list=await info(state.screens['면접 준비']);for(const n of walk(list))if(n.type==='TEXT'&&n.characters==='11.12 · 질문 4개 · 답변 메모 3개')pending.push({id:n.id,text:'11.12 · 음성 모의면접 · 08:42'});
+  const oldVoice=state.dialogs['음성 안내'];if(oldVoice){await drop(await info(oldVoice));delete state.dialogs['음성 안내'];}
+  async function modal(key,title,x,h=390){const r=await frame(state.section,key,x,2770,560,h,'paper',true);await call('set_corner_radius',{nodeId:r.id,radius:10});state.dialogs[key]=r.id;save();await text(r.id,title,24,22,512,20,'ink','bold');return r;}
+  const setup=await modal('모의면접 설정','음성 모의면접',48,420);await text(setup.id,'솔빛테크 · 기술 면접',24,78,512,15,'ink','medium');await text(setup.id,'기준 · 제출본 11.10 / 채용 공고\n질문 · 예상 질문 6개와 꼬리 질문',24,122,512,14);await text(setup.id,'마이크',24,216,512,12,'muted');await text(setup.id,'시작할 때 마이크 사용을 허용해 주세요.',24,247,512,14);await box(setup.id,'취소',304,358,100,false,'CLOSE');await box(setup.id,'시작',420,358,116,true,'연습 화면');
+  const pause=await modal('면접 일시정지','모의면접 일시정지',668,280);await text(pause.id,'음성 입력과 면접 진행이 멈춘 상태입니다.',24,88,512,14);await box(pause.id,'종료',288,218,108,false,'면접 종료');await box(pause.id,'계속하기',412,218,124,true,'CLOSE');
+  const end=await modal('면접 종료','모의면접을 마칠까요?',1288,300);await text(end.id,'진행한 음성 대화와 질문을 기록으로 남기고\n복기 화면으로 이동합니다.',24,88,512,14);await box(end.id,'계속하기',284,238,116,false,'CLOSE');await box(end.id,'종료하고 보기',416,238,120,true,'연습 기록');
+  const micSettings=await modal('마이크 설정','마이크',1908,300);await text(micSettings.id,'입력 장치',24,84,512,12,'muted');await box(micSettings.id,'기본 마이크',24,116,512,false);await text(micSettings.id,'권한이 없으면 브라우저에서 마이크 사용을 허용해 주세요.',24,174,512,13,'muted');await box(micSettings.id,'닫기',424,238,112,true,'CLOSE');
+  const next=await modal('다음 질문','다음 질문으로 넘어갈까요?',2528,300);await text(next.id,'지금까지 말한 답변은 기록에 남습니다.',24,88,512,14);await box(next.id,'취소',304,238,100,false,'CLOSE');await box(next.id,'다음 질문',420,238,116,true,'CLOSE');
+
+  const cal=await info(state.screens['일정']);for(const n of walk(cal)){
+   if(n.type==='TEXT'&&n.characters==='● 과제')await call('move_node',{nodeId:n.id,x:408,y:177});
+   if(n.name==='+ 일정 추가'&&n.type==='INSTANCE'){const l=state.links.find(l=>l.id===n.id);if(l)l.to='일정 종류';const t=n.children.find(n=>n.type==='TEXT');pending.push({id:t.id,text:'+ 추가'});}
+  }
+  await text(cal.id,'□ 개인 할 일',486,177,170,12,'muted');
+  for(const[day,title,complete]of [[13,'운동 30분',true],[16,'포트폴리오 수정',false],[19,'알고리즘 2문제',false]]){
+   const cell=walk(cal).find(n=>n.name==='날짜 / '+day),event=cell.children.find(n=>n.name.startsWith('일정 / '));
+   if(event){await call('resize_node',{nodeId:event.id,width:114,height:44});await call('move_node',{nodeId:event.id,x:6,y:32});const detail=event.children.filter(n=>n.type==='TEXT')[1];await call('move_node',{nodeId:detail.id,x:8,y:23});}
+   const r=await frame(cell.id,'개인 할 일 / '+title,6,event?80:48,114,23,'paper');await icon(r.id,complete?'square-check':'square',2,2);await text(r.id,title,24,2,88,10,complete?'muted':'ink');link(r.id,complete?'개인 할 일 완료':'개인 할 일');
+  }
+  await rule(cal.id,1184,460,210);await text(cal.id,'개인 할 일 1',1184,484,210,14,'ink','medium');const task=await frame(cal.id,'개인 할 일 상세',1184,526,210,86,'paper');const check=await icon(task.id,'square',0,0);link(check.id,'개인 할 일 완료');await text(task.id,'알고리즘 2문제 풀기',28,0,182,13,'ink','medium');await text(task.id,'19:00 · 개인',28,30,182,12,'muted');await box(cal.id,'할 일 수정',1184,626,210,false,'개인 할 일');
+  const kind=await modal('일정 종류','무엇을 추가할까요?',3148,292);await box(kind.id,'지원 일정',24,90,512,false,'일정 추가');await box(kind.id,'개인 할 일',24,144,512,false,'개인 할 일');await box(kind.id,'닫기',424,230,112,false,'CLOSE');
+  const todo=await modal('개인 할 일','개인 할 일',48,550);await text(todo.id,'할 일',24,80,512,12,'muted');const tf=await frame(todo.id,'할 일 제목 입력',24,110,512,42,'paper',true);await call('set_corner_radius',{nodeId:tf.id,radius:5});await text(tf.id,'알고리즘 2문제 풀기',12,9,488,14);await text(todo.id,'날짜',24,176,512,12,'muted');await box(todo.id,'2026.11.19',24,206,512,false);await text(todo.id,'시간 · 선택',24,270,512,12,'muted');await box(todo.id,'19:00',24,300,248,false);await box(todo.id,'종일',288,300,248,false);await text(todo.id,'회사나 지원 건을 지정하지 않아도 됩니다.',24,370,512,13,'muted');await box(todo.id,'취소',304,488,100,false,'CLOSE');await box(todo.id,'확인',420,488,116,true,'CLOSE');
+  await call('move_node',{nodeId:todo.id,x:48,y:3240});
+  const done=await modal('개인 할 일 완료','할 일 완료',668,292);await icon(done.id,'square-check',24,90);await text(done.id,'알고리즘 2문제 풀기',58,86,478,16,'ink','medium');await text(done.id,'지원 단계와는 별도로 완료를 관리합니다.',24,148,512,13,'muted');await box(done.id,'완료 취소',288,230,116,false,'개인 할 일');await box(done.id,'닫기',420,230,116,true,'CLOSE');await call('move_node',{nodeId:done.id,x:668,y:3240});
+  state.links=state.links.filter(l=>!removed.has(l.id));
+  await call('resize_node',{nodeId:state.section,width:4600,height:3880});
+  for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});
+  state.voiceTasks={removed:removed.size,voiceOnly:true,personalTasks:true};save();console.log(JSON.stringify(state.voiceTasks));
+ }
+ if(mode==='voice-finalize'){
+  const p=await info(state.screens['연습 화면']),orb=p.children.find(n=>n.name==='음성 입력 상태');if(orb)await call('delete_node',{nodeId:orb.id});
+  for(const n of p.children){const y=n.absoluteBoundingBox?.y-p.absoluteBoundingBox.y;if(n.name.startsWith('음성 파형 '))await call('move_node',{nodeId:n.id,x:n.absoluteBoundingBox.x-p.absoluteBoundingBox.x,y:y-100});else if(n.name==='듣고 있어요'||n.name==='답변이 끝나면 다음 질문으로 이어집니다.')await call('move_node',{nodeId:n.id,x:n.absoluteBoundingBox.x-p.absoluteBoundingBox.x,y:y-110});}
+  const prep=await info(state.screens['면접 상세']);
+  const rows=prep.children.filter(n=>n.name.startsWith('예상 질문 / '));
+  for(const r of rows){state.links=state.links.filter(l=>l.id!==r.id);for(const n of r.children.filter(n=>n.type==='INSTANCE'))await call('delete_node',{nodeId:n.id});}
+  const manage=prep.children.find(n=>n.type==='INSTANCE'&&n.name==='질문 추가');if(manage){const t=manage.children.find(n=>n.type==='TEXT');await call('set_text_content',{nodeId:t.id,text:'질문 정리'});const l=state.links.find(l=>l.id===manage.id);if(l)l.to='질문 정리';}
+  if(!state.dialogs['질문 정리']){
+   const d=await frame(state.section,'질문 정리',1288,3240,560,676,'paper',true);await call('set_corner_radius',{nodeId:d.id,radius:10});state.dialogs['질문 정리']=d.id;save();await text(d.id,'예상 질문 정리',24,22,512,20,'ink','bold');
+   for(const[i,r]of rows.entries()){
+    const q=r.children.find(n=>n.type==='TEXT'&&n.style?.fontWeight===500)?.characters||r.children.filter(n=>n.type==='TEXT')[0]?.characters;
+    await text(d.id,'Q'+(i+1),24,85+i*76,38,12,'muted');const f=await frame(d.id,'질문 내용 '+(i+1),68,80+i*76,468,60,'paper',true);await call('set_corner_radius',{nodeId:f.id,radius:5});await text(f.id,q,12,8,444,13);
+   }
+   await box(d.id,'질문 추가',24,612,120,false,'질문 추가');await box(d.id,'닫기',304,612,100,false,'CLOSE');await box(d.id,'확인',420,612,116,true,'CLOSE');
+  }
+  for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});await call('resize_node',{nodeId:state.section,width:4600,height:4000});save();console.log('Refined voice focus and question organizer');
+ }
+ if(mode==='export'||mode==='export-voice'||mode==='export-focused'){
+  const names=mode==='export-focused'?['면접 상세','연습 화면']:mode==='export-voice'?['일정','면접 상세','연습 화면','연습 기록']:['지원 현황','일정','면접 상세','연습 기록'];
+  for(const name of names){
    const r=await call('export_node_as_image',{nodeId:state.screens[name],format:'PNG',scale:1});fs.writeFileSync(dir+'/'+name+'.png',Buffer.from(r.imageData,'base64'));
   }
-  await call('set_focus',{nodeId:state.screens['지원 현황']});console.log('Exported four representative screens');
+  await call('set_focus',{nodeId:state.screens[mode==='export'?'지원 현황':'연습 화면']});console.log('Exported '+names.length+' representative screens');
  }
 }finally{save();c.close();}
