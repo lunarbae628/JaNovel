@@ -260,7 +260,7 @@ try{
    const typedAnswers=name==='연습 화면'?all.filter(n=>/답변 작성|답변을 작성|답변 확인|메시지 입력|텍스트 연습/.test(n.name+' '+(n.characters||''))):[];
    reports.push({name,id,nodes:all.length,fonts,out:out.map(n=>({id:n.id,name:n.name,bounds:n.absoluteBoundingBox})),images:images.length,excludedExperienceNodes:forbidden.length,...(name==='연습 화면'?{typedAnswerControls:typedAnswers.length}:{})});
   }
-  fs.writeFileSync(dir+'/verification.json',JSON.stringify(reports,null,2));console.log(JSON.stringify(reports));
+  fs.writeFileSync(dir+'/verification.json',JSON.stringify(reports,null,2));console.log(JSON.stringify({views:reports.length,boundsErrors:reports.reduce((n,r)=>n+r.out.length,0),fonts:[...new Set(reports.flatMap(r=>r.fonts))],images:reports.reduce((n,r)=>n+r.images,0),excludedExperienceNodes:reports.reduce((n,r)=>n+r.excludedExperienceNodes,0),typedAnswerControls:reports.find(r=>r.name==='연습 화면')?.typedAnswerControls}));
   const reactions=await call('janovel_inspect_reactions',{nodeIds:[...Object.values(state.screens),...Object.values(state.dialogs)]});
   fs.writeFileSync(dir+'/reactions.json',JSON.stringify(reactions));
   console.log(JSON.stringify({prototypeControls:reactions.reduce((sum,r)=>sum+r.controls.length,0),writerReturnLinks:state.returnLinks?.length||0}));
@@ -364,11 +364,36 @@ try{
   }
   for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});await call('resize_node',{nodeId:state.section,width:4600,height:4000});save();console.log('Refined voice focus and question organizer');
  }
- if(mode==='export'||mode==='export-voice'||mode==='export-focused'){
-  const names=mode==='export-focused'?['면접 상세','연습 화면']:mode==='export-voice'?['일정','면접 상세','연습 화면','연습 기록']:['지원 현황','일정','면접 상세','연습 기록'];
+ if(mode==='periods'){
+  if(state.periods)throw Error('Period revision already exists; inspect before retrying');
+  const removed=new Set();
+  async function remove(n){walk(n).forEach(n=>removed.add(n.id));await call('delete_node',{nodeId:n.id});}
+  async function input(p,label,value,x,y,w=240,calendar=false){await text(p,label,x,y,w,12,'muted');const f=await frame(p,label+' 입력',x,y+30,w,42,'paper',true);await call('set_corner_radius',{nodeId:f.id,radius:5});await text(f.id,value,12,9,w-44,14);if(calendar)await icon(f.id,'calendar-days',w-30,12);return f;}
+  async function periodForm(id,{title,value,start,end,allDay=false,startTime='',endTime='',company=''}){
+   const root=await info(id);for(const n of root.children)await remove(n);await call('resize_node',{nodeId:id,width:560,height:allDay?430:500});
+   await text(id,title,24,22,512,20,'ink','bold');if(company)await text(id,company,24,64,512,12,'muted');
+   await input(id,'제목',value,24,100,512);await input(id,'시작일',start,24,194,240,true);await input(id,'종료일',end,296,194,240,true);
+   await icon(id,allDay?'square-check':'square',24,280);await text(id,'종일',52,277,350,13);if(allDay)await text(id,'3일 동안',432,277,104,12,'muted');
+   if(!allDay){await input(id,'시작 시간 · 선택',startTime,24,318);await input(id,'종료 시간 · 선택',endTime,296,318);}
+   const y=allDay?368:438;await box(id,'취소',304,y,100,false,'CLOSE');await box(id,'확인',420,y,116,true,'CLOSE');
+  }
+  await periodForm(state.dialogs['일정 추가'],{title:'지원 일정',company:'솔빛테크 · 기술 면접',value:'기술 면접',start:'2026.11.19',end:'2026.11.19',startTime:'14:00',endTime:'15:00'});
+  await periodForm(state.dialogs['개인 할 일'],{title:'개인 할 일',value:'알고리즘 2문제 풀기',start:'2026.11.19',end:'2026.11.19',startTime:'19:00',endTime:'20:00'});
+  const range=await frame(state.section,'기간 할 일',1908,3240,560,430,'paper',true);await call('set_corner_radius',{nodeId:range.id,radius:10});state.dialogs['기간 할 일']=range.id;save();
+  await periodForm(range.id,{title:'개인 할 일',value:'포트폴리오 정리',start:'2026.11.16',end:'2026.11.18',allDay:true});
+  const cal=await info(state.screens['일정']),cell16=walk(cal).find(n=>n.name==='날짜 / 16'),cell18=walk(cal).find(n=>n.name==='날짜 / 18');
+  for(const n of cell16.children.filter(n=>n.name==='개인 할 일 / 포트폴리오 수정'))await remove(n);
+  const event=cell18.children.find(n=>n.name==='일정 / 루트페이');if(event){await call('resize_node',{nodeId:event.id,width:114,height:44});await call('move_node',{nodeId:event.id,x:6,y:32});const detail=event.children.filter(n=>n.type==='TEXT')[1];await call('move_node',{nodeId:detail.id,x:8,y:23});}
+  const band=await frame(cal.id,'기간 할 일 / 11.16–11.18',384,518,366,23,'#F0F1F4');await call('set_corner_radius',{nodeId:band.id,radius:4});await icon(band.id,'square',4,2);await text(band.id,'포트폴리오 정리 · 11.16–18',30,2,324,11,'ink');link(band.id,'기간 할 일');
+  state.links=state.links.filter(l=>!removed.has(l.id));for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});
+  state.periods={startEndDates:true,allDayRange:true,example:'2026-11-16/2026-11-18'};save();console.log(JSON.stringify({rangeDialog:range.id,...state.periods}));
+ }
+ if(mode==='export'||mode==='export-voice'||mode==='export-focused'||mode==='export-periods'){
+  const names=mode==='export-periods'?['일정']:mode==='export-focused'?['면접 상세','연습 화면']:mode==='export-voice'?['일정','면접 상세','연습 화면','연습 기록']:['지원 현황','일정','면접 상세','연습 기록'];
   for(const name of names){
    const r=await call('export_node_as_image',{nodeId:state.screens[name],format:'PNG',scale:1});fs.writeFileSync(dir+'/'+name+'.png',Buffer.from(r.imageData,'base64'));
   }
-  await call('set_focus',{nodeId:state.screens[mode==='export'?'지원 현황':'연습 화면']});console.log('Exported '+names.length+' representative screens');
+  if(mode==='export-periods'){const r=await call('export_node_as_image',{nodeId:state.dialogs['기간 할 일'],format:'PNG',scale:1});fs.writeFileSync(dir+'/기간 설정.png',Buffer.from(r.imageData,'base64'));}
+  await call('set_focus',{nodeId:state.screens[mode==='export'?'지원 현황':mode==='export-periods'?'일정':'연습 화면']});console.log('Exported '+names.length+' representative screens');
  }
 }finally{save();c.close();}
