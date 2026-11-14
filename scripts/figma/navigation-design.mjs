@@ -205,10 +205,10 @@ try{
   for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});save();console.log(JSON.stringify(state.dialogs));
  }
  if(mode==='links'){
-  const targets={...state.screens,writer:'5:530',posting:'42:1257',submission:state.dialogs['제출본 확인']||'42:1411',detail:'42:1128',솔빛테크:'89:50209',브릭스:'89:50425',루트페이:'89:50641'};
-  const owners=new Map();for(const id of Object.values(state.screens)){const d=await info(id);for(const n of walk(d))owners.set(n.id,id);}
+  const targets={...state.screens,...state.dialogs,writer:'5:530',posting:'42:1257',submission:state.dialogs['제출본 확인']||'42:1411',detail:'42:1128',솔빛테크:'89:50209',브릭스:'89:50425',루트페이:'89:50641'};
+  const owners=new Map();for(const id of [...Object.values(state.screens),...Object.values(state.dialogs)]){const d=await info(id);for(const n of walk(d))owners.set(n.id,id);}
   const entries=state.links.filter(l=>l.to==='CLOSE'||owners.get(l.id)!==targets[l.to]);
-  const links=entries.map(l=>({nodeId:l.id,reactions:l.to==='CLOSE'?[{trigger:{type:'ON_CLICK'},actions:[{type:'CLOSE'}]}]:[{trigger:{type:'ON_CLICK'},actions:[{type:'NODE',destinationId:state.dialogs?.[l.to]||targets[l.to],navigation:l.navigation||(state.dialogs?.[l.to]?'OVERLAY':'NAVIGATE'),transition:null}]}]}));
+  const links=entries.map(l=>({nodeId:l.id,reactions:l.to==='CLOSE'?[{trigger:{type:l.triggerType||'ON_CLICK'},actions:[{type:'CLOSE'}]}]:[{trigger:{type:l.triggerType||'ON_CLICK'},actions:[{type:'NODE',destinationId:state.dialogs?.[l.to]||targets[l.to],navigation:l.navigation||(state.dialogs?.[l.to]?'OVERLAY':'NAVIGATE'),transition:null}]}]}));
   const missing=state.links.filter(l=>l.to!=='CLOSE'&&!state.dialogs?.[l.to]&&!targets[l.to]);if(missing.length)throw Error('Missing targets '+JSON.stringify(missing));
   const before=await call('janovel_inspect_reactions',{nodeIds:Object.values(state.screens)});fs.writeFileSync(dir+'/reactions-before.json',JSON.stringify(before));
   const allBefore=await call('janovel_inspect_reactions',{nodeIds:[...Object.values(state.screens),...Object.values(state.dialogs)]});
@@ -454,6 +454,52 @@ try{
   }
   const kind=await info(state.dialogs['일정 종류']);for(const n of kind.children)if(n.type==='INSTANCE'&&n.name==='개인 할 일'){const t=n.children.find(n=>n.type==='TEXT');await call('set_text_content',{nodeId:t.id,text:'개인 일정'});}
   for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});state.calendarColors={palette,defaultType:'일반 일정',completionSeparateFromColor:true};save();console.log(JSON.stringify({presetColors:palette.length,optionalChecklist:true}));
+ }
+ if(mode==='calendar-qa-refine'){
+  if(state.calendarQaRefine)throw Error('Calendar/Q&A revision already exists; inspect before retrying');
+  const removed=new Set();async function drop(n){walk(n).forEach(n=>removed.add(n.id));await call('delete_node',{nodeId:n.id});}
+  const prep=await info(state.screens['면접 상세']);
+  for(const n of prep.children)if(n.absoluteBoundingBox.y-prep.absoluteBoundingBox.y>=105||n.type==='INSTANCE'&&n.name==='목록'||n.type==='TEXT'&&n.characters==='면접 준비 / 솔빛테크')await drop(n);
+  for(const[i,[label,to]]of [['예상 질문','면접 상세'],['모의면접','모의면접 설정'],['기록','연습 기록']].entries()){
+   const t=await text(prep.id,label,252+i*120,124,110,14,i?'muted':'blue',i?'regular':'medium');if(i)link(t.id,to);
+  }
+  await frame(prep.id,'현재 탭',252,157,68,2,'blue');await rule(prep.id,252,174,1152);
+  await box(prep.id,'자료',1128,25,100,false,'면접 자료');await box(prep.id,'모의면접',1244,25,160,true,'모의면접 설정');
+  const list=await frame(prep.id,'질문 목록',252,204,328,562,'paper');
+  const qs=['실패한 요청의 복구 경로를 어떻게 설계했나요?','정합성이 개선됐다는 것을 어떻게 확인했나요?','의견이 달랐을 때 어떻게 조율했나요?','작업 기록 자체가 실패하면 어떻게 처리하나요?','서버 운영에 이 경험을 어떻게 활용하겠나요?','이 회사와 직무를 선택한 이유는 무엇인가요?'];
+  for(const[i,q]of qs.entries()){
+   const row=await frame(list.id,'질문 '+(i+1),0,i*92,328,82,i?'paper':'soft');await call('set_corner_radius',{nodeId:row.id,radius:6});await text(row.id,String(i+1).padStart(2,'0'),12,16,24,12,'muted');await text(row.id,q,48,13,268,14,'ink',i?'regular':'medium');if(i)link(row.id,'질문 답변 '+(i+1));
+  }
+  await box(prep.id,'+ 질문',252,788,144,false,'질문 추가');await box(prep.id,'편집',412,788,168,false,'질문 정리');
+  await frame(prep.id,'질문·답변 경계',604,204,1,622,'line');await text(prep.id,qs[0],636,204,768,21,'ink','bold');const source=await text(prep.id,'제출본 Q2',636,270,200,12,'blue');link(source.id,'submission');
+  await text(prep.id,'답변',636,326,500,14,'ink','medium');await text(prep.id,'저장됨',1318,329,86,12,'muted');
+  const answer=await frame(prep.id,'질문별 답변 입력',636,366,768,416,'paper',true);await call('set_corner_radius',{nodeId:answer.id,radius:8});
+  await text(answer.id,'실패 유형을 나누어 확인한 뒤 복구에 필요한 정보를 작업 시작 전에 남겼습니다.\n\n복구 동작과 반복 실행 시 중복 처리 여부를 통합 테스트로 확인했습니다.',20,20,728,16);
+  const refs=await frame(state.section,'면접 자료',1288,4100,560,330,'paper',true);await call('set_corner_radius',{nodeId:refs.id,radius:10});state.dialogs['면접 자료']=refs.id;save();await text(refs.id,'자료',24,22,512,20,'ink','bold');await sourceLine(refs.id,'제출본 · 11.10','Q1–Q3',24,86,512,'submission');await sourceLine(refs.id,'채용 공고','솔빛테크 · 서버 개발자',24,158,512,'detail');await box(refs.id,'변경',24,268,120,false,'자료 선택');await box(refs.id,'닫기',424,268,112,true,'CLOSE');
+  for(let i=1;i<qs.length;i++){
+   const qa=await frame(state.section,'질문 답변 '+(i+1),1908+((i-1)%3)*720,4100+Math.floor((i-1)/3)*560,640,480,'paper',true);await call('set_corner_radius',{nodeId:qa.id,radius:10});state.dialogs['질문 답변 '+(i+1)]=qa.id;save();await text(qa.id,'질문과 답변',24,22,592,20,'ink','bold');await text(qa.id,qs[i],24,82,592,18,'ink','medium');const empty=await frame(qa.id,'답변 입력',24,148,592,244,'paper',true);await call('set_corner_radius',{nodeId:empty.id,radius:6});await text(empty.id,'답변',16,16,560,16,'muted');await box(qa.id,'닫기',504,418,112,true,'CLOSE');
+  }
+  state.links=state.links.filter(l=>!removed.has(l.id));
+  async function blankForm(sourceId,name,x){
+   const original=await info(sourceId),clone=await call('clone_node',{nodeId:sourceId});await call('set_parent',{nodeId:clone.id,parentId:state.section,x,y:4100});await call('rename_node',{nodeId:clone.id,name});
+   const d=await info(clone.id),a=walk(original),b=walk(d),map=new Map(a.map((n,i)=>[n.id,b[i].id]));
+   state.links.push(...state.links.filter(l=>map.has(l.id)).map(l=>({...l,id:map.get(l.id)})));
+   for(const n of b)if(n.type==='TEXT'&&['알고리즘 2문제 풀기','포트폴리오 정리'].includes(n.characters))await call('set_text_content',{nodeId:n.id,text:'일정 제목'});
+   state.dialogs[name]=clone.id;save();return clone;
+  }
+  await blankForm(state.dialogs['개인 할 일'],'하루 일정 추가',48);await blankForm(state.dialogs['기간 할 일'],'기간 일정 추가',668);
+  const cal=await info(state.screens['일정']),nineteen=walk(cal).find(n=>n.name==='날짜 / 19'),sixteen=walk(cal).find(n=>n.name==='날짜 / 16');
+  link(nineteen.id,'하루 일정 추가');state.links.push({id:sixteen.id,to:'기간 일정 추가',triggerType:'ON_DRAG'});
+  for(const l of state.links)if(l.to==='일정 종류')l.to='하루 일정 추가';
+  const omit=new Set(['음성 대화가 텍스트로 표시됩니다.','답변이 끝나면 다음 질문으로 이어집니다.','다른 날짜의 완료 상태는 바뀌지 않습니다.','정리한 질문으로 음성 면접을 연습합니다.','회사나 지원 건을 지정하지 않아도 됩니다.']);
+  for(const id of [...Object.values(state.screens),...Object.values(state.dialogs)]){
+   const d=await info(id);for(const n of walk(d))if(n.type==='TEXT'){
+    if(omit.has(n.characters)){await drop(n);continue;}
+    const value=n.characters.replace(/개인\s*일정/g,'일정').replace(/개인\s*할 일/g,'할 일');if(value!==n.characters)await call('set_text_content',{nodeId:n.id,text:value});
+   }
+  }
+  state.links=state.links.filter(l=>!removed.has(l.id));for(let i=0;i<pending.length;i+=60)await call('janovel_patch_nodes',{patches:pending.slice(i,i+60)});await call('resize_node',{nodeId:state.section,width:4600,height:5240});
+  state.calendarQaRefine={click:true,drag:true,questionAnswers:true,referencesInDialog:true};save();console.log(JSON.stringify(state.calendarQaRefine));
  }
  if(mode==='export'||mode==='export-voice'||mode==='export-focused'||mode==='export-periods'){
   const names=mode==='export-periods'?['일정']:mode==='export-focused'?['면접 상세','연습 화면']:mode==='export-voice'?['일정','면접 상세','연습 화면','연습 기록']:['지원 현황','일정','면접 상세','연습 기록'];
