@@ -180,7 +180,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
     const start = anchor.current;
     anchor.current = '';
     setDrag(null);
-    if (!end) return;
+    if (!end || end === start) return;
     const [first, last] = [start, end].sort();
     add(first, last);
   }
@@ -214,13 +214,12 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
                     if (anchor.current) setDrag([anchor.current, day].sort());
                   }}>
                   <button type="button" className={'schedule-day' + (day === today ? ' today' : '') + (day.slice(0, 7) !== month.slice(0, 7) ? ' outside' : '')}
-                    aria-label={formatDay(day) + ' 일정 추가'} aria-pressed={day === selected}
+                    aria-label={formatDay(day) + ' 일정 보기'} aria-pressed={day === selected}
                     onPointerDown={event => {
                       if (event.button !== 0 || event.pointerType === 'touch') return;
-                      anchor.current = day; setDrag([day, day]);
-                      event.preventDefault();
+                      anchor.current = day;
                     }}
-                    onClick={event => {if (event.detail === 0 || event.nativeEvent.pointerType === 'touch') add(day);}}>
+                    onClick={() => jump(day)}>
                     {Number(day.slice(8))}
                   </button>
                 </div>;
