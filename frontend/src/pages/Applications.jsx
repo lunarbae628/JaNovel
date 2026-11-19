@@ -1,14 +1,89 @@
 import React,{useState} from 'react';
-import {Plus,CalendarDays,List,ChevronLeft,ChevronRight,Search,Settings,ChevronDown,ArrowUp,ArrowDown,Trash2,ExternalLink} from 'lucide-react';
+import {Plus,ChevronRight,Search,ChevronDown,ArrowUp,ArrowDown,Trash2,ExternalLink} from 'lucide-react';
 import {Header,IconButton,Modal,Field,Notice,Empty,ApplyLink,dateLabel} from '../components/UI.jsx';
 import {createApplication} from '../seed.js';
+import {CareerHeader,writingPath} from '../components/CareerLayout.jsx';
 import {createQuestion,uid,importPostingText,safeUrl} from '../model.js';
 import {putAttachment,getAttachment} from '../storage.js';
 export const stageOptions=a=>[...new Set(['관심',...a.stages,'최종 합격','불합격','지원 취소'])];
 export function allEvents(a){return[...(a.deadline?[{id:'deadline-'+a.id,title:'지원 마감',type:'마감',date:a.deadline,time:a.deadlineTime||'',deadline:true}]:[]),...a.events].map(e=>({...e,applicationId:a.id,company:a.company}));}
-function nextEvent(a){const today=new Date().toLocaleDateString('sv-SE');return allEvents(a).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||''))).find(e=>e.date>=today)||allEvents(a).at(-1);}
-export function Applications({store,navigate,onSettings}){const[mode,setMode]=useState('list'),[filter,setFilter]=useState(''),[search,setSearch]=useState('');const apps=store.applications.filter(a=>(!filter||a.status===filter)&&(!search||(a.company+' '+a.role).toLowerCase().includes(search.toLowerCase())));return <><Header title="지원 현황"><button className="button primary" onClick={()=>navigate('/posting')}><Plus size={16}/>공고 등록</button><IconButton label="설정 및 백업" onClick={onSettings}><Settings size={18}/></IconButton></Header><div className="page applications-page"><div className="page-title"><h1>지원 현황</h1><div className="view-tabs"><button className={mode==='list'?'active':''} aria-label="목록 보기" onClick={()=>setMode('list')}><List size={17}/></button><button className={mode==='calendar'?'active':''} aria-label="캘린더 보기" onClick={()=>setMode('calendar')}><CalendarDays size={17}/></button></div></div><div className="list-tools"><label className="search-field"><Search size={15}/><input aria-label="회사·직무 검색" placeholder="회사·직무 검색" value={search} onChange={e=>setSearch(e.target.value)}/></label><select aria-label="지원 단계 필터" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">전체 {store.applications.length}건</option>{[...new Set(store.applications.flatMap(stageOptions))].map(s=><option key={s}>{s}</option>)}</select></div>{mode==='calendar'?<Calendar applications={apps} navigate={navigate}/>:apps.length?<div className="application-list">{apps.map(a=>{const next=nextEvent(a);return <button key={a.id} className="application-row" onClick={()=>navigate('/write/'+a.id+'/'+a.questions[0].id)}><span className="company">{a.company}{a.example&&<small className="example-badge">예시</small>}</span><strong>{a.role}</strong><span className="next-event">{next?dateLabel(next.date,next.time)+' · '+next.title:'일정 없음'}</span><span className="stage-label">{a.status}<ChevronRight size={15}/></span></button>})}</div>:<Empty title={store.applications.length?'검색 결과가 없어요':'등록한 지원이 없어요'} action={<button className="button primary" onClick={()=>navigate('/posting')}>공고 등록</button>}/>}</div></>}
-function Calendar({applications,navigate}){const[now,setNow]=useState(()=>{const d=new Date();d.setDate(1);return d}),[day,setDay]=useState(null);const year=now.getFullYear(),month=now.getMonth(),first=new Date(year,month,1).getDay(),last=new Date(year,month+1,0).getDate(),count=Math.ceil((first+last)/7)*7,events=applications.flatMap(allEvents),key=n=>`${year}-${String(month+1).padStart(2,'0')}-${String(n).padStart(2,'0')}`;return <><div className="calendar-heading"><h2>{year}년 {month+1}월</h2><div><IconButton label="이전 달" onClick={()=>{setNow(new Date(year,month-1,1));setDay(null)}}><ChevronLeft size={18}/></IconButton><button className="button small" onClick={()=>{setNow(new Date());setDay(null)}}>오늘</button><IconButton label="다음 달" onClick={()=>{setNow(new Date(year,month+1,1));setDay(null)}}><ChevronRight size={18}/></IconButton></div></div><div className="calendar-week">{'일월화수목금토'.split('').map(d=><span key={d}>{d}</span>)}</div><div className="calendar-grid">{Array.from({length:count},(_,i)=>{const n=i-first+1,valid=n>0&&n<=last,date=key(n),items=events.filter(e=>e.date===date);return <div key={i} className={'calendar-day '+(!valid?'outside':'')}>{valid&&<><button className={'day-number '+(new Date().toLocaleDateString('sv-SE')===date?'today':'')} onClick={()=>setDay(date)}>{n}</button>{items.slice(0,3).map(e=><button key={e.id} className={'calendar-event '+(e.type==='면접'?'interview':e.type==='과제'?'task':'deadline')} onClick={()=>navigate('/application/'+e.applicationId)} title={e.company+' · '+e.title}><span>{e.company}</span><small>{e.time?e.time+' ':''}{e.title}</small></button>)}{items.length>3&&<button className="calendar-more" onClick={()=>setDay(date)}>+{items.length-3}개</button>}</>}</div>})}</div>{day&&<Modal title={dateLabel(day)} onClose={()=>setDay(null)}>{events.filter(e=>e.date===day).length?events.filter(e=>e.date===day).map(e=><button className="event-choice" key={e.id} onClick={()=>navigate('/application/'+e.applicationId)}><strong>{e.company}</strong><span>{e.title} · {e.time||'시간 미정'}</span></button>):<p className="muted">등록된 일정이 없어요. 지원 상세에서 일정을 추가할 수 있어요.</p>}</Modal>}</>}
+const outcomeStages = ['최종 합격', '불합격', '지원 취소'];
+const stageGroup = status => status === '관심' || status === '작성 중' || outcomeStages.includes(status)
+  ? status : '전형 진행';
+
+function upcomingEvents(applications) {
+  const today = new Date().toLocaleDateString('sv-SE');
+  return applications.flatMap(allEvents).filter(event => event.date >= today)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+}
+
+export function Applications({store, navigate}) {
+  const [filter, setFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const {applications} = store;
+  const events = upcomingEvents(applications);
+  const upcoming = events.find(event => event.type === '면접') || events[0];
+  const stages = [...new Set(applications.flatMap(stageOptions))];
+  const filtered = applications.filter(application =>
+    (!filter || application.status === filter) &&
+    (application.company + ' ' + application.role).toLowerCase().includes(search.trim().toLowerCase()));
+  const counts = ['관심', '작성 중', '전형 진행'].map(status =>
+    applications.filter(application => stageGroup(application.status) === status).length);
+
+  return <>
+    <CareerHeader title="지원 현황">
+      <button className="career-button primary" onClick={() => navigate('/posting')}><Plus size={14}/>공고 등록</button>
+    </CareerHeader>
+    <div className="career-content dashboard">
+      <section aria-labelledby="upcoming-title">
+        <h2 id="upcoming-title">다가오는 일정</h2>
+        {upcoming ? <div className="dashboard-upcoming">
+          <time dateTime={upcoming.date}>{dateLabel(upcoming.date).replace(/[()]/g, '')}</time>
+          <div><strong>{upcoming.company} · {upcoming.title}</strong>
+            {upcoming.time && <p>{upcoming.time}{upcoming.note ? ' · ' + upcoming.note : ''}</p>}
+          </div>
+          <button className="career-button" onClick={() => navigate(upcoming.type === '면접'
+            ? '/interviews/' + upcoming.applicationId : '/schedule?date=' + upcoming.date)}>
+            {upcoming.type === '면접' ? '면접 준비' : '일정 보기'}
+          </button>
+        </div> : <div className="dashboard-upcoming empty-upcoming">다가오는 지원 일정이 없어요.</div>}
+      </section>
+      <div className="dashboard-tools">
+        <div className="dashboard-counts">
+          <span>전체 {applications.length}</span>
+          {['관심', '작성 중', '전형 진행'].map((name, i) => <span key={name}>{name} {counts[i]}</span>)}
+        </div>
+        <div className="dashboard-filters">
+          <label className="dashboard-search"><Search size={17} strokeWidth={1.5}/>
+            <input aria-label="회사·직무 검색" placeholder="회사·직무 검색" value={search}
+              onChange={event => setSearch(event.target.value)}/>
+          </label>
+          <label className="dashboard-select"><select aria-label="지원 단계 필터" value={filter}
+            onChange={event => setFilter(event.target.value)}>
+            <option value="">전체 단계</option>
+            {stages.map(stage => <option key={stage}>{stage}</option>)}
+          </select><ChevronDown size={14} strokeWidth={1.5}/></label>
+        </div>
+      </div>
+      {filtered.length ? <ul className="dashboard-rows">
+        {filtered.map(application => {
+          const event = events.find(item => item.applicationId === application.id) ||
+            allEvents(application).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0];
+          return <li key={application.id}><a href={'#' + writingPath(application)}>
+            <strong>{application.company}</strong><span>{application.role}</span>
+            <span className="dashboard-event">{event
+              ? event.date.slice(5).replace('-', '.') + (event.time ? ' ' + event.time : '') + ' · ' + event.title
+              : '일정 없음'}</span>
+            <span className={'dashboard-stage' + (application.status.includes('면접') ? ' accented' : '')}>{application.status}</span>
+            <ChevronRight className="dashboard-chevron" size={18} strokeWidth={1.5}/>
+          </a></li>;
+        })}
+      </ul> : <Empty title={applications.length ? '검색 결과가 없어요' : '등록한 지원이 없어요'}
+        action={!applications.length && <button className="career-button primary" onClick={() => navigate('/posting')}>공고 등록</button>}/>}
+    </div>
+  </>;
+}
+
 export function Posting({onAdd,navigate,existing,onSave}){const[tab,setTab]=useState(existing?.source||'link'),[step,setStep]=useState(existing?2:1),[text,setText]=useState(existing?.sourceText||''),[url,setUrl]=useState(existing?.url||''),[image,setImage]=useState(null),[preview,setPreview]=useState(''),[error,setError]=useState(''),[data,setData]=useState(existing?{...existing,questions:existing.questions.map(q=>({id:q.id,prompt:q.prompt,limit:q.limit})),stages:[...existing.stages]}:{company:'',role:'',duties:'',requirements:'',deadline:'',deadlineTime:'',stages:['서류 전형','기술 면접','최종 면접'],questions:[{prompt:'',limit:1000}]});
  const change=(key,value)=>setData(d=>({...d,[key]:value}));
  function prepare(){setError('');if(tab==='link'&&url&&!safeUrl(url)){setError('http 또는 https 공고 주소를 입력해 주세요.');return;}const parsed=text.trim()?importPostingText(text):null;if(parsed)setData(d=>({...d,...Object.fromEntries(Object.entries(parsed).filter(([k,v])=>Array.isArray(v)?v.length:!!v))}));setStep(2);}
