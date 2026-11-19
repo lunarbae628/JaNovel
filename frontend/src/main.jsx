@@ -1,17 +1,23 @@
-import React, {useEffect, useState} from 'react';
+import React, {lazy, Suspense, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import Auth from './pages/Auth.jsx';
 import Schedule from './pages/Schedule.jsx';
+import {interviewFor} from './interview.js';
 import {Applications, Posting, Detail} from './pages/Applications.jsx';
 import Editor from './pages/Editor.jsx';
 import Merge from './pages/Merge.jsx';
 import Submissions from './pages/Submissions.jsx';
-import {CareerHeader, CareerLayout} from './components/CareerLayout.jsx';
+import {CareerLayout} from './components/CareerLayout.jsx';
 import {Modal, Field, Notice, Empty, useHashRoute} from './components/UI.jsx';
 import {loadStore, saveStore, downloadBackup, STORE_KEY} from './storage.js';
 import {validateStore, errorMessage, updateQuestion} from './model.js';
 import './styles.css';
 import './career.css';
+
+const Interviews = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.Interviews})));
+const InterviewDetail = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.InterviewDetail})));
+const InterviewPractice = lazy(() => import('./pages/InterviewPractice.jsx').then(module => ({default: module.InterviewPractice})));
+const InterviewRecord = lazy(() => import('./pages/InterviewPractice.jsx').then(module => ({default: module.InterviewRecord})));
 
 const pageTitles = {
   applications: '지원 현황', schedule: '일정', interviews: '면접 준비',
@@ -83,12 +89,20 @@ function App() {
   }));
   const saveQuestion = next => setStore(previous => updateQuestion(previous, aid, question.id, next));
 
+  const updateInterview = action => setStore(previous => ({
+    ...previous,
+    applications: previous.applications.map(item => item.id === aid
+      ? {...item, interview: action(interviewFor(item))} : item),
+  }));
+  const interviewRecord = application && kind === 'interviews' && qid && interviewFor(application).records.find(item => item.id === qid);
   let content;
   if (isAuth) {
     content = <Auth key={kind} page={kind} navigate={navigate} onEnter={profile => {
       setStore(previous => ({...previous, profile}));
       navigate('/applications');
     }}/>;
+  } else if (kind === 'interviews' && qid === 'practice' && application) {
+    content = <InterviewPractice key={aid} application={application} navigate={navigate} onChange={updateInterview}/>;
   } else if (!kind || ['applications', 'schedule', 'interviews'].includes(kind)) {
     const section = '/' + (kind || 'applications');
     content = <CareerLayout section={section} store={store} onSettings={openSettings}>
@@ -97,10 +111,11 @@ function App() {
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
           onApplicationChange={(id, update) => setStore(previous => ({...previous,
             applications: previous.applications.map(item => item.id === id ? update(item) : item),
-          }))}/> : <>
-        <CareerHeader title={pageTitles[kind]}/>
-        <div className="career-content"><Empty title={pageTitles[kind] + ' 화면을 준비 중이에요'}/></div>
-      </>}
+          }))}/> : interviewRecord ?
+        <InterviewRecord key={qid} application={application} record={interviewRecord} navigate={navigate} onChange={updateInterview}/> :
+        application ? <InterviewDetail key={aid} application={application} navigate={navigate} query={query}
+          onChange={updateInterview} storageError={storageError}/> :
+        <Interviews store={store} navigate={navigate} query={query}/>}
     </CareerLayout>;
   } else if (kind === 'posting' && (!aid || application)) {
     content = <Posting key={aid || 'new'} existing={application} navigate={navigate} onSave={saveApplication}
@@ -134,12 +149,12 @@ function App() {
       <button onClick={() => downloadBackup(store)}>백업 받기</button>
       {saveBlocked && <button onClick={openSettings}>저장 설정</button>}
     </div>}
-    {content || <Empty title="페이지를 찾을 수 없어요"
-      action={<button className="button" onClick={() => navigate('/applications')}>지원 현황</button>}/>}
+    <Suspense fallback={<div className="page" role="status">불러오는 중</div>}>{content || <Empty title="페이지를 찾을 수 없어요"
+      action={<button className="button" onClick={() => navigate('/applications')}>지원 현황</button>}/>}</Suspense>
     {settings && <Modal title="설정 및 백업" onClose={() => {setSettings(false); setImported(null);}}>
       <Notice>자소서와 지원 정보는 이 브라우저에 저장합니다. 기기 간 동기화와 실제 인증은 연결 전입니다.</Notice>
       <button className="button full" onClick={() => downloadBackup(store)}>JSON 백업 내려받기</button>
-      <Field label="백업 불러오기" hint="이미지 파일은 JSON에 포함되지 않습니다. 같은 브라우저에 보관된 이미지만 다시 표시됩니다.">
+      <Field label="백업 불러오기" hint="첨부 이미지와 답변 녹음은 현재 브라우저에 보관되며 JSON에 포함되지 않습니다.">
         <input type="file" accept="application/json,.json" onChange={async event => {
           const input = event.currentTarget;
           const file = input.files?.[0];

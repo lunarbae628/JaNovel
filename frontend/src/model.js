@@ -1,3 +1,4 @@
+import {isInterview} from './interview.js';
 import {isScheduleItem} from './schedule.js';
 const previousColors=['#2563EB','#D97706','#7C3AED','#0D9488','#DB2777','#6A7F16','#0891B2','#9A3412'];
 export const colors=['#274690','#39816F','#A4753E','#8869A4','#63758C','#657D55','#4B7E97','#9B5E77'];
@@ -45,6 +46,7 @@ export function validateStore(data){
  if(data.scheduleItems!==undefined)check(list(data.scheduleItems)&&data.scheduleItems.every(isScheduleItem)&&unique(data.scheduleItems.map(item=>item.id)));
  for(const a of data.applications){
   check(object(a)&&str(a.id)&&a.id&&str(a.company)&&str(a.role)&&str(a.url)&&str(a.duties)&&str(a.requirements)&&str(a.status)&&date(a.deadline)&&time(a.deadlineTime)&&list(a.questions)&&a.questions.length>0&&list(a.events)&&list(a.stages)&&a.stages.every(str)&&list(a.submissions));
+  if(a.interview!==undefined)check(isInterview(a.interview));
   check(unique(a.questions.map(q=>q?.id))&&unique(a.events.map(e=>e?.id))&&unique(a.submissions.map(s=>s?.id)));
   for(const e of a.events)check(object(e)&&str(e.id)&&str(e.title)&&str(e.type)&&date(e.date)&&time(e.time)&&str(e.note));
   for(const submission of a.submissions){
