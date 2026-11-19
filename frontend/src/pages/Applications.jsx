@@ -1,13 +1,14 @@
 import React,{useState} from 'react';
-import {Plus,ChevronRight,Search,ChevronDown,ArrowUp,ArrowDown,Trash2,ExternalLink} from 'lucide-react';
+import {Plus,ChevronRight,Search,ChevronDown,ArrowUp,ArrowDown,Trash2,ExternalLink,CalendarDays,FileText} from 'lucide-react';
 import {Header,IconButton,Modal,Field,Notice,Empty,ApplyLink,dateLabel} from '../components/UI.jsx';
 import {createApplication} from '../seed.js';
-import {CareerHeader,writingPath} from '../components/CareerLayout.jsx';
+import {CareerHeader,recentApplications,writingPath} from '../components/CareerLayout.jsx';
 import {createQuestion,uid,importPostingText,safeUrl} from '../model.js';
 import {putAttachment,getAttachment} from '../storage.js';
 export const stageOptions=a=>[...new Set(['관심',...a.stages,'최종 합격','불합격','지원 취소'])];
 export function allEvents(a){return[...(a.deadline?[{id:'deadline-'+a.id,title:'지원 마감',type:'마감',date:a.deadline,time:a.deadlineTime||'',deadline:true}]:[]),...a.events].map(e=>({...e,applicationId:a.id,company:a.company}));}
 const outcomeStages = ['최종 합격', '불합격', '지원 취소'];
+const weekdayLabel = new Intl.DateTimeFormat('ko-KR', {weekday: 'short', timeZone: 'UTC'});
 const stageGroup = status => status === '관심' || status === '작성 중' || outcomeStages.includes(status)
   ? status : '전형 진행';
 
@@ -18,68 +19,99 @@ function upcomingEvents(applications) {
 }
 
 export function Applications({store, navigate}) {
+  const [group, setGroup] = useState('');
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
   const {applications} = store;
   const events = upcomingEvents(applications);
-  const upcoming = events.find(event => event.type === '면접') || events[0];
   const stages = [...new Set(applications.flatMap(stageOptions))];
+  const groups = ['', '관심', '작성 중', '전형 진행'];
   const filtered = applications.filter(application =>
+    (!group || stageGroup(application.status) === group) &&
     (!filter || application.status === filter) &&
     (application.company + ' ' + application.role).toLowerCase().includes(search.trim().toLowerCase()));
-  const counts = ['관심', '작성 중', '전형 진행'].map(status =>
-    applications.filter(application => stageGroup(application.status) === status).length);
+  const hasFilters = group || filter || search.trim();
+  const recent = recentApplications(store);
 
   return <>
     <CareerHeader title="지원 현황">
-      <button className="career-button primary" onClick={() => navigate('/posting')}><Plus size={14}/>공고 등록</button>
+      <button className="career-button primary" onClick={() => navigate('/posting')}><Plus size={16}/>공고 등록</button>
     </CareerHeader>
     <div className="career-content dashboard">
-      <section aria-labelledby="upcoming-title">
-        <h2 id="upcoming-title">다가오는 일정</h2>
-        {upcoming ? <div className="dashboard-upcoming">
-          <time dateTime={upcoming.date}>{dateLabel(upcoming.date).replace(/[()]/g, '')}</time>
-          <div><strong>{upcoming.company} · {upcoming.title}</strong>
-            {upcoming.time && <p>{upcoming.time}{upcoming.note ? ' · ' + upcoming.note : ''}</p>}
+      <section className="dashboard-list career-sheet" aria-labelledby="dashboard-list-title">
+        <div className="dashboard-heading">
+          <h2 id="dashboard-list-title">지원 목록</h2>
+          <div className="dashboard-filters">
+            <label className="dashboard-search"><Search size={17} strokeWidth={1.7}/>
+              <input aria-label="회사·직무 검색" placeholder="회사·직무 검색" value={search}
+                onChange={event => setSearch(event.target.value)}/>
+            </label>
+            <label className="dashboard-select"><select aria-label="지원 단계 필터" value={filter}
+              onChange={event => {setFilter(event.target.value); setGroup('');}}>
+              <option value="">전체 단계</option>
+              {stages.map(stage => <option key={stage}>{stage}</option>)}
+            </select><ChevronDown size={14} strokeWidth={1.7}/></label>
           </div>
-          <button className="career-button" onClick={() => navigate(upcoming.type === '면접'
-            ? '/interviews/' + upcoming.applicationId : '/schedule?date=' + upcoming.date)}>
-            {upcoming.type === '면접' ? '면접 준비' : '일정 보기'}
-          </button>
-        </div> : <div className="dashboard-upcoming empty-upcoming">다가오는 지원 일정이 없어요.</div>}
+        </div>
+        <div className="dashboard-counts" aria-label="지원 상태별 보기">
+          {groups.map(name => <button key={name} type="button" aria-pressed={!filter && group === name} onClick={() => {
+            setGroup(name); setFilter('');
+          }}>{name || '전체'} <span>{name ? applications.filter(item => stageGroup(item.status) === name).length : applications.length}</span></button>)}
+        </div>
+        {filtered.length ? <>
+          <div className="dashboard-columns dashboard-grid" aria-hidden="true">
+            <span>회사·직무</span><span>일정</span><span>단계</span>
+          </div>
+          <ul className="dashboard-rows">
+            {filtered.map(application => {
+              const event = events.find(item => item.applicationId === application.id) ||
+                allEvents(application).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0];
+              return <li key={application.id}><a className="dashboard-grid" href={'#' + writingPath(application)}>
+                <span className="dashboard-company"><strong>{application.company}</strong><span>{application.role}</span></span>
+                <span className="dashboard-event">{event ? <>
+                  <time dateTime={event.date}>{event.date.slice(5).replace('-', '.')}{event.time ? ' ' + event.time : ''}</time>
+                  <span>{event.title}</span>
+                </> : '일정 없음'}</span>
+                <span className={'dashboard-stage' + (stageGroup(application.status) === '전형 진행' ? ' accented' : '')}>{application.status}</span>
+                <ChevronRight className="dashboard-chevron" size={16} strokeWidth={1.6}/>
+              </a></li>;
+            })}
+          </ul>
+        </> : <Empty title={hasFilters ? '조건에 맞는 지원이 없어요' : '등록한 지원이 없어요'}
+          action={hasFilters ? <button className="career-button" onClick={() => {setGroup(''); setFilter(''); setSearch('');}}>필터 초기화</button> :
+            <button className="career-button primary" onClick={() => navigate('/posting')}>공고 등록</button>}/>}
       </section>
-      <div className="dashboard-tools">
-        <div className="dashboard-counts">
-          <span>전체 {applications.length}</span>
-          {['관심', '작성 중', '전형 진행'].map((name, i) => <span key={name}>{name} {counts[i]}</span>)}
+      <aside className="dashboard-agenda career-sheet" aria-labelledby="upcoming-title">
+        <div className="dashboard-agenda-header">
+          <h2 id="upcoming-title"><CalendarDays size={17} strokeWidth={1.7}/>다가오는 일정</h2>
+          <a className="dashboard-agenda-link" href="#/schedule" aria-label="전체 일정 보기">전체 보기<ChevronRight size={14}/></a>
         </div>
-        <div className="dashboard-filters">
-          <label className="dashboard-search"><Search size={17} strokeWidth={1.5}/>
-            <input aria-label="회사·직무 검색" placeholder="회사·직무 검색" value={search}
-              onChange={event => setSearch(event.target.value)}/>
-          </label>
-          <label className="dashboard-select"><select aria-label="지원 단계 필터" value={filter}
-            onChange={event => setFilter(event.target.value)}>
-            <option value="">전체 단계</option>
-            {stages.map(stage => <option key={stage}>{stage}</option>)}
-          </select><ChevronDown size={14} strokeWidth={1.5}/></label>
-        </div>
-      </div>
-      {filtered.length ? <ul className="dashboard-rows">
-        {filtered.map(application => {
-          const event = events.find(item => item.applicationId === application.id) ||
-            allEvents(application).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))[0];
-          return <li key={application.id}><a href={'#' + writingPath(application)}>
-            <strong>{application.company}</strong><span>{application.role}</span>
-            <span className="dashboard-event">{event
-              ? event.date.slice(5).replace('-', '.') + (event.time ? ' ' + event.time : '') + ' · ' + event.title
-              : '일정 없음'}</span>
-            <span className={'dashboard-stage' + (application.status.includes('면접') ? ' accented' : '')}>{application.status}</span>
-            <ChevronRight className="dashboard-chevron" size={18} strokeWidth={1.5}/>
-          </a></li>;
-        })}
-      </ul> : <Empty title={applications.length ? '검색 결과가 없어요' : '등록한 지원이 없어요'}
-        action={!applications.length && <button className="career-button primary" onClick={() => navigate('/posting')}>공고 등록</button>}/>}
+        {events.length ? <ul>
+          {events.slice(0, 5).map(event => <li key={event.applicationId + '/' + event.id}>
+            <a href={event.type === '면접' ? '#/interviews/' + event.applicationId : '#/schedule?date=' + event.date}>
+              <time dateTime={event.date}><strong>{event.date.slice(5).replace('-', '.')}</strong>
+                <span>{weekdayLabel.format(new Date(event.date))}</span></time>
+              <div><strong>{event.company}</strong><span>{event.title}{event.time ? ' · ' + event.time : ''}</span></div>
+              <ChevronRight size={15} strokeWidth={1.6}/>
+            </a>
+          </li>)}
+        </ul> : <p className="dashboard-agenda-empty">다가오는 지원 일정이 없어요.</p>}
+      </aside>
+      {recent.length > 0 && <section className="dashboard-recent career-sheet" aria-labelledby="dashboard-recent-title">
+        <div className="dashboard-heading"><h2 id="dashboard-recent-title">최근 작성</h2></div>
+        <ul>
+          {recent.map(application => {
+            const question = application.questions[0];
+            const option = question.branches.find(branch => branch.id === question.activeBranchId) || question.branches[0];
+            const count = question.snapshots.length;
+            return <li key={application.id}><a href={'#' + writingPath(application)}>
+              <span className="recent-icon"><FileText size={17} strokeWidth={1.7}/></span>
+              <span><strong>{application.company}</strong><small>{option.name}</small></span>
+              <span className="recent-count">스냅샷 {count}개</span><ChevronRight size={15} strokeWidth={1.6}/>
+            </a></li>;
+          })}
+        </ul>
+      </section>}
     </div>
   </>;
 }

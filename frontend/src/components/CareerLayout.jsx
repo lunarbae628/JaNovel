@@ -11,27 +11,33 @@ export function writingPath(application) {
   return '/write/' + application.id + '/' + application.questions[0].id;
 }
 
-export function CareerLayout({section, store, onSettings, children}) {
+export function recentApplications(store) {
   const recent = (store.preferences?.recentApplications ?? [])
     .map(id => store.applications.find(application => application.id === id))
     .filter(Boolean);
-  const previews = store.applications.filter(application => application.example).slice(0, 2);
+  return recent.length ? recent : store.applications.filter(application => application.example &&
+    application.questions.some(question => question.branches.some(branch => branch.draft.text))).slice(0, 2);
+}
 
+export function CareerLayout({section, store, onSettings, children}) {
+  const recent = recentApplications(store);
   return <div className="career-layout">
     <aside className="career-sidebar">
-      <a className="career-wordmark" href="#/applications">JaNovel.</a>
+      <div className="career-brand">
+        <a className="career-wordmark" href="#/applications">JaNovel.</a>
+      </div>
       <nav aria-label="전역 메뉴">
         {links.map(([path, label, Icon]) => <a key={path} href={'#' + path}
           aria-current={section === path ? 'page' : undefined}>
           <Icon size={18} strokeWidth={1.5}/><span>{label}</span>
         </a>)}
       </nav>
-      <section className="career-recent" aria-label="최근 작성">
+      {section !== '/applications' && recent.length > 0 && <section className="career-recent" aria-label="최근 작성">
         <h2>최근 작성</h2>
-        {(recent.length ? recent : previews).map(application => <a key={application.id} href={'#' + writingPath(application)}>
+        {recent.map(application => <a key={application.id} href={'#' + writingPath(application)}>
           <strong>{application.company}</strong><span>{application.role}</span>
         </a>)}
-      </section>
+      </section>}
       <footer className="career-account">
         <button type="button" onClick={onSettings}><Settings2 size={18} strokeWidth={1.5}/>설정</button>
         {store.profile?.name ? <span>{store.profile.name}</span> : <a href="#/login">로그인</a>}

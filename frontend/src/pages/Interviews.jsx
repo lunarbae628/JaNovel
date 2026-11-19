@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Mic, Plus, Trash2} from 'lucide-react';
+import {ArrowRight, ClipboardList, FileText, Mic, Plus, Trash2} from 'lucide-react';
 import {CareerHeader, writingPath} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import AnswerRecording from '../components/AnswerRecording.jsx';
@@ -145,8 +145,11 @@ function Materials({application, source, onChange, onClose, navigate}) {
 export function InterviewDetail({application, query, navigate, onChange, storageError}) {
   const interview = interviewFor(application);
   const root = '/interviews/' + application.id;
-  const tab = query.get('tab') === 'records' ? 'records' : 'questions';
+  const requestedTab = query.get('tab');
+  const tab = ['practice', 'records'].includes(requestedTab) ? requestedTab : 'questions';
   const question = interview.questions.find(item => item.id === query.get('question')) || interview.questions[0];
+  const questionsPath = root + (question ? '?question=' + encodeURIComponent(question.id) : '');
+  const practicePath = root + '?tab=practice' + (question ? '&question=' + encodeURIComponent(question.id) : '');
   const [dialog, setDialog] = useState('');
   const [error, setError] = useState('');
 
@@ -169,19 +172,29 @@ export function InterviewDetail({application, query, navigate, onChange, storage
 
   return <>
     <CareerHeader title={interviewTitle(application)}>
-      <button className="career-button interview-material-button" onClick={() => setDialog('materials')}>자료</button>
-      <button className="career-button primary interview-start-button" onClick={() => setDialog('practice')}>모의면접</button>
+      {tab !== 'practice' && <button className="career-button interview-material-button" onClick={() => setDialog('materials')}>자료</button>}
+      {tab !== 'practice' && <a className="career-button primary interview-start-button" href={'#' + practicePath}>모의면접</a>}
     </CareerHeader>
     <div className="career-content interview-content">
       <nav className="career-tabs" aria-label="면접 준비">
-        <a href={'#' + root} aria-current={tab === 'questions' ? 'page' : undefined}>예상 질문</a>
-        <button type="button" onClick={() => setDialog('practice')}>모의면접</button>
+        <a href={'#' + questionsPath} aria-current={tab === 'questions' ? 'page' : undefined}>예상 질문</a>
+        <a href={'#' + practicePath} aria-current={tab === 'practice' ? 'page' : undefined}>모의면접</a>
         <a href={'#' + root + '?tab=records'} aria-current={tab === 'records' ? 'page' : undefined}>기록</a>
       </nav>
       {error && <Notice type="error">{error}</Notice>}
       {tab === 'records' ? <InterviewRecords records={interview.records.map(record => ({record, application}))}
-        onOpen={(_, id) => navigate(root + '/' + id)}/> : <div className="interview-workspace">
+        onOpen={(_, id) => navigate(root + '/' + id)}/> : tab === 'practice' ?
+        <InterviewSetup application={application} source={selectedSource} count={interview.questions.length}
+          questionsPath={questionsPath} onMaterials={() => setDialog('materials')} onStart={() => navigate(root + '/practice')}/> :
+        <div className="interview-workspace">
         <aside className="interview-questions">
+          <div className="interview-question-header">
+            <h2>질문 <span>{interview.questions.length}</span></h2>
+            <div className="interview-question-actions">
+              <button className="career-button" onClick={() => setDialog('add')}><Plus size={13}/>질문</button>
+              <button className="career-button" disabled={!question} onClick={() => setDialog('edit')}>편집</button>
+            </div>
+          </div>
           <ol>
             {interview.questions.map((item, index) => <li key={item.id}>
               <button type="button" aria-current={item.id === question?.id ? 'true' : undefined} onClick={() => select(item.id)}>
@@ -189,22 +202,21 @@ export function InterviewDetail({application, query, navigate, onChange, storage
               </button>
             </li>)}
           </ol>
-          <div className="interview-question-actions">
-            <button className="career-button" onClick={() => setDialog('add')}><Plus size={13}/>질문</button>
-            <button className="career-button" disabled={!question} onClick={() => setDialog('edit')}>편집</button>
-          </div>
         </aside>
         {question ? <section className="interview-answer" aria-labelledby="interview-question">
           <h2 id="interview-question">{question.prompt}</h2>
           {question.basis && <button className="interview-basis" onClick={() => setDialog('materials')}>{question.basis}</button>}
           <div className="interview-answer-heading">
             <label htmlFor="interview-answer">답변</label>
-            <button className="career-button" onClick={() => setDialog('audio')}><Mic size={16} strokeWidth={1.5}/>녹음</button>
             <span role="status">{storageError ? '저장 실패' : question.answer ? '저장됨' : ''}</span>
+            <button className="career-button" onClick={() => setDialog('audio')}><Mic size={16} strokeWidth={1.5}/>녹음</button>
           </div>
           <textarea id="interview-answer" value={question.answer} maxLength={12000}
             placeholder="답변을 적어 보세요." onChange={event => updateQuestion({answer: event.target.value})}/>
-        </section> : <p className="career-empty-copy">예상 질문을 추가하고 답변을 준비해 보세요.</p>}
+        </section> : <div className="interview-answer interview-answer-empty">
+          <p className="career-empty-copy">예상 질문을 추가하고 답변을 준비해 보세요.</p>
+          <button className="career-button primary" onClick={() => setDialog('add')}><Plus size={15}/>질문 추가</button>
+        </div>}
       </div>}
     </div>
     {(dialog === 'add' || dialog === 'edit') && <QuestionDialog question={dialog === 'edit' ? question : null}
@@ -223,17 +235,26 @@ export function InterviewDetail({application, query, navigate, onChange, storage
     }} onChange={source => onChange(current => ({...current, source}))} onClose={() => setDialog('')}/>}
     {dialog === 'audio' && question && <AnswerRecording key={question.id} storageKey={recordingKey(application, question)}
       onClose={() => setDialog('')}/>}
-    {dialog === 'practice' && <Modal title="음성 모의면접" className="interview-modal" onClose={() => setDialog('')}>
-      <p className="interview-practice-company">{interviewTitle(application)}</p>
-      <p>기준 · {selectedSource?.name || '현재 작성본'} / 채용 공고<br/>질문 · 예상 질문 {interview.questions.length}개</p>
-      {!interview.questions.length ? <Notice>연습할 질문을 먼저 추가해 주세요.</Notice> :
-        <Notice>마이크 권한이 필요해요. 이 미리보기는 질문을 읽어 주고 연습 기록을 남깁니다.</Notice>}
-      <div className="form-actions">
-        <button className="button" onClick={() => setDialog('')}>취소</button>
-        <button className="button primary" disabled={!interview.questions.length} onClick={() => {
-          setDialog(''); navigate(root + '/practice');
-        }}>시작</button>
-      </div>
-    </Modal>}
   </>;
+}
+
+function InterviewSetup({application, source, count, questionsPath, onMaterials, onStart}) {
+  return <section className="interview-setup career-sheet" aria-labelledby="interview-setup-title">
+    <header>
+      <span className="interview-setup-icon"><Mic size={21} strokeWidth={1.65}/></span>
+      <div><h2 id="interview-setup-title">음성 모의면접</h2><p>{application.company} · {application.role}</p></div>
+    </header>
+    <dl>
+      <div><FileText size={17} strokeWidth={1.65}/><dt>연습 자료</dt><dd>{source?.name || '현재 작성본'} · 채용 공고</dd></div>
+      <div><ClipboardList size={17} strokeWidth={1.65}/><dt>예상 질문</dt><dd>{count ? count + '개' : '등록한 질문 없음'}</dd></div>
+    </dl>
+    <div className="interview-setup-help">
+      <Mic size={17} strokeWidth={1.65}/><p>시작 후 브라우저에서 마이크 권한을 허용해 주세요. 예상 질문을 소리로 들을 수 있고, 연습한 질문과 시간이 기록됩니다.</p>
+    </div>
+    <footer>
+      <button className="career-button" type="button" onClick={onMaterials}>자료 변경</button>
+      {count ? <button className="career-button primary" type="button" onClick={onStart}>면접 시작<ArrowRight size={15}/></button> :
+        <a className="career-button primary" href={'#' + questionsPath}>예상 질문으로 이동<ArrowRight size={15}/></a>}
+    </footer>
+  </section>;
 }

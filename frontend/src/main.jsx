@@ -13,6 +13,7 @@ import {loadStore, saveStore, downloadBackup, STORE_KEY} from './storage.js';
 import {validateStore, errorMessage, updateQuestion} from './model.js';
 import './styles.css';
 import './career.css';
+import './workspace.css';
 
 const Interviews = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.Interviews})));
 const InterviewDetail = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.InterviewDetail})));

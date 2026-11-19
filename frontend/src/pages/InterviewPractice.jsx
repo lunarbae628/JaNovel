@@ -198,7 +198,7 @@ export function InterviewRecord({application, record, navigate, onChange}) {
         onChange(previous => ({...previous, records: previous.records.map(item => item.id === record.id ? {...item, note} : item)}));
       }}/>
       <div className="practice-controls">
-        <button className="career-button primary" onClick={() => navigate(root + '/practice')}>다시 연습</button>
+        <button className="career-button primary" onClick={() => navigate(root + '?tab=practice')}>다시 연습</button>
         <button className="career-button" onClick={() => navigate(writingPath(application))}>자소서 확인</button>
       </div>
     </div>

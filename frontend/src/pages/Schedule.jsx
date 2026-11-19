@@ -102,7 +102,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   const applications = store.applications;
   const supportEvents = applications.flatMap(allEvents).map(item => ({
     ...item, start: item.date, end: item.endDate || item.date,
-    color: item.type === '면접' ? 'blue' : 'default',
+    color: item.type === '면접' ? 'blue' : item.type === '과제' ? 'assignment' : 'default',
   }));
   const weeks = calendarWeeks(month);
   const events = [...supportEvents.filter(item => isDateKey(item.start)),
@@ -190,7 +190,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
       <button type="button" className="career-button primary" onClick={() => add()}><Plus size={14}/>일정 추가</button>
     </CareerHeader>
     <div className="career-content schedule-content">
-      <section className="schedule-month" aria-label="월간 캘린더">
+      <section className="schedule-month career-sheet" aria-label="월간 캘린더">
         <div className="schedule-month-heading">
           <h2>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</h2>
           <div>
@@ -201,7 +201,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
         </div>
         <div className="schedule-legend"><span>마감</span><span>면접</span><span>과제</span><span>일정</span></div>
         <div className="schedule-weekdays" aria-hidden="true">{weekdays.map(day => <span key={day}>{day}</span>)}</div>
-        <div className="schedule-calendar" onPointerUp={finishRange} onPointerCancel={() => {anchor.current = ''; setDrag(null);}}
+        <div className="schedule-calendar" style={{'--week-count': weeks.length}} onPointerUp={finishRange} onPointerCancel={() => {anchor.current = ''; setDrag(null);}}
           onPointerLeave={() => {anchor.current = ''; setDrag(null);}}>
           {weeks.map(days => {
             const bars = packWeek(events, days);
@@ -236,8 +236,11 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
           })}
         </div>
       </section>
-      <aside className="schedule-detail" aria-label="선택한 날짜">
-        <h2>{formatDay(selected)}</h2>
+      <aside className="schedule-detail career-sheet" aria-label="선택한 날짜">
+        <header className="schedule-detail-heading">
+          <h2 aria-live="polite">{formatDay(selected)}</h2>
+          <span>일정 {entries.length}건{tasks.length > 0 && ' · 할 일 ' + tasks.length + '건'}</span>
+        </header>
         {entries.map(event => <article className="schedule-detail-event" key={event.id + event.date}>
           <span className={'dashboard-stage ' + (event.type === '면접' ? 'accented' : '')}>{event.type || '일정'}</span>
           <h3>{event.company || event.title}</h3>
@@ -262,7 +265,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
         </section>}
         {!selectedEvents.length && <div className="schedule-empty">
           <p>등록된 일정이 없어요.</p>
-          <button className="career-button" onClick={() => add()}>일정 추가</button>
+          <button className="career-button" onClick={() => add()}><Plus size={14}/>일정 추가</button>
         </div>}
         {supportEvents.some(event => !event.date) && <section className="schedule-tasks">
           <h3>날짜 미정</h3>
