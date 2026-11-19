@@ -419,3 +419,60 @@
   .practice-transcript { border-left: 0; border-top: 1px solid var(--border); }
   .practice-question { min-height: 520px; }
 }
+
+.editor-pdf-button { min-width: 88px; height: 36px; padding-block: 6px; white-space: nowrap; }
+.modal.essay-pdf-modal { display: flex; flex-direction: column; width: 640px; min-height: min(580px, 86dvh); }
+.modal.essay-pdf-modal.is-preview { width: 760px; max-height: min(840px, calc(100dvh - 32px)); background: #f7f7f8; }
+.essay-pdf-modal .modal-heading { margin-bottom: 24px; }
+.essay-pdf-modal .modal-heading h2 { font-size: 20px; line-height: 33px; }
+.essay-pdf-modal > .field { margin-bottom: 26px; }
+.essay-scope { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.essay-scope .button { min-width: 132px; }
+.essay-versions { display: grid; gap: 16px; margin-bottom: 22px; }
+.essay-version {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 76px;
+  border-radius: 6px; background: #f7f7f8; padding: 12px 16px; font-size: 14px;
+}
+.essay-version select { width: min(220px, 42%); min-height: 38px; background: #fff; }
+.essay-pdf-modal .form-actions { margin-top: auto; padding-top: 8px; }
+.essay-pdf-modal .form-actions .button { min-width: 104px; }
+.essay-pdf-modal .form-actions .primary { min-width: 148px; }
+.essay-return { margin-right: auto; }
+.essay-preview { display: grid; justify-content: safe center; margin: 6px 0 12px; overflow: auto; }
+.essay-document {
+  width: 448px; min-height: 634px; padding: 38px 35px 35px;
+  border: 1px solid #e4e4e7; background: #fff; color: #302b27;
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  font-size: 12px; line-height: 20px; text-align: left;
+}
+.essay-document h3 { margin: 0 0 52px; font-size: 15px; line-height: 20px; font-weight: 700; }
+.essay-document h4 { margin: 0 0 14px; font-size: 12px; line-height: 20px; font-weight: 600; }
+.essay-document p { margin: 0; }
+.essay-document section + section { margin-top: 23px; }
+.essay-document span { display: block; height: 20px; line-height: 20px; white-space: pre; }
+.essay-page-count { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 30px; margin-bottom: 14px; color: #666b73; font-size: 12px; }
+.essay-print { display: none; }
+@media (max-width: 530px) {
+  .essay-version { align-items: stretch; flex-direction: column; gap: 8px; }
+  .essay-version select { width: 100%; }
+  .essay-preview .essay-document { zoom: .65; }
+  .essay-pdf-modal .form-actions .button { min-width: 0; }
+}
+@media (max-width: 355px) {
+  .essay-preview .essay-document { zoom: .54; }
+}
+@media print {
+  @page { margin: 0; size: A4; }
+  body.essay-printing > :not(.essay-print) { display: none !important; }
+  body.essay-printing { margin: 0 !important; overflow: visible !important; }
+  body.essay-printing > .essay-print { display: block; }
+  .essay-print .essay-document {
+    width: 210mm; min-height: 0; padding: 67px 62px 62px; border: 0;
+    font-size: 21.2px; line-height: 35.4px; break-inside: avoid; break-after: page; box-shadow: none;
+  }
+  .essay-print .essay-document span { height: 35.4px; line-height: 35.4px; }
+  .essay-print .essay-document h3 { margin-bottom: 92px; font-size: 26.55px; line-height: 35.4px; }
+  .essay-print .essay-document h4 { margin-bottom: 24.8px; font-size: 21.2px; line-height: 35.4px; }
+  .essay-print .essay-document section + section { margin-top: 40.7px; }
+  .essay-print .essay-document:last-child { break-after: auto; }
+}
