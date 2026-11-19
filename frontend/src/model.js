@@ -1,3 +1,4 @@
+import {isScheduleItem} from './schedule.js';
 const previousColors=['#2563EB','#D97706','#7C3AED','#0D9488','#DB2777','#6A7F16','#0891B2','#9A3412'];
 export const colors=['#274690','#39816F','#A4753E','#8869A4','#63758C','#657D55','#4B7E97','#9B5E77'];
 export function branchColor(b){if(!previousColors.includes(b.color)&&!colors.includes(b.color))return b.color;return colors[b.order]||`hsl(${Math.round(b.order*137.508)%360} 30% 44%)`;}
@@ -41,6 +42,7 @@ export function validateStore(data){
  check(unique(data.applications.map(a=>a?.id)));
  if(data.preferences){check(object(data.preferences));for(const k of ['leftWidth','rightWidth'])if(data.preferences[k]!==undefined)check(Number.isFinite(data.preferences[k])&&data.preferences[k]>=100&&data.preferences[k]<=1000);}
  if(data.profile)check(object(data.profile)&&str(data.profile.name)&&(!data.profile.email||str(data.profile.email)));
+ if(data.scheduleItems!==undefined)check(list(data.scheduleItems)&&data.scheduleItems.every(isScheduleItem)&&unique(data.scheduleItems.map(item=>item.id)));
  for(const a of data.applications){
   check(object(a)&&str(a.id)&&a.id&&str(a.company)&&str(a.role)&&str(a.url)&&str(a.duties)&&str(a.requirements)&&str(a.status)&&date(a.deadline)&&time(a.deadlineTime)&&list(a.questions)&&a.questions.length>0&&list(a.events)&&list(a.stages)&&a.stages.every(str)&&list(a.submissions));
   check(unique(a.questions.map(q=>q?.id))&&unique(a.events.map(e=>e?.id))&&unique(a.submissions.map(s=>s?.id)));

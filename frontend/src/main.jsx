@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import Auth from './pages/Auth.jsx';
+import Schedule from './pages/Schedule.jsx';
 import {Applications, Posting, Detail} from './pages/Applications.jsx';
 import Editor from './pages/Editor.jsx';
 import Merge from './pages/Merge.jsx';
@@ -91,7 +92,12 @@ function App() {
   } else if (!kind || ['applications', 'schedule', 'interviews'].includes(kind)) {
     const section = '/' + (kind || 'applications');
     content = <CareerLayout section={section} store={store} onSettings={openSettings}>
-      {section === '/applications' ? <Applications store={store} navigate={navigate}/> : <>
+      {section === '/applications' ? <Applications store={store} navigate={navigate}/> : section === '/schedule' ?
+        <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
+          onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
+          onApplicationChange={(id, update) => setStore(previous => ({...previous,
+            applications: previous.applications.map(item => item.id === id ? update(item) : item),
+          }))}/> : <>
         <CareerHeader title={pageTitles[kind]}/>
         <div className="career-content"><Empty title={pageTitles[kind] + ' 화면을 준비 중이에요'}/></div>
       </>}
