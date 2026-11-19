@@ -48,6 +48,7 @@ function App() {
   const [settings, setSettings] = useState(false);
   const [imported, setImported] = useState(null);
   const [importError, setImportError] = useState('');
+  const [verifiedEmail, setVerifiedEmail] = useState('');
   const [route, navigate] = useHashRoute();
   const [path, search] = route.split('?');
   const [, kind, aid, qid] = path.split('/');
@@ -97,8 +98,9 @@ function App() {
   const interviewRecord = application && kind === 'interviews' && qid && interviewFor(application).records.find(item => item.id === qid);
   let content;
   if (isAuth) {
-    content = <Auth key={kind} page={kind} navigate={navigate} onEnter={profile => {
+    content = <Auth key={kind} page={kind} navigate={navigate} verifiedEmail={verifiedEmail} onVerify={setVerifiedEmail} onEnter={profile => {
       setStore(previous => ({...previous, profile}));
+      setVerifiedEmail('');
       navigate('/applications');
     }}/>;
   } else if (kind === 'interviews' && qid === 'practice' && application) {
