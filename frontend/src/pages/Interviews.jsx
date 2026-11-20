@@ -1,10 +1,11 @@
 import React, {useState} from 'react';
-import {ArrowLeft, ArrowRight, CalendarDays, ClipboardList, FileText, Mic, Plus, Trash2} from 'lucide-react';
+import {ArrowLeft, ArrowRight, CalendarDays, Mic, Plus, Trash2} from 'lucide-react';
 import {CareerHeader, writingPath} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import AnswerRecording from '../components/AnswerRecording.jsx';
+import InterviewSetup from '../components/InterviewSetup.jsx';
 import {deleteAttachment} from '../storage.js';
-import {interviewFor, patchInterviewQuestion, timecode} from '../interview.js';
+import {interviewFor, patchInterviewQuestion, practiceModeLabels, timecode} from '../interview.js';
 import {uid} from '../model.js';
 import {saveApplicationEvent, todayKey} from '../schedule.js';
 import {EventForm} from './Applications.jsx';
@@ -31,7 +32,7 @@ function InterviewRecords({records, onOpen}) {
   return records.length > 0 ? <div className="interview-records">
     {records.map(({record, application}) => <article className="career-sheet" key={application.id + '/' + record.id}>
       <div><strong>{interviewTitle(application)}</strong>
-        <p>{recordDate(record.createdAt)} · 음성 모의면접 · {timecode(record.duration)}</p></div>
+        <p>{recordDate(record.createdAt)} · {practiceModeLabels[record.mode || 'expected']} · {timecode(record.duration)}</p></div>
       <button className="career-button" onClick={() => onOpen(application.id, record.id)}>기록 보기</button>
     </article>)}
   </div> : <p className="career-empty-copy">아직 연습 기록이 없어요.</p>;
@@ -57,7 +58,6 @@ export function Interviews({store, navigate, query, onApplicationChange, onInter
   const planned = applications.map(application => ({application, events: plannedInterviews(application)}))
     .filter(({application, events}) => events.length || application.submissions.length || interviewFor(application).questions.length ||
       ['서류 전형', '작성 중', '최종 면접', '기술 면접'].includes(application.status));
-  const others = applications.filter(application => !planned.some(item => item.application === application));
   const tab = query.get('tab') === 'records' ? 'records' : 'planned';
   const recordsPath = '/interviews?tab=records';
   const opened = tab === 'records' && records.find(({application, record}) =>
@@ -99,15 +99,6 @@ export function Interviews({store, navigate, query, onApplicationChange, onInter
             </article>;
           })}
           {!planned.length && <p className="career-empty-copy">예정된 면접이 없어요.</p>}
-          {others.length > 0 && <label className="interview-add-from">
-            <span>다른 지원 건</span>
-            <select aria-label="면접 준비할 지원 건" value="" onChange={event => {
-              if (event.target.value) navigate('/interviews/' + event.target.value);
-            }}>
-              <option value="">지원 건 선택</option>
-              {others.map(item => <option value={item.id} key={item.id}>{item.company} · {item.role}</option>)}
-            </select>
-          </label>}
         </section>
         {records.length > 0 && <section className="interview-recent"><h2>최근 연습</h2>
           <InterviewRecords records={records.slice(0, 3)} onOpen={open}/>
@@ -181,7 +172,7 @@ function Materials({application, source, onChange, onClose, navigate}) {
   </Modal>;
 }
 
-export function InterviewDetail({application, record, query, navigate, onChange, storageError}) {
+export function InterviewDetail({application, record, query, navigate, onChange, onPracticeStart, storageError}) {
   const interview = interviewFor(application);
   const root = '/interviews/' + application.id;
   const requestedTab = query.get('tab');
@@ -226,8 +217,9 @@ export function InterviewDetail({application, record, query, navigate, onChange,
       {record ? <InterviewRecord key={record.id} record={record} application={application} backPath={recordsPath} onChange={onChange}/> :
         tab === 'records' ? <InterviewRecords records={interview.records.map(record => ({record, application}))}
         onOpen={(_, id) => navigate(root + '/' + id)}/> : tab === 'practice' ?
-        <InterviewSetup application={application} source={selectedSource} count={interview.questions.length}
-          questionsPath={questionsPath} onMaterials={() => setDialog('materials')} onStart={() => navigate(root + '/practice')}/> :
+        <InterviewSetup key={query.get('mode') || 'expected'} application={application} source={selectedSource} questions={interview.questions}
+          initialMode={query.get('mode') === 'materials' ? 'materials' : 'expected'} expired={query.has('expired')}
+          questionsPath={questionsPath} onStart={onPracticeStart}/> :
         <div className="interview-workspace">
         <aside className="interview-questions">
           <div className="interview-question-header">
@@ -286,7 +278,7 @@ function InterviewRecord({application, record, backPath, onChange}) {
   return <section className="practice-record career-sheet" aria-label="면접 연습 기록">
     <div className="practice-record-meta">
       <a className="career-button" href={'#' + backPath}><ArrowLeft size={14}/>기록 목록</a>
-      <span>{application.company} · {recordDate(record.createdAt)} · {timecode(record.duration)}</span>
+      <span>{application.company} · {practiceModeLabels[record.mode || 'expected']} · {recordDate(record.createdAt)} · {timecode(record.duration)}</span>
     </div>
     <div className="practice-record-nav">
       <span className="dashboard-stage accented">질문 {index + 1} / {record.questions.length}</span>
@@ -302,29 +294,8 @@ function InterviewRecord({application, record, backPath, onChange}) {
       onChange(previous => ({...previous, records: previous.records.map(item => item.id === record.id ? {...item, note} : item)}));
     }}/>
     <div className="practice-controls">
-      <a className="career-button primary" href={'#/interviews/' + application.id + '?tab=practice'}>다시 연습</a>
+      <a className="career-button primary" href={'#/interviews/' + application.id + '?tab=practice&mode=' + (record.mode || 'expected')}>다시 연습</a>
       <a className="career-button" href={'#' + writingPath(application)}>자소서 확인</a>
     </div>
-  </section>;
-}
-
-function InterviewSetup({application, source, count, questionsPath, onMaterials, onStart}) {
-  return <section className="interview-setup career-sheet" aria-labelledby="interview-setup-title">
-    <header>
-      <div><h2 id="interview-setup-title">AI 모의면접</h2><p>{application.company} · {application.role}</p></div>
-      <span className="practice-orb setup-orb" aria-hidden="true"/>
-    </header>
-    <dl>
-      <div><FileText size={17} strokeWidth={1.65}/><dt>연습 자료</dt><dd>{source?.name || '현재 작성본'} · 채용 공고</dd></div>
-      <div><ClipboardList size={17} strokeWidth={1.65}/><dt>예상 질문</dt><dd>{count ? count + '개' : '등록한 질문 없음'}</dd></div>
-    </dl>
-    <div className="interview-setup-help">
-      <Mic size={17} strokeWidth={1.65}/><p>음성 연습 미리보기에서 브라우저가 예상 질문을 읽어 줘요. 마이크를 허용하면 답변할 때 구체가 반응하고, 연습한 질문과 시간이 기록돼요.</p>
-    </div>
-    <footer>
-      <button className="career-button" type="button" onClick={onMaterials}>자료 변경</button>
-      {count ? <button className="career-button primary" type="button" onClick={onStart}>면접 시작<ArrowRight size={15}/></button> :
-        <a className="career-button primary" href={'#' + questionsPath}>예상 질문으로 이동<ArrowRight size={15}/></a>}
-    </footer>
   </section>;
 }

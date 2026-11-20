@@ -1,176 +1,163 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ArrowLeft, Mic, MicOff, Pause, Play, Volume2} from 'lucide-react';
+import {Pause, Play, Volume2} from 'lucide-react';
+import InterviewOrb from '../components/InterviewOrb.jsx';
 import {Modal, Notice} from '../components/UI.jsx';
-import {interviewFor, startPracticeRecord, timecode} from '../interview.js';
+import {interviewFor, practiceModeLabels, startPracticeRecord, timecode} from '../interview.js';
 import {uid} from '../model.js';
-import {interviewTitle} from './Interviews.jsx';
 
-const microphoneLabels = {
-  requesting: '마이크 연결 중', disconnected: '마이크 연결 필요', paused: '일시정지',
-  speaking: '질문을 읽고 있어요', muted: '마이크 꺼짐', listening: '답변 대기 중',
-};
-
-export function InterviewPractice({application, navigate, onChange}) {
-  const [questions] = useState(() => interviewFor(application).questions);
+export function InterviewPractice({application, session, navigate, onChange}) {
+  const [questions] = useState(() => session?.questions || interviewFor(application).questions);
+  const mode = session?.mode || 'expected';
   const [index, setIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
-  const [phase, setPhase] = useState('requesting');
-  const [muted, setMuted] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [level, setLevel] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [speech, setSpeech] = useState('idle');
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState('');
-  const stream = useRef(null);
-  const mounted = useRef(false);
+  const playback = useRef({sequence: 0, timer: 0, started: false});
   const root = '/interviews/' + application.id;
-  const micState = phase !== 'ready' ? phase : speaking ? 'speaking' : muted ? 'muted' : 'listening';
+  const question = questions[index];
 
-  async function connect() {
-    setPhase('requesting');
-    setError('');
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) throw Error('unavailable');
-      const input = await navigator.mediaDevices.getUserMedia({audio: true});
-      if (!mounted.current) {
-        input.getTracks().forEach(track => track.stop());
-        return;
-      }
-      stream.current?.getTracks().forEach(track => track.stop());
-      stream.current = input;
-      input.getAudioTracks().forEach(track => {
-        track.onended = () => {
-          if (!mounted.current) return;
-          setPhase('disconnected');
-          setError('마이크 연결이 끊겼어요. 다시 연결해 주세요.');
-        };
-      });
-      setMuted(false);
-      setPhase('ready');
-    } catch {
-      if (mounted.current) {
-        setPhase('disconnected');
-        setError('마이크를 사용할 수 없어요. 장치와 브라우저 권한을 확인해 주세요.');
-      }
-    }
+  function cancelPlayback() {
+    playback.current.sequence++;
+    clearTimeout(playback.current.timer);
+    window.speechSynthesis?.cancel();
   }
 
+  useEffect(() => cancelPlayback, []);
   useEffect(() => {
-    mounted.current = true;
-    if (questions.length) void connect();
-    return () => {
-      mounted.current = false;
-      stream.current?.getTracks().forEach(track => track.stop());
-      window.speechSynthesis?.cancel();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (phase !== 'ready') return;
+    if (!question || paused || ending) return;
     const timer = setInterval(() => setElapsed(value => value + 1), 1000);
-    if (!window.AudioContext || muted || !stream.current) return () => clearInterval(timer);
-    const context = new AudioContext();
-    const source = context.createMediaStreamSource(stream.current);
-    const analyser = context.createAnalyser();
-    const values = new Uint8Array(analyser.fftSize);
-    source.connect(analyser);
-    const meter = setInterval(() => {
-      analyser.getByteTimeDomainData(values);
-      const amplitude = Math.sqrt(values.reduce((sum, v) => sum + (v - 128) ** 2, 0) / values.length);
-      setLevel(Math.min(1, amplitude / 16));
-    }, 120);
-    return () => {
-      clearInterval(timer); clearInterval(meter);
-      source.disconnect();
-      void context.close();
-    };
-  }, [phase, muted]);
+    return () => clearInterval(timer);
+  }, [Boolean(question), paused, ending]);
 
-  function speak(question) {
+  function speak(item) {
+    cancelPlayback();
     const synth = window.speechSynthesis;
     const voice = synth?.getVoices().find(item => item.localService && item.lang.toLowerCase().startsWith('ko'));
+    const unavailable = '한국어 음성 읽기를 사용할 수 없어요. 화면의 질문을 보며 계속 연습할 수 있어요.';
     if (!voice) {
-      setError('이 브라우저에서 사용할 수 있는 한국어 음성 읽기를 찾지 못했어요.');
+      setError(unavailable);
+      setSpeech('idle');
       return;
     }
-    setError('');
-    synth.cancel();
-    const message = new SpeechSynthesisUtterance(question.prompt);
+    const sequence = playback.current.sequence;
+    const message = new SpeechSynthesisUtterance(item.prompt);
     message.voice = voice;
     message.lang = 'ko-KR';
-    message.onstart = () => setSpeaking(true);
-    message.onend = message.onerror = () => setSpeaking(false);
+    setError('');
+    setSpeech('loading');
+    message.onstart = () => {
+      if (sequence !== playback.current.sequence) return;
+      clearTimeout(playback.current.timer);
+      playback.current.started = true;
+      setSpeech('reading');
+    };
+    message.onend = () => {
+      if (sequence !== playback.current.sequence) return;
+      clearTimeout(playback.current.timer);
+      setSpeech('answer');
+    };
+    message.onerror = () => {
+      if (sequence !== playback.current.sequence) return;
+      clearTimeout(playback.current.timer);
+      setSpeech('idle');
+      setError(unavailable);
+    };
+    playback.current.timer = setTimeout(() => {
+      cancelPlayback();
+      setSpeech('idle');
+      setError(unavailable);
+    }, 4000);
     synth.speak(message);
   }
 
-  function togglePause() {
-    const pause = phase === 'ready';
-    setPhase(pause ? 'paused' : 'ready');
-    stream.current?.getAudioTracks().forEach(track => {track.enabled = !pause && !muted;});
-    if (pause) {
-      window.speechSynthesis?.cancel();
-      setSpeaking(false);
-    }
+  function requestEnd() {
+    cancelPlayback();
+    setSpeech('idle');
+    setEnding(true);
   }
 
   function finish() {
-    if (!questions.length || !['ready', 'paused'].includes(phase) && !elapsed) {
-      navigate(root);
+    if (!question) {
+      navigate(root + '?tab=practice');
       return;
     }
     const id = uid('practice');
-    const record = startPracticeRecord(id, questions.slice(0, index + 1), elapsed, new Date().toISOString());
+    const record = startPracticeRecord(id, questions.slice(0, index + 1), elapsed, new Date().toISOString(), mode);
     onChange(previous => ({...previous, records: [record, ...previous.records]}));
     navigate(root + '/' + id);
   }
 
+  function nextQuestion() {
+    if (index === questions.length - 1) {
+      requestEnd();
+      return;
+    }
+    setIndex(index + 1);
+    if (playback.current.started) speak(questions[index + 1]);
+    else {
+      cancelPlayback();
+      setSpeech('idle');
+      setError('');
+    }
+  }
+
+  const status = paused ? '일시정지' : {
+    idle: '질문을 듣거나 화면에서 확인하세요',
+    loading: '음성 준비 중',
+    reading: '면접관이 질문을 읽고 있어요',
+    answer: '답변할 차례예요',
+  }[speech];
+
   return <main className="practice-page">
     <header className="practice-header">
-      <a href="#/applications" className="career-wordmark">JaNovel.</a>
-      <button className="practice-back" onClick={() => setEnding(true)}><ArrowLeft size={15}/>면접 준비</button>
-      <div className="practice-heading"><h1>AI 모의면접</h1><span>{interviewTitle(application)}</span></div>
-      <button className="career-button" onClick={() => setEnding(true)}>종료</button>
+      <span className="career-wordmark">JaNovel.</span>
+      <div className="practice-heading"><h1>AI 모의면접</h1><span>{application.company} · {practiceModeLabels[mode]}</span></div>
+      <button className="career-button" onClick={requestEnd}>종료</button>
     </header>
-    {questions.length ? <div className="practice-layout">
-      <section className="practice-question">
+    {question ? <div className="practice-layout">
+      <section className="practice-question" aria-label="현재 질문">
         <div className="practice-progress"><span>질문 {index + 1} / {questions.length}</span>
           <span>진행 시간 {timecode(elapsed)}</span></div>
-        <h2>{questions[index].prompt}</h2>
-        <div className="practice-microphone">
-          <div className="practice-orb" data-state={micState} aria-hidden="true"
-            style={micState === 'listening' ? {'--orb-scale': 1 + level * .12, '--orb-light': 1 + level * .24} : undefined}/>
-          <strong role="status">{microphoneLabels[micState]}</strong>
-          {error && <Notice type="error">{error}</Notice>}
-          {phase === 'disconnected' && <button className="career-button" onClick={connect}>마이크 다시 연결</button>}
+        <div className="practice-visual">
+          <InterviewOrb speaking={speech === 'reading'}/>
+          <p role="status">{status}</p>
         </div>
+        <div className="practice-prompt" aria-live="polite"><h2>{question.prompt}</h2></div>
+        {error && <Notice type="error">{error}</Notice>}
         <div className="practice-controls">
-          <button className="career-button" aria-pressed={!muted} disabled={phase !== 'ready'} onClick={() => {
-            stream.current?.getAudioTracks().forEach(track => {track.enabled = muted;});
-            setMuted(!muted);
-          }}>{muted ? <MicOff size={15}/> : <Mic size={15}/>}마이크</button>
-          <button className="career-button" disabled={phase !== 'ready' && phase !== 'paused'} onClick={togglePause}>
-            {phase === 'paused' ? <Play size={15}/> : <Pause size={15}/>} {phase === 'paused' ? '재개' : '일시정지'}
+          <button className="career-button" disabled={paused || ['loading', 'reading'].includes(speech)} onClick={() => speak(question)}>
+            <Volume2 size={16}/>{speech === 'answer' ? '다시 듣기' : '질문 듣기'}
           </button>
-          <button className="career-button" disabled={phase !== 'ready'} onClick={() => speak(questions[index])}>
-            <Volume2 size={15}/>질문 듣기</button>
-          <button className="career-button primary" disabled={phase !== 'ready'} onClick={() => {
-            window.speechSynthesis?.cancel();
-            setSpeaking(false);
-            if (index === questions.length - 1) setEnding(true); else setIndex(index + 1);
-          }}>{index === questions.length - 1 ? '연습 마치기' : '다음 질문'}</button>
+          <button className="career-button" onClick={() => {
+            cancelPlayback();
+            setSpeech('idle');
+            setPaused(!paused);
+          }}>{paused ? <Play size={16}/> : <Pause size={16}/>} {paused ? '재개' : '일시정지'}</button>
+          <button className="career-button primary" disabled={paused} onClick={nextQuestion}>
+            {index === questions.length - 1 ? '연습 마치기' : '다음 질문'}
+          </button>
         </div>
       </section>
-      <aside className="practice-transcript">
-        <h2>대화 기록</h2>
-        {questions.slice(0, index + 1).map(question => <div key={question.id}>
-          <small>면접관</small><p>{question.prompt}</p>
-        </div>)}
-        <p>음성 전사와 AI 피드백은 연결 전이에요.</p>
-      </aside>
-    </div> : <p className="career-content">연습할 질문을 예상 질문에서 먼저 추가해 주세요.</p>}
-    {ending && <Modal title="AI 모의면접을 종료할까요?" className="interview-modal" onClose={() => setEnding(false)}>
-      <p>연습한 질문과 시간을 기록에 남길 수 있어요.</p>
-      <div className="form-actions"><button className="button" onClick={() => setEnding(false)}>계속 연습</button>
-        <button className="button primary" onClick={finish}>종료</button></div>
+      <section className="practice-transcript" aria-labelledby="practice-history-title">
+        <h2 id="practice-history-title">질문 기록</h2>
+        <ol>
+          {questions.slice(0, index + 1).map((item, position) => <li key={item.id} aria-current={position === index ? 'step' : undefined}>
+            <span>질문 {position + 1}</span><p>{item.prompt}</p>
+          </li>)}
+        </ol>
+      </section>
+    </div> : <div className="career-content">
+      <p>연습할 질문을 먼저 추가해 주세요.</p>
+      <a className="career-button" href={'#' + root + '?tab=practice'}>모의면접 설정</a>
+    </div>}
+    {ending && <Modal title="모의면접을 종료할까요?" className="interview-modal" onClose={() => setEnding(false)}>
+      <p>{question ? '연습한 질문과 진행 시간을 기록해요.' : '모의면접 설정으로 돌아가요.'}</p>
+      <div className="form-actions">
+        <button className="button" onClick={() => setEnding(false)}>계속 연습</button>
+        <button className="button primary" onClick={finish}>{question ? '기록하고 종료' : '종료'}</button>
+      </div>
     </Modal>}
   </main>;
 }

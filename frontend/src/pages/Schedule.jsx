@@ -1,5 +1,5 @@
 import React, {useRef, useState} from 'react';
-import {ChevronLeft, ChevronRight, Plus, Repeat2} from 'lucide-react';
+import {Check, ChevronLeft, ChevronRight, Plus, Repeat2} from 'lucide-react';
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import {allEvents, EventForm} from './Applications.jsx';
@@ -14,13 +14,12 @@ const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 const formatDay = key => new Intl.DateTimeFormat('ko-KR', {
   month: 'long', day: 'numeric', weekday: 'long', timeZone: 'UTC',
 }).format(new Date(key));
-const short = date => date.slice(5).replace('-', '.');
 const personalItem = (start, end = start) => ({
   title: '', kind: 'event', start, end, time: '', endTime: '', note: '', color: 'default',
   repeat: false, repeatUntil: '', completed: [], skipped: [],
 });
 
-function ScheduleForm({dialog, applications, onClose, onSave, onRemove}) {
+function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComplete, onPrepare}) {
   const [data, setData] = useState(dialog.item);
   const [allDay, setAllDay] = useState(!data.time);
   const [error, setError] = useState('');
@@ -82,6 +81,10 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove}) {
       </fieldset>}
       <Field label="메모"><input value={data.note} maxLength={240} onChange={event => change('note', event.target.value)}/></Field>
       {error && !conflict && <Notice type="error">{error}</Notice>}
+      {(onComplete || onPrepare) && <div className="schedule-context-actions">
+        {onComplete && <button type="button" className="button" onClick={onComplete}>{dialog.done ? '완료 취소' : '완료 표시'}</button>}
+        {onPrepare && <button type="button" className="button" onClick={onPrepare}>면접 준비</button>}
+      </div>}
       <div className="form-actions">
         {onRemove && <button type="button" className="button schedule-remove" onClick={onRemove}>일정 삭제</button>}
         <button type="button" className="button" onClick={onClose}>취소</button>
@@ -107,9 +110,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   const weeks = calendarWeeks(month);
   const events = [...supportEvents.filter(item => isDateKey(item.start)),
     ...projectSchedule(items, weeks[0][0], weeks.at(-1).at(-1))];
-  const selectedEvents = events.filter(event => event.start <= selected && selected <= event.end);
-  const tasks = selectedEvents.filter(event => event.kind === 'task');
-  const entries = selectedEvents.filter(event => event.kind !== 'task');
+  const undated = supportEvents.filter(event => !event.date);
 
   function jump(date) {
     setSelected(date);
@@ -131,7 +132,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
       setDialog({type: 'form', item: {...personalItem(event.start, event.end), ...event}});
     } else {
       const item = items.find(item => item.id === event.id);
-      setDialog({type: item.repeat ? 'repeat' : 'form', item, date: event.date});
+      setDialog({type: item.repeat ? 'repeat' : 'form', item, date: event.date, done: event.done});
     }
   }
   function save(next) {
@@ -164,6 +165,11 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
     }
     setDialog(null);
   }
+  function toggleComplete() {
+    onItemsChange(previous => previous.map(item => item.id === dialog.item.id
+      ? completeOccurrence(item, dialog.date, !dialog.done) : item));
+    setDialog(null);
+  }
 
   function finishRange(event) {
     if (!anchor.current) return;
@@ -189,6 +195,9 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
         <div className="schedule-month-heading">
           <h2>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</h2>
           <div>
+            {undated.length > 0 && <button className="career-button schedule-undated" onClick={() => setDialog({type: 'undated'})}>
+              날짜 미정 <span>{undated.length}</span>
+            </button>}
             <button className="career-button" onClick={() => jump(today)}>오늘</button>
             <button className="career-button schedule-arrow" aria-label="이전 달" onClick={() => moveMonth(-1)}><ChevronLeft size={15}/></button>
             <button className="career-button schedule-arrow" aria-label="다음 달" onClick={() => moveMonth(1)}><ChevronRight size={15}/></button>
@@ -209,8 +218,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
                     if (anchor.current) setDrag([anchor.current, day].sort());
                   }}>
                   <button type="button" className={'schedule-day' + (day === today ? ' today' : '') + (day.slice(0, 7) !== month.slice(0, 7) ? ' outside' : '')}
-                    aria-label={formatDay(day) + ' 일정 보기'} aria-pressed={day === selected}
-                    title="더블클릭하여 일정 추가"
+                    aria-label={formatDay(day) + ' 선택'} aria-pressed={day === selected}
                     onPointerDown={event => {
                       if (event.button !== 0 || event.pointerType === 'touch') return;
                       anchor.current = day;
@@ -223,55 +231,38 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
                 </div>;
               })}
               {bars.map(({event, startColumn, endColumn, lane}) => <button type="button"
-                key={event.id + event.date} className={'schedule-bar ' + event.color + (event.done ? ' completed' : '')}
+                key={(event.applicationId || '') + '/' + event.id + '/' + event.date}
+                className={'schedule-bar ' + event.color + (event.done ? ' completed' : '')}
                 style={{gridColumn: startColumn + ' / ' + endColumn, gridRow: lane + 2}}
-                title={event.title + ' · 더블클릭하여 수정'} onClick={() => setSelected(days[startColumn - 1])}
+                title={event.title + ' · 더블클릭하여 수정'}
+                aria-label={[event.company, event.title, formatDay(event.date),
+                  event.kind === 'task' && (event.done ? '완료' : '할 일'), '수정'].filter(Boolean).join(' · ')}
+                onClick={click => {
+                  setSelected(days[startColumn - 1]);
+                  if (!click.detail || click.nativeEvent.pointerType === 'touch') edit(event);
+                }}
                 onDoubleClick={() => edit(event)}>
                 {event.company && <strong>{event.company}</strong>}
                 <span>{event.title}{event.time ? ' ' + event.time : ''}</span>
-                {event.repeat && <Repeat2 size={13} aria-label="일일 반복"/>}
+                {event.done ? <Check size={13} aria-hidden="true"/> : event.repeat && <Repeat2 size={13} aria-hidden="true"/>}
               </button>)}
             </div>;
           })}
         </div>
       </section>
-      <aside className="schedule-detail career-sheet" aria-label="선택한 날짜">
-        <header className="schedule-detail-heading">
-          <h2 aria-live="polite">{formatDay(selected)}</h2>
-          <span>일정 {entries.length}건{tasks.length > 0 && ' · 할 일 ' + tasks.length + '건'}</span>
-        </header>
-        {entries.map(event => <article className="schedule-detail-event" key={event.id + event.date}>
-          <span className={'dashboard-stage ' + (event.type === '면접' ? 'accented' : '')}>{event.type || '일정'}</span>
-          <h3>{event.company || event.title}</h3>
-          {event.company && <p>{event.title}</p>}
-          {event.start !== event.end && <p>{short(event.start)} – {short(event.end)}</p>}
-          {(event.time || event.note) && <p>{[event.time, event.note].filter(Boolean).join(' · ')}</p>}
-          {event.type === '면접' && <button className="career-button primary" onClick={() => navigate('/interviews/' + event.applicationId)}>면접 준비</button>}
-          <button className="career-button" onClick={() => edit(event)}>일정 수정</button>
-        </article>)}
-        {tasks.length > 0 && <section className="schedule-tasks">
-          <h3>체크리스트 {tasks.length}</h3>
-          {tasks.map(event => <div className="schedule-task" key={event.id + event.date}>
-            <label className="schedule-checkbox"><input type="checkbox" checked={event.done}
-              onChange={e => {
-                const done = e.target.checked;
-                onItemsChange(previous => previous.map(item => item.id === event.id
-                  ? completeOccurrence(item, event.date, done) : item));
-              }}/><span>{event.title}</span></label>
-            {(event.time || event.repeat) && <p>{[event.time, event.repeat && '매일'].filter(Boolean).join(' · ')}</p>}
-            <button className="career-button" onClick={() => edit(event)}>할 일 수정</button>
-          </div>)}
-        </section>}
-        {!selectedEvents.length && <p className="schedule-empty">등록된 일정이 없어요.</p>}
-        {supportEvents.some(event => !event.date) && <section className="schedule-tasks">
-          <h3>날짜 미정</h3>
-          {supportEvents.filter(event => !event.date).map(event => <button className="career-button" key={event.id}
-            onClick={() => edit({...event, start: selected, end: selected})}>{event.company} · {event.title}</button>)}
-        </section>}
-      </aside>
     </div>
+    {dialog?.type === 'undated' && <Modal title="날짜 미정 일정" onClose={() => setDialog(null)}>
+      <div className="dashboard-schedule-list">
+        {undated.map(event => <button key={event.applicationId + '/' + event.id}
+          onClick={() => edit({...event, start: selected, end: selected})}>
+          <span><strong>{event.title}</strong><small>{event.company}</small></span><ChevronRight size={15}/>
+        </button>)}
+      </div>
+    </Modal>}
     {dialog?.type === 'form' && <ScheduleForm dialog={dialog} applications={applications} onClose={() => setDialog(null)}
-      onSave={save} onRemove={dialog.item.id ? () => setDialog({...dialog, type: 'remove'}) : undefined}/>}
+      onSave={save} onRemove={dialog.item.id ? () => setDialog({...dialog, type: 'remove'}) : undefined}
+      onComplete={dialog.item.kind === 'task' && dialog.date && !dialog.item.repeat && !dialog.scope ? toggleComplete : undefined}
+      onPrepare={dialog.item.type === '면접' ? () => navigate('/interviews/' + dialog.item.applicationId) : undefined}/>}
     {dialog?.type === 'deadline' && <Modal title="지원 마감 수정" onClose={() => setDialog(null)}>
       <EventForm event={dialog.item} onClose={() => setDialog(null)} onSubmit={next => {
         onApplicationChange(dialog.item.applicationId, application => saveApplicationEvent(application, next));
@@ -286,6 +277,9 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
     </Modal>}
     {dialog?.type === 'repeat' && <Modal title={'매일 반복 · ' + formatDay(dialog.date)} onClose={() => setDialog(null)}>
       <p>{dialog.item.title}</p><div className="schedule-repeat-actions">
+        {dialog.item.kind === 'task' && <button className="button primary" onClick={toggleComplete}>
+          {dialog.done ? '완료 취소' : '이 날짜 완료 표시'}
+        </button>}
         <button className="button" onClick={() => setDialog({...dialog, type: 'form', scope: 'date', original: dialog.item,
           item: {...dialog.item, start: dialog.date, end: dialog.date, repeat: false}})}>이 날짜만 수정</button>
         <button className="button" onClick={() => setDialog({...dialog, type: 'form'})}>전체 반복 수정</button>

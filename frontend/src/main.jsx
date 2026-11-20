@@ -49,6 +49,7 @@ function App() {
   const [imported, setImported] = useState(null);
   const [importError, setImportError] = useState('');
   const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [practiceSession, setPracticeSession] = useState(null);
   const [route, navigate] = useHashRoute();
   const [path, search] = route.split('?');
   const [, kind, aid, qid] = path.split('/');
@@ -70,6 +71,10 @@ function App() {
   useEffect(() => {
     document.title = 'JaNovel · ' + (pageTitles[kind] || '지원 기록');
   }, [kind]);
+
+  useEffect(() => {
+    if (kind !== 'interviews' || qid !== 'practice') setPracticeSession(null);
+  }, [kind, aid, qid]);
 
   useEffect(() => {
     if (kind !== 'write' || !application) return;
@@ -98,6 +103,12 @@ function App() {
 
   const updateInterview = (id, action) => changeApplication(id, item => ({...item, interview: action(interviewFor(item))}));
   const interviewRecord = application && kind === 'interviews' && qid && interviewFor(application).records.find(item => item.id === qid);
+  const practice = kind === 'interviews' && qid === 'practice' && application;
+  const materialMode = query.get('mode') === 'materials';
+  const matchingSession = practiceSession && practiceSession.applicationId === aid &&
+    practiceSession.mode === (materialMode ? 'materials' : 'expected')
+    ? practiceSession : null;
+  const expiredPractice = practice && materialMode && !matchingSession;
   let content;
   if (isAuth) {
     content = <Auth key={kind} page={kind} navigate={navigate} verifiedEmail={verifiedEmail} onVerify={setVerifiedEmail} onEnter={profile => {
@@ -105,8 +116,9 @@ function App() {
       setVerifiedEmail('');
       navigate('/applications');
     }}/>;
-  } else if (kind === 'interviews' && qid === 'practice' && application) {
-    content = <InterviewPractice key={aid} application={application} navigate={navigate} onChange={action => updateInterview(aid, action)}/>;
+  } else if (practice && !expiredPractice) {
+    content = <InterviewPractice key={aid + '/' + (materialMode ? 'materials' : 'expected')} application={application}
+      session={matchingSession} navigate={navigate} onChange={action => updateInterview(aid, action)}/>;
   } else if (!kind || ['applications', 'schedule', 'interviews'].includes(kind)) {
     const section = '/' + (kind || 'applications');
     content = <CareerLayout section={section} store={store} onSettings={openSettings}>
@@ -114,8 +126,13 @@ function App() {
         <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
           onApplicationChange={changeApplication}/> :
-        application ? <InterviewDetail key={aid} application={application} navigate={navigate} query={query}
-          record={interviewRecord} onChange={action => updateInterview(aid, action)} storageError={storageError}/> :
+        application ? <InterviewDetail key={aid} application={application} navigate={navigate}
+          query={expiredPractice ? new URLSearchParams('tab=practice&mode=materials&expired') : query}
+          record={interviewRecord} onChange={action => updateInterview(aid, action)} storageError={storageError}
+          onPracticeStart={session => {
+            setPracticeSession({...session, applicationId: aid});
+            navigate('/interviews/' + aid + '/practice' + (session.mode === 'materials' ? '?mode=materials' : ''));
+          }}/> :
         <Interviews store={store} navigate={navigate} query={query}
           onApplicationChange={changeApplication} onInterviewChange={updateInterview}/>}
     </CareerLayout>;
