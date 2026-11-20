@@ -53,11 +53,11 @@
 .community-month h3 { font-size: 16px; }
 .community-month-grid {
   display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: auto; grid-auto-rows: minmax(60px, auto); margin-top: 8px;
+  grid-template-rows: auto; grid-auto-rows: minmax(82px, auto); margin-top: 8px;
 }
 .community-weekday { padding: 6px 8px 9px; color: var(--career-muted); font-size: 12px; }
 .community-day {
-  display: grid; align-content: start; gap: 4px; min-height: 60px; padding: 6px 8px; text-align: left;
+  display: grid; align-content: start; gap: 4px; padding: 6px 8px; text-align: left;
   border-top: 1px solid var(--career-border); border-left: 1px solid var(--career-border); color: var(--career-ink);
 }
 .community-day:nth-child(7n) { border-right: 1px solid var(--career-border); }
@@ -285,6 +285,14 @@
   .community-day-mark > * { display: none; }
 }
 
+@media (min-width: 701px) {
+  .career-main > .friends-content { --career-content-max: none; padding: 0; }
+  .friends-layout { grid-template-columns: clamp(210px, 19vw, 244px) minmax(0, 1fr); }
+  .friend-list { padding-top: 20px; }
+  .friend-workspace {
+    justify-self: center; width: min(100% - 28px, 800px); margin-block: 20px 24px;
+  }
+}
 @media (min-width: 701px) and (min-height: 480px) {
   .career-main > .friends-content { flex: none; height: 100dvh; grid-template-rows: minmax(0, 1fr); }
   .career-layout:has(.friends-content) > .career-sidebar { overflow-y: auto; }
@@ -303,8 +311,8 @@
   .friends-panel-switch { gap: 14px; }
   .community-chat { min-height: 240px; }
   .community-month, .community-agenda, .community-chat .community-composer, .community-messages { padding-inline: 12px; }
-  .community-month-grid { grid-auto-rows: minmax(46px, auto); }
-  .community-day { min-height: 46px; padding-inline: 4px; }
+  .community-month-grid { grid-auto-rows: minmax(56px, auto); }
+  .community-day { padding-inline: 4px; }
   .community-weekday { padding-inline: 4px; }
 }
 @media (max-width: 690px) {
