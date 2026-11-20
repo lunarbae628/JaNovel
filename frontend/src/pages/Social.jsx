@@ -57,7 +57,7 @@ function FriendSearchDialog({friends, onAdd, onInvite, onClose}) {
 }
 
 function Avatar({person}) {
-  return <span className={'community-avatar ' + person.color} aria-hidden="true">
+  return <span className={'community-avatar ' + (person.color || '')} aria-hidden="true">
     {person.group ? <UsersRound size={17}/> : person.mark}
   </span>;
 }
@@ -169,18 +169,33 @@ function Chat({selected, messages, panel, onSend}) {
 
   return <section id="friend-chat" className="community-chat" hidden={panel !== 'chat'} aria-label={selected.name + ' 채팅'}>
     {messages.length ? <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
-      {messages.map((item, index) => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
-        {messages[index - 1]?.from !== item.from && <small>{item.from}</small>}
-        <p>{item.text}</p>
-      </li>)}
+      {messages.map((item, index) => {
+        const mine = item.from === '나';
+        const startsGroup = messages[index - 1]?.from !== item.from;
+        const sender = directory.find(person => person.name === item.from) || {mark: item.from.slice(0, 1)};
+        return <li key={item.id} className={mine ? 'mine' : undefined}>
+          {!mine && startsGroup && <Avatar person={sender}/>}
+          <div className="community-message-text">
+            {startsGroup && <small className={mine || !selected.group ? 'visually-hidden' : undefined}>{item.from}</small>}
+            <p>{item.text}</p>
+          </div>
+        </li>;
+      })}
     </ol> : <p className="community-thread-empty">아직 메시지가 없어요.</p>}
     <Composer key={selected.id} label="메시지 입력" action="보내기" onSend={onSend}/>
   </section>;
 }
 
-function FriendList({friends, selected, chat, panel, pending, onAdd}) {
+function FriendList({friends, selected, chat, inbox, panel, pending, onAdd}) {
+  const [search, setSearch] = useState('');
+  const term = search.trim().toLowerCase();
+  const matches = person => person.name.toLowerCase().includes(term) || ('@' + person.id).includes(term);
+  const visibleFriends = friends.filter(matches);
+  const visibleStudy = matches(studyRoom);
+
   function contactLink(person) {
     const last = chat[person.id]?.at(-1);
+    const unread = inbox.some(item => item.kind === 'message' && !item.read && item.target === person.id);
     const href = person.group ? '#/friends?conversation=' + person.id :
       '#/friends?friend=' + person.id + (panel === 'schedule' ? '&tab=calendar' : '');
     return <li key={person.id}><a className="friend-contact-link" href={href}
@@ -189,6 +204,7 @@ function FriendList({friends, selected, chat, panel, pending, onAdd}) {
       <span className="friend-contact-copy"><strong>{person.name}</strong>
         {last && <small>{last.from === '나' && '나: '}{last.text}</small>}
       </span>
+      {unread && <span className="friend-unread"><span className="visually-hidden">읽지 않은 메시지</span></span>}
     </a></li>;
   }
 
@@ -199,10 +215,16 @@ function FriendList({friends, selected, chat, panel, pending, onAdd}) {
         <UserPlus size={15} aria-hidden="true"/>친구 추가
       </button>
     </div>
-    <ul>{friends.map(contactLink)}</ul>
-    {pending > 0 && <p className="community-empty">초대 대기 {pending}명</p>}
-    <div className="friend-study"><h2>스터디</h2><ul>{contactLink(studyRoom)}</ul></div>
-    <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
+    <label className="friend-list-search">
+      <Search size={17} aria-hidden="true"/>
+      <input type="search" aria-label="친구 및 대화 검색" placeholder="이름 또는 @아이디"
+        value={search} onChange={event => setSearch(event.target.value)}/>
+    </label>
+    {visibleFriends.length > 0 && <ul>{visibleFriends.map(contactLink)}</ul>}
+    {pending > 0 && !term && <p className="community-empty">초대 대기 {pending}명</p>}
+    {visibleStudy && <div className="friend-study"><h2>스터디</h2><ul>{contactLink(studyRoom)}</ul></div>}
+    {!visibleFriends.length && !visibleStudy && <p className="community-empty" role="status">일치하는 대화가 없어요.</p>}
+    <p className="community-preview-note">미리보기 · 이 브라우저에만 저장돼요.</p>
   </nav>;
 }
 
@@ -237,11 +259,14 @@ export default function Social({query, preview, setPreview}) {
 
   return <>
     <div className="career-content friends-content friends-layout">
-      <FriendList friends={friends} selected={channel} chat={chat} panel={panel} pending={invites.length}
+      <FriendList friends={friends} selected={channel} chat={chat} inbox={preview.inbox} panel={panel} pending={invites.length}
         onAdd={() => setDialog({type: 'search'})}/>
       <div className="friend-workspace">
         <header className="friend-workspace-header">
-          <div className="friend-name"><Avatar person={channel}/><h2>{channel.name}</h2></div>
+          <div className="friend-name">
+            <Avatar person={channel}/>
+            <div><h2>{channel.name}</h2><p>{channel.group ? '그룹 채팅' : '@' + channel.id}</p></div>
+          </div>
           {!channel.group && <div className="career-tabs friends-panel-switch" role="group" aria-label="친구 화면 보기">
             <button type="button" aria-pressed={panel === 'chat'} aria-controls="friend-chat" onClick={() => setPanel('chat')}>
               <MessageCircle size={16} aria-hidden="true"/>채팅
