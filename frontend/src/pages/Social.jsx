@@ -4,7 +4,6 @@ import {Field, Modal, dateLabel} from '../components/UI.jsx';
 import {uid} from '../model.js';
 import {addDays, calendarWeeks, scheduleTone, todayKey} from '../schedule.js';
 import {addPreviewFriend, demoComments, directory, markInboxRead, studyRoom} from '../social-preview.js';
-import Inbox from './Inbox.jsx';
 import '../community.css';
 
 const weekday = ['일', '월', '화', '수', '목', '금', '토'];
@@ -76,7 +75,7 @@ function Composer({label, action, onSend}) {
   </form>;
 }
 
-function FriendsWorkspace({person, friends, pending, today, startDate, comments, onOpen, onAdd}) {
+function FriendSchedule({person, today, startDate, comments, onOpen}) {
   const [selected, setSelected] = useState(startDate);
   const [month, setMonth] = useState(startDate.slice(0, 7) + '-01');
   const weeks = calendarWeeks(month);
@@ -94,9 +93,8 @@ function FriendsWorkspace({person, friends, pending, today, startDate, comments,
     jump(date.toISOString().slice(0, 10));
   }
 
-  return <div className="friends-layout">
-    <FriendList friends={friends} selected={person} pending={pending} onAdd={onAdd}/>
-    <section className="career-sheet community-month" aria-label={person.name + '의 캘린더'}>
+  return <aside id="friend-schedule" className="career-sheet friend-schedule" aria-label={person.name + '의 일정'}>
+    <section className="community-month" aria-label={person.name + '의 캘린더'}>
       <div className="community-section-head">
         <div><h2>{person.name}의 캘린더</h2>
           <p>{month.slice(0, 4)}년 {Number(month.slice(5, 7))}월</p></div>
@@ -115,13 +113,13 @@ function FriendsWorkspace({person, friends, pending, today, startDate, comments,
             aria-current={day === today ? 'date' : undefined} onClick={() => jump(day)}>
             <strong>{Number(day.slice(8))}</strong>
             {entries.length > 0 && <span className={'community-day-mark schedule-tone ' + (entries.length === 1 ? scheduleTone(entries[0]) : 'default')}>
-              <CalendarDays size={12} aria-hidden="true"/><span>{entries.length === 1 ? entries[0].title : '일정 ' + entries.length + '건'}</span>
+              <span>{entries.length === 1 ? entries[0].title : '일정 ' + entries.length + '건'}</span>
             </span>}
           </button>;
         })}
       </div>
     </section>
-    <section className="career-sheet community-agenda">
+    <section className="community-agenda">
       <div className="community-section-head"><h2>{dateLabel(selected)} 일정</h2><span>{picked.length}건</span></div>
       {picked.length ? <ul className="community-agenda-list">
         {picked.map(item => {
@@ -140,7 +138,7 @@ function FriendsWorkspace({person, friends, pending, today, startDate, comments,
         })}
       </ul> : <p className="community-empty">이 날짜에 볼 수 있는 일정이 없어요.</p>}
     </section>
-  </div>;
+  </aside>;
 }
 
 function InviteDialog({invites, onInvite, onClose}) {
@@ -164,22 +162,15 @@ function InviteDialog({invites, onInvite, onClose}) {
   </Modal>;
 }
 
-function Chat({selected, channels, messages, onSend}) {
+function Chat({selected, messages, panel, onSend}) {
   const thread = useRef(null);
   useEffect(() => {
     if (thread.current) thread.current.scrollTop = thread.current.scrollHeight;
-  }, [messages]);
+  }, [messages, selected.id, panel]);
 
-  return <section className="career-sheet community-chat" aria-label="채팅">
-    <nav className="community-channels" aria-label="대화 목록">
-      <h2>대화</h2>
-      {channels.map(channel => <a key={channel.id} href={'#/chat?conversation=' + channel.id}
-        aria-current={channel.id === selected.id ? 'page' : undefined}>
-        <Avatar person={channel}/><span>{channel.name}</span>
-      </a>)}
-    </nav>
+  return <section id="friend-chat" className="career-sheet community-chat" aria-label={selected.name + ' 채팅'}>
     <div className="community-thread">
-      <header><Avatar person={selected}/><div><h1>{selected.name}</h1><p>{selected.group ? '스터디 채팅' : '친구와의 대화'}</p></div></header>
+      <header><Avatar person={selected}/><div><h2>{selected.name}</h2><p>{selected.group ? '스터디 채팅' : '1:1 채팅'}</p></div></header>
       {messages.length ? <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
         {messages.map(item => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
           <small>{item.from}</small><p>{item.text}</p>
@@ -190,25 +181,29 @@ function Chat({selected, channels, messages, onSend}) {
   </section>;
 }
 
-function FriendList({friends, selected, pending, onAdd}) {
-  return <nav className="career-sheet friend-list" aria-label="친구 목록">
+function FriendList({friends, selected, chat, pending, onAdd}) {
+  function contactLink(person) {
+    const last = chat[person.id]?.at(-1);
+    const href = person.group ? '#/friends?conversation=' + person.id : '#/friends?friend=' + person.id;
+    return <li key={person.id}><a className="friend-contact-link" href={href}
+      aria-current={person.id === selected.id ? 'page' : undefined}>
+      <Avatar person={person}/>
+      <span className="friend-contact-copy"><strong>{person.name}</strong>
+        {last && <small>{last.from === '나' && '나: '}{last.text}</small>}
+      </span>
+    </a></li>;
+  }
+
+  return <nav className="career-sheet friend-list" aria-label="친구 및 대화 목록">
     <div className="community-section-head">
-      <h1>친구 목록 <small>{friends.length}명</small></h1>
+      <h1>친구 <small>{friends.length}명</small></h1>
       <button className="career-button primary near-action" onClick={onAdd}>
         <UserPlus size={15} aria-hidden="true"/>친구 추가
       </button>
     </div>
-    <ul>
-      {friends.map(person => <li key={person.id}>
-        <a className="friend-calendar-link" href={'#/friends?friend=' + person.id}
-          aria-label={person.name + ' 캘린더'} aria-current={person.id === selected.id ? 'page' : undefined}>
-          <Avatar person={person}/><span>{person.name}</span>
-        </a>
-        <a className="friend-chat-link" href={'#/chat?conversation=' + person.id}
-          aria-label={person.name + '와 채팅'} title="채팅 열기"><MessageCircle size={17} aria-hidden="true"/></a>
-      </li>)}
-    </ul>
+    <ul>{friends.map(contactLink)}</ul>
     {pending > 0 && <p className="community-empty">초대 대기 {pending}명</p>}
+    <div className="friend-study"><h2>스터디</h2><ul>{contactLink(studyRoom)}</ul></div>
   </nav>;
 }
 
@@ -216,23 +211,22 @@ function appendMessage(messages, key, text) {
   return {...messages, [key]: [...(messages[key] || []), {id: uid('message'), from: '나', text}]};
 }
 
-export default function Social({section, query, preview, setPreview}) {
+export default function Social({query, preview, setPreview}) {
   const [today] = useState(todayKey);
   const {friendIds, invites, chat} = preview;
   const comments = {...demoComments, ...preview.comments};
   const friends = directory.filter(friend => friendIds.includes(friend.id));
   const channels = [...friends, studyRoom];
-  const person = friends.find(friend => friend.id === query.get('friend')) || friends[0];
-  const channel = channels.find(item => item.id === query.get('conversation')) || channels[0];
-  const inChat = section === 'chat';
-  const inFriends = section === 'friends';
-  const linkedEvent = inFriends && exampleEvents(today).find(item => item.owner === person.id && item.id === query.get('event'));
+  const target = query.get('conversation') || query.get('friend');
+  const channel = channels.find(item => item.id === target) || channels[0];
+  const linkedEvent = !channel.group && exampleEvents(today).find(item => item.owner === channel.id && item.id === query.get('event'));
+  const [panel, setPanel] = useState(() => linkedEvent ? 'schedule' : 'chat');
   const [dialog, setDialog] = useState(() => linkedEvent ? {
     event: linkedEvent, key: linkedEvent.owner + '/' + linkedEvent.id, day: linkedEvent.start,
   } : null);
   const close = () => setDialog(null);
   const event = dialog?.event;
-  const openChannel = inChat ? channel.id : '';
+  const openChannel = panel === 'chat' ? channel.id : '';
   const openEvent = event?.id;
 
   useEffect(() => {
@@ -242,26 +236,35 @@ export default function Social({section, query, preview, setPreview}) {
   }, [openChannel, openEvent, setPreview]);
 
   return <>
-    <div className={'career-content community-content ' + (section === 'inbox' ? 'inbox-content' : inFriends ? 'friends-content' : '')}>
-      {section === 'inbox' ? <Inbox preview={preview} setPreview={setPreview}/> :
-        inChat ? <Chat selected={channel} channels={channels} messages={chat[channel.id] || []}
-          onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/> :
-        <FriendsWorkspace key={person.id} person={person} friends={friends} pending={invites.length}
-          today={today} startDate={linkedEvent?.start || today} comments={comments} onAdd={() => setDialog({type: 'search'})}
+    <div className="career-content friends-content">
+      <div className="friends-layout" data-panel={panel} data-group={Boolean(channel.group)}>
+        <FriendList friends={friends} selected={channel} chat={chat} pending={invites.length}
+          onAdd={() => setDialog({type: 'search'})}/>
+        {!channel.group && <div className="friends-panel-switch" role="group" aria-label="친구 화면 보기">
+          <button type="button" aria-pressed={panel === 'chat'} aria-controls="friend-chat" onClick={() => setPanel('chat')}>
+            <MessageCircle size={16} aria-hidden="true"/>채팅
+          </button>
+          <button type="button" aria-pressed={panel === 'schedule'} aria-controls="friend-schedule" onClick={() => setPanel('schedule')}>
+            <CalendarDays size={16} aria-hidden="true"/>일정
+          </button>
+        </div>}
+        <Chat selected={channel} messages={chat[channel.id] || []} panel={panel}
+          onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/>
+        {!channel.group && <FriendSchedule person={channel} today={today} startDate={linkedEvent?.start || today} comments={comments}
           onOpen={(item, key, day) => setDialog({event: item, key, day})}/>}
-      <p className="community-preview-note">{section === 'inbox' ? '미리보기 · 예시 알림과 읽음 상태는 이 브라우저에만 저장돼요.' :
-        '미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.'}</p>
+      </div>
+      <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
     </div>
-    {inFriends && dialog?.type === 'search' && <FriendSearchDialog friends={friends} onClose={close}
+    {dialog?.type === 'search' && <FriendSearchDialog friends={friends} onClose={close}
       onInvite={() => setDialog({type: 'invite'})} onAdd={id => {
         setPreview(current => addPreviewFriend(current, id));
       }}/>}
-    {inFriends && dialog?.type === 'invite' && <InviteDialog invites={invites} onClose={close}
+    {dialog?.type === 'invite' && <InviteDialog invites={invites} onClose={close}
       onInvite={email => setPreview(current => current.invites.includes(email) ? current :
         {...current, invites: [...current.invites, email]})}/>}
-    {inFriends && event && <Modal title={event.title} className="community-modal" onClose={close}>
+    {event && <Modal title={event.title} className="community-modal" onClose={close}>
       <div className="community-event-comments">
-        <p className="community-modal-note">{person.name} · {dateLabel(dialog.day, event.time)}</p>
+        <p className="community-modal-note">{channel.name} · {dateLabel(dialog.day, event.time)}</p>
         <h3>댓글</h3>
         {(comments[dialog.key] || []).length > 0 ? <ul className="community-comment-list" aria-live="polite">
           {comments[dialog.key].map(item => <li key={item.id}><strong>{item.from}</strong><p>{item.text}</p></li>)}

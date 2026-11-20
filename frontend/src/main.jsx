@@ -21,10 +21,11 @@ const Interviews = lazy(() => import('./pages/Interviews.jsx').then(module => ({
 const InterviewDetail = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.InterviewDetail})));
 const InterviewPractice = lazy(() => import('./pages/InterviewPractice.jsx').then(module => ({default: module.InterviewPractice})));
 const Community = lazy(() => import('./pages/Community.jsx'));
+const Inbox = lazy(() => import('./pages/Inbox.jsx'));
 const Social = lazy(() => import('./pages/Social.jsx'));
 
 const pageTitles = {
-  applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '커뮤니티', friends: '친구', chat: '채팅', inbox: '수신함',
+  applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '커뮤니티', friends: '친구',
   posting: '공고 등록', write: '작성', merge: '병합', submissions: '제출본',
   login: '로그인', signup: '회원가입', 'signup-details': '계정 정보',
   reset: '비밀번호 재설정', application: '지원 상세',
@@ -51,18 +52,23 @@ function App() {
   const [saveBlocked, setSaveBlocked] = useState(Boolean(initial.error));
   const [storageError, setStorageError] = useState(initial.error);
   const [settings, setSettings] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
   const [imported, setImported] = useState(null);
   const [importError, setImportError] = useState('');
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [practiceSession, setPracticeSession] = useState(null);
   const [route, navigate] = useHashRoute();
-  const [path, search] = route.split('?');
+  const [originalPath, originalSearch] = route.split('?');
+  const legacySocialRoute = originalPath === '/chat' || originalPath === '/inbox';
+  const pageRoute = legacySocialRoute ? '/friends' +
+    (originalPath === '/chat' && originalSearch ? '?' + originalSearch : '') : route;
+  const [path, search] = pageRoute.split('?');
   const [, kind, aid, qid] = path.split('/');
   const query = new URLSearchParams(search);
   const application = store.applications.find(item => item.id === aid);
   const question = application?.questions.find(item => item.id === qid) || application?.questions[0];
   const isAuth = authPages.includes(kind);
-  const careerPage = !kind || ['applications', 'schedule', 'interviews', 'community', 'friends', 'chat', 'inbox'].includes(kind);
+  const careerPage = !kind || ['applications', 'schedule', 'interviews', 'community', 'friends'].includes(kind);
 
   useEffect(() => {
     if (saveBlocked) return;
@@ -93,6 +99,13 @@ function App() {
       };
     });
   }, [kind, aid, Boolean(application)]);
+
+  useEffect(() => {
+    if (!legacySocialRoute) return;
+    if (originalPath === '/inbox') setInboxOpen(true);
+    history.replaceState(history.state, '', '#' + pageRoute);
+    navigate(pageRoute);
+  }, [legacySocialRoute, originalPath, pageRoute, navigate]);
 
   const openSettings = () => setSettings(true);
   const changeApplication = (id, update) => setStore(previous => ({
@@ -128,14 +141,15 @@ function App() {
   } else if (careerPage) {
     const section = '/' + (kind || 'applications');
     content = <CareerLayout section={section} store={store} onSettings={openSettings}
+      inboxOpen={inboxOpen} onOpenInbox={() => setInboxOpen(true)}
       unreadCount={socialPreview.inbox.filter(item => !item.read).length}>
       {section === '/applications' ? <Applications store={store} navigate={navigate} onApplicationChange={changeApplication}/> : section === '/schedule' ?
         <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
           onApplicationChange={changeApplication}/> : section === '/community' ?
         <Community query={query} writing={aid === 'write'} navigate={navigate}/> :
-        ['friends', 'chat', 'inbox'].includes(kind) ?
-        <Social key={route} section={kind} query={query} preview={socialPreview} setPreview={setSocialPreview}/> :
+        kind === 'friends' ?
+        <Social key={pageRoute} query={query} preview={socialPreview} setPreview={setSocialPreview}/> :
         application ? <InterviewDetail key={aid} application={application} navigate={navigate}
           query={expiredPractice ? new URLSearchParams('tab=practice&mode=materials&expired') : query}
           record={interviewRecord} onChange={action => updateInterview(aid, action)} storageError={storageError}
@@ -174,6 +188,9 @@ function App() {
     </div>}
     <Suspense fallback={<div className="page" role="status">불러오는 중</div>}>{content || <Empty title="페이지를 찾을 수 없어요"
       action={<button className="button" onClick={() => navigate('/applications')}>지원 현황</button>}/>}</Suspense>
+    {inboxOpen && <Suspense fallback={null}>
+      <Inbox preview={socialPreview} setPreview={setSocialPreview} onClose={() => setInboxOpen(false)}/>
+    </Suspense>}
     {settings && <Modal title="설정 및 백업" onClose={() => {setSettings(false); setImported(null);}}>
       <Notice>자소서와 지원 정보는 이 브라우저에 저장합니다. 기기 간 동기화와 실제 인증은 연결 전입니다.</Notice>
       {!store.profile?.name && <a className="button full" href="#/login" onClick={() => {setSettings(false); setImported(null);}}>로그인 화면</a>}

@@ -1,5 +1,5 @@
 import React from 'react';
-import {Bell, BriefcaseBusiness, CalendarDays, MessageCircle, MessagesSquare, Settings2, UserRound, UsersRound} from 'lucide-react';
+import {Bell, BriefcaseBusiness, CalendarDays, MessagesSquare, Settings2, UserRound, UsersRound} from 'lucide-react';
 
 const links = [
   ['/applications', '지원 현황', BriefcaseBusiness],
@@ -7,7 +7,6 @@ const links = [
   ['/interviews', '면접 준비', MessagesSquare],
   ['/community', '커뮤니티', UsersRound],
   ['/friends', '친구', UserRound],
-  ['/chat', '채팅', MessageCircle],
 ];
 
 export function writingPath(application) {
@@ -22,7 +21,7 @@ export function recentApplications(store) {
     application.questions.some(question => question.branches.some(branch => branch.draft.text))).slice(0, 2);
 }
 
-export function CareerLayout({section, store, onSettings, unreadCount, children}) {
+export function CareerLayout({section, store, onSettings, unreadCount, inboxOpen, onOpenInbox, children}) {
   const recent = recentApplications(store);
   return <div className="career-layout">
     <aside className="career-sidebar">
@@ -42,11 +41,11 @@ export function CareerLayout({section, store, onSettings, unreadCount, children}
         </a>)}
       </section>}
       <footer className="career-account">
-        <a className="career-inbox-link" href="#/inbox" aria-current={section === '/inbox' ? 'page' : undefined}
+        <button className="career-inbox-link" type="button" onClick={onOpenInbox} aria-haspopup="dialog" aria-expanded={inboxOpen}
           aria-label={unreadCount ? '수신함 · 읽지 않은 알림 ' + unreadCount + '개' : '수신함'}>
           <Bell size={18} strokeWidth={1.5} aria-hidden="true"/><span>수신함</span>
           {unreadCount > 0 && <small aria-hidden="true">{unreadCount > 99 ? '99+' : unreadCount}</small>}
-        </a>
+        </button>
         <button type="button" onClick={onSettings}><Settings2 size={18} strokeWidth={1.5}/>설정</button>
         {store.profile?.name ? <span>{store.profile.name}</span> : <a href="#/login">로그인</a>}
       </footer>

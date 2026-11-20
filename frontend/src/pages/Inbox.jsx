@@ -1,5 +1,7 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {ArrowUpRight, CheckCheck, MessageCircle, MessageSquareText, UserPlus} from 'lucide-react';
+import {Modal} from '../components/UI.jsx';
+import '../community.css';
 import {addPreviewFriend, directory, markInboxRead} from '../social-preview.js';
 
 const kinds = {
@@ -13,7 +15,7 @@ function InboxItem({item, friendIds, onRead, onRespond}) {
   const person = directory.find(person => person.id === item.personId);
   const response = item.response || (friendIds.includes(item.personId) && 'accepted');
   const request = item.kind === 'request';
-  const href = item.kind === 'message' ? '#/chat?conversation=' + item.target :
+  const href = item.kind === 'message' ? '#/friends?conversation=' + item.target :
     '#/friends?friend=' + item.target + '&event=' + item.eventId;
   const summary = <div className="inbox-summary">
     <span className={'inbox-icon ' + item.kind}><Icon size={17} aria-hidden="true"/></span>
@@ -39,34 +41,41 @@ function InboxItem({item, friendIds, onRead, onRespond}) {
   </li>;
 }
 
-export default function Inbox({preview, setPreview}) {
+export default function Inbox({preview, setPreview, onClose}) {
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const filterButton = useRef(null);
   const unread = preview.inbox.filter(item => !item.read);
   const visible = onlyUnread ? unread : preview.inbox;
 
   function respond(item, response) {
+    filterButton.current.focus();
     setPreview(current => response === 'accepted' ? addPreviewFriend(current, item.personId) :
       {...current, inbox: current.inbox.map(entry => entry.id === item.id && !entry.response
         ? {...entry, response, read: true} : entry)});
   }
 
-  return <section className="career-sheet inbox-panel" aria-labelledby="inbox-title">
-    <div className="inbox-heading">
-      <h1 id="inbox-title">수신함</h1>
+  return <Modal title="수신함" className="inbox-modal" onClose={onClose}>
+    <div className="inbox-toolbar">
+      <div className="career-tabs inbox-filters" aria-label="수신함 보기">
+        <button ref={filterButton} type="button" aria-pressed={!onlyUnread} onClick={() => setOnlyUnread(false)}>전체</button>
+        <button type="button" aria-pressed={onlyUnread} onClick={() => setOnlyUnread(true)}>
+          읽지 않음 <span>{unread.length}</span>
+        </button>
+      </div>
       <button className="career-button" disabled={!unread.length}
-        onClick={() => setPreview(current => markInboxRead(current, () => true))}>
+        onClick={() => {
+          filterButton.current.focus();
+          setPreview(current => markInboxRead(current, () => true));
+        }}>
         <CheckCheck size={16} aria-hidden="true"/>모두 읽음
-      </button>
-    </div>
-    <div className="career-tabs inbox-filters" aria-label="수신함 보기">
-      <button type="button" aria-pressed={!onlyUnread} onClick={() => setOnlyUnread(false)}>전체</button>
-      <button type="button" aria-pressed={onlyUnread} onClick={() => setOnlyUnread(true)}>
-        읽지 않음 <span>{unread.length}</span>
       </button>
     </div>
     {visible.length ? <ul className="inbox-items">
       {visible.map(item => <InboxItem key={item.id} item={item} friendIds={preview.friendIds}
-        onRead={id => setPreview(current => markInboxRead(current, entry => entry.id === id))} onRespond={respond}/>)}
+        onRead={id => {
+          setPreview(current => markInboxRead(current, entry => entry.id === id));
+          onClose();
+        }} onRespond={respond}/>)}
     </ul> : <p className="community-empty inbox-empty">{onlyUnread ? '읽지 않은 알림이 없어요.' : '아직 받은 알림이 없어요.'}</p>}
-  </section>;
+  </Modal>;
 }
