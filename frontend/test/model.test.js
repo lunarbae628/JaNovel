@@ -29,6 +29,7 @@ test('문항별 지정본은 이후 수정과 분리되며 면접 자료에는 �
   const original = '지원 당시 작성안 본문을 그대로 면접 자료에 남깁니다.';
   const updated = '면접 연습 이후 새로운 내용으로 수정합니다.';
   let question = designateQuestionSubmission(updateDraft(first, branch, original), key);
+  assert.match(question.submissionHistory[0].label, /^초안 · /);
   question = updateDraft(question, branch, updated);
   assert.equal(designatedSubmissionAnswers({...application, questions: [question, second]})[0].text, original);
   question = designateQuestionSubmission(question, key);

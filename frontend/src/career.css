@@ -646,7 +646,7 @@
   background: var(--career-surface); overflow-wrap: anywhere;
 }
 .practice-designated label { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-height: 34px; font-weight: 650; }
-.practice-designated input { margin: 0; accent-color: var(--primary); }
+.practice-designated input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--primary); }
 .practice-designated label span, .practice-designated ul { color: var(--career-muted); font-size: 12px; }
 .practice-designated ul { display: grid; gap: 4px; margin: 0; padding-left: 21px; list-style: none; }
 .interview-designated h3 { margin-bottom: 8px; font-size: 14px; }

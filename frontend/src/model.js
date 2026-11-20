@@ -27,20 +27,21 @@ export function branchFrom(question,snapshotId,name='',description=''){const q=c
 export function editSnapshot(question,snapshotId,text,{forceBranch=false}={}){const source=commit(question,snapshotId);if(source.text===text)return{question,branchId:source.branchId,changed:false};const b=branch(question,source.branchId),latest=b.snapshotIds.at(-1)===snapshotId;if(latest&&!forceBranch){if(b.draft.dirty&&b.draft.text!==text)fail('DRAFT_CONFLICT');return{question:updateDraft(question,b.id,text),branchId:b.id,changed:true};}let q=branchFrom(question,snapshotId);const created=q.branches.at(-1);created.autoFromId=source.id;q=updateDraft(q,created.id,text);return{question:q,branchId:created.id,changed:true};}
 function capture(question,key){const r=parseKey(key);if(r.kind==='snapshot')return{question,id:commit(question,r.id).id};const b=branch(question,r.id);if(!b.draft.dirty&&b.draft.baseIds.length===1&&b.snapshotIds.at(-1)===b.draft.baseIds[0])return{question,id:b.draft.baseIds[0]};const q=snapshot(question,b.id,'병합 전 초안');return{question:q,id:q.snapshots.at(-1).id};}
 export function mergeDraft(question,{leftId,rightId,text,name='병합안',description='',mode='new',branchId,overwrite=false}){if(!text.trim())fail('EMPTY_TEXT');let q=clone(question);if(mode==='existing'){const b=branch(q,branchId);if(b.draft.dirty&&!overwrite)fail('DRAFT_CONFLICT');}const a=capture(q,leftId);q=a.question;const b=capture(q,rightId);q=b.question;const fromId=resolveRecord(q,rightId).branchId;if(mode!=='existing'||fromId!==branchId){const from=branch(q,fromId);if(from.draft.dirty&&from.draft.text.trim())q=snapshot(q,fromId,'병합 후 원본 초안');branch(q,fromId).draft.closed=true;}const parents=[...new Set([a.id,b.id])];let target;if(mode==='existing')target=branch(q,branchId);else{const order=Math.max(-1,...q.branches.map(b=>b.order))+1;target={id:uid('branch'),name:uniqueBranchName(q,name),description,order,color:colors[order%colors.length],createdAt:now(),snapshotIds:[],fromIds:parents,draft:{}};q.branches.push(target);}target.draft={text,baseIds:parents,dirty:true,updatedAt:now()};q.activeBranchId=target.id;q=snapshot(q,target.id,name,description);return{question:q,branchId:target.id,snapshotId:q.snapshots.at(-1).id};}
-function freezeSubmissionAnswer(question, key) {
+function freezeSubmissionAnswer(question, key, draftLabel) {
  if (!key) fail('SELECTION_REQUIRED');
  const record = resolveRecord(question, key);
  if (!record.text.trim()) fail('EMPTY_TEXT');
  const {kind, id} = parseKey(key);
+ const label = (kind === 'draft' && draftLabel ? draftLabel : record.label) + ' · ' + record.title;
  return {questionId: question.id, prompt: question.prompt, limit: question.limit,
-  source: {kind, id}, label: record.label + ' · ' + record.title, text: record.text};
+  source: {kind, id}, label, text: record.text};
 }
 export function freezeSubmission(application, selections, name = '제출본') {
  return {id: uid('submission'), name: name.trim() || '제출본', createdAt: now(), submitted: false,
   answers: application.questions.map(question => freezeSubmissionAnswer(question, selections[question.id]))};
 }
 export function designateQuestionSubmission(question, key) {
- const answer = freezeSubmissionAnswer(question, key);
+ const answer = freezeSubmissionAnswer(question, key, '초안');
  return {...question, submissionHistory: [...(question.submissionHistory || []),
   {...answer, id: uid('submission-answer'), createdAt: now()}]};
 }
