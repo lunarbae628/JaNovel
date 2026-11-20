@@ -18,9 +18,10 @@ import './workspace.css';
 const Interviews = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.Interviews})));
 const InterviewDetail = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.InterviewDetail})));
 const InterviewPractice = lazy(() => import('./pages/InterviewPractice.jsx').then(module => ({default: module.InterviewPractice})));
+const Community = lazy(() => import('./pages/Community.jsx'));
 
 const pageTitles = {
-  applications: '지원 현황', schedule: '일정', interviews: '면접 준비',
+  applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '친구·스터디',
   posting: '공고 등록', write: '작성', merge: '병합', submissions: '제출본',
   login: '로그인', signup: '회원가입', 'signup-details': '계정 정보',
   reset: '비밀번호 재설정', application: '지원 상세',
@@ -57,6 +58,7 @@ function App() {
   const application = store.applications.find(item => item.id === aid);
   const question = application?.questions.find(item => item.id === qid) || application?.questions[0];
   const isAuth = authPages.includes(kind);
+  const careerPage = !kind || ['applications', 'schedule', 'interviews', 'community'].includes(kind);
 
   useEffect(() => {
     if (saveBlocked) return;
@@ -119,13 +121,13 @@ function App() {
   } else if (practice && !expiredPractice) {
     content = <InterviewPractice key={aid + '/' + (materialMode ? 'materials' : 'expected')} application={application}
       session={matchingSession} navigate={navigate} onChange={action => updateInterview(aid, action)}/>;
-  } else if (!kind || ['applications', 'schedule', 'interviews'].includes(kind)) {
+  } else if (careerPage) {
     const section = '/' + (kind || 'applications');
     content = <CareerLayout section={section} store={store} onSettings={openSettings}>
       {section === '/applications' ? <Applications store={store} navigate={navigate} onApplicationChange={changeApplication}/> : section === '/schedule' ?
         <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
-          onApplicationChange={changeApplication}/> :
+          onApplicationChange={changeApplication}/> : section === '/community' ? <Community store={store} query={query}/> :
         application ? <InterviewDetail key={aid} application={application} navigate={navigate}
           query={expiredPractice ? new URLSearchParams('tab=practice&mode=materials&expired') : query}
           record={interviewRecord} onChange={action => updateInterview(aid, action)} storageError={storageError}
@@ -156,7 +158,6 @@ function App() {
     }
   }
 
-  const careerPage = !kind || ['applications', 'schedule', 'interviews'].includes(kind);
   return <>
     {!careerPage && !isAuth && <div className="local-indicator">
       <span>로컬 미리보기 · 이 브라우저에 저장</span>

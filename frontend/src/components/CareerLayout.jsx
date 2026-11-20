@@ -1,10 +1,11 @@
 import React from 'react';
-import {BriefcaseBusiness, CalendarDays, MessagesSquare, Settings2} from 'lucide-react';
+import {BriefcaseBusiness, CalendarDays, MessagesSquare, Settings2, UsersRound} from 'lucide-react';
 
 const links = [
   ['/applications', '지원 현황', BriefcaseBusiness],
   ['/schedule', '일정', CalendarDays],
   ['/interviews', '면접 준비', MessagesSquare],
+  ['/community', '친구·스터디', UsersRound],
 ];
 
 export function writingPath(application) {
