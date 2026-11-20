@@ -1,6 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {CalendarDays, Check, ChevronLeft, ChevronRight, MessageCircle, Search, Send, UserPlus, UsersRound} from 'lucide-react';
-import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, dateLabel} from '../components/UI.jsx';
 import {uid} from '../model.js';
 import {addDays, calendarWeeks, scheduleTone, todayKey} from '../schedule.js';
@@ -189,7 +188,7 @@ function Chat({selected, channels, messages, onSend}) {
       </a>)}
     </nav>
     <div className="community-thread">
-      <header><Avatar person={selected}/><div><h2>{selected.name}</h2><p>{selected.group ? '스터디 채팅' : '친구와의 대화'}</p></div></header>
+      <header><Avatar person={selected}/><div><h1>{selected.name}</h1><p>{selected.group ? '스터디 채팅' : '친구와의 대화'}</p></div></header>
       {messages.length ? <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
         {messages.map(item => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
           <small>{item.from}</small><p>{item.text}</p>
@@ -203,7 +202,7 @@ function Chat({selected, channels, messages, onSend}) {
 function FriendList({friends, selected, pending, onAdd}) {
   return <nav className="career-sheet friend-list" aria-label="친구 목록">
     <div className="community-section-head">
-      <h2>친구 목록 <small>{friends.length}명</small></h2>
+      <h1>친구 목록 <small>{friends.length}명</small></h1>
       <button className="career-button primary near-action" onClick={onAdd}>
         <UserPlus size={15} aria-hidden="true"/>친구 추가
       </button>
@@ -240,7 +239,6 @@ export default function Social({section, query}) {
   const inChat = section === 'chat';
 
   return <>
-    <CareerHeader title={inChat ? '채팅' : '친구'}/>
     <div className="career-content community-content">
       {inChat ? <Chat selected={channel} channels={channels} messages={chat[channel.id] || []}
         onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/> :

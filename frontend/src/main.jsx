@@ -150,7 +150,7 @@ function App() {
         onDelete={id => setStore(previous => ({...previous, applications: previous.applications.filter(item => item.id !== id)}))}
         onSubmission={() => navigate('/submissions/' + aid)}/>;
     } else if (kind === 'submissions') {
-      content = <Submissions key={aid} application={application} navigate={navigate} onSave={saveApplication}/>;
+      content = <Submissions key={aid} application={application} onSave={saveApplication}/>;
     } else if (question && kind === 'write') {
       content = <Editor key={aid + question.id + search} application={application} question={question} query={query}
         navigate={navigate} onSave={saveQuestion} preferences={store.preferences || {}}
@@ -162,11 +162,6 @@ function App() {
   }
 
   return <>
-    {!careerPage && !isAuth && <div className="local-indicator">
-      <span>로컬 미리보기 · 이 브라우저에 저장</span>
-      <button type="button" onClick={openSettings}>백업</button>
-      <a href="#/login">로그인 화면</a>
-    </div>}
     {storageError && <div className="storage-banner" role="alert">
       {storageError}
       <button onClick={() => downloadBackup(store)}>백업 받기</button>
@@ -176,6 +171,7 @@ function App() {
       action={<button className="button" onClick={() => navigate('/applications')}>지원 현황</button>}/>}</Suspense>
     {settings && <Modal title="설정 및 백업" onClose={() => {setSettings(false); setImported(null);}}>
       <Notice>자소서와 지원 정보는 이 브라우저에 저장합니다. 기기 간 동기화와 실제 인증은 연결 전입니다.</Notice>
+      {!store.profile?.name && <a className="button full" href="#/login" onClick={() => {setSettings(false); setImported(null);}}>로그인 화면</a>}
       <button className="button full" onClick={() => downloadBackup(store)}>JSON 백업 내려받기</button>
       <Field label="백업 불러오기" hint="첨부 이미지와 답변 녹음은 현재 브라우저에 보관되며 JSON에 포함되지 않습니다.">
         <input type="file" accept="application/json,.json" onChange={async event => {

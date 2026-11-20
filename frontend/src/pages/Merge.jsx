@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {Header,Field,Notice,Modal} from '../components/UI.jsx';
+import {BackLink,Field,Notice,Modal} from '../components/UI.jsx';
 import {RecordSelect} from './Editor.jsx';
 import {createMergeState,chooseMergeRegion,editMergeText,appendMergeSource} from '../merge-state.js';
 import {resolveRecord,errorMessage} from '../model.js';
@@ -39,9 +39,15 @@ export default function Merge({application:a,question:q,query,navigate,onSave}){
  }
  const choose=(id,side)=>setSession(current=>chooseMergeRegion(current,id,side));
  return <>
-  <Header title="작성안 합치기" subtitle={a.company} back="작성 화면" onBack={()=>navigate(`/write/${a.id}/${q.id}?record=${encodeURIComponent(left)}`)}><button className="button primary" onClick={()=>setConfirm(true)} disabled={!session.text.trim()}>합쳐서 새 작성안 만들기</button></Header>
   <main className="merge-page">
-   <div className="merge-title-row"><div className="question-heading"><h1>{q.prompt}</h1></div><small>바뀐 구절을 눌러 반영</small></div>
+   <BackLink className="page-back" to={`/write/${a.id}/${q.id}?record=${encodeURIComponent(left)}`}>작성 화면</BackLink>
+   <div className="merge-title-row">
+    <div><p className="merge-context">{a.company} · 작성안 합치기</p><div className="question-heading"><h1>{q.prompt}</h1></div></div>
+    <div className="merge-title-actions">
+     <small>바뀐 구절을 눌러 반영</small>
+     <button className="button primary" onClick={()=>setConfirm(true)} disabled={!session.text.trim()}>합쳐서 새 작성안 만들기</button>
+    </div>
+   </div>
    {error&&<Notice type="error">{error}</Notice>}
    <div className="merge-columns">
     <section aria-label="왼쪽 본문"><div className="record-heading"><RecordSelect question={q} value={left} onChange={key=>changeSource('left',key)} label="기준 버전"/><small>{l.text.length.toLocaleString()}자</small></div><div className="merge-pane-body"><button className="text-button merge-add-source" aria-label="왼쪽 전체 본문 추가" disabled={!l.text.trim()} onClick={()=>setSession(current=>appendMergeSource(current,l.text))}>전체 본문 추가</button><SourceText segments={session.segments} choices={session.choices} side="left" onChoose={choose}/></div></section>

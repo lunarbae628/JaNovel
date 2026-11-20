@@ -1,6 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {ArrowLeft, MessageCircle, PenLine, Search} from 'lucide-react';
-import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import {uid} from '../model.js';
@@ -67,7 +66,7 @@ function PostEditor({category, onCreate}) {
       onCreate({id: uid('post'), category: kind, title: title.trim(), body: body.trim(), author: '나', date: todayKey()});
     }}>
       <header>
-        <h2 id="board-editor-title" ref={heading} tabIndex={-1}>글쓰기</h2>
+        <h1 id="board-editor-title" ref={heading} tabIndex={-1}>글쓰기</h1>
         <Dropdown label="말머리" field className="board-picker" options={categories.map(([value, label]) => ({value, label}))}
           value={kind} onChange={setKind}/>
       </header>
@@ -94,6 +93,7 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
     [post.title, post.body, post.author].some(value => value.toLowerCase().includes(term)));
 
   return <section className="career-sheet community-board" aria-label="게시글 목록">
+    <h1 className="visually-hidden">커뮤니티</h1>
     <div className="board-toolbar">
       <nav className="community-tabs" aria-label="게시판 말머리">
         {[['', '전체'], ...categories].map(([id, label]) => <a key={id} href={'#' + boardPath(id)}
@@ -166,7 +166,7 @@ function PostDetail({post, joined, onJoin}) {
   return <article className="board-detail">
     <header>
       <Category value={post.category}/>
-      <h2 ref={heading} tabIndex={-1}>{post.title}</h2>
+      <h1 ref={heading} tabIndex={-1}>{post.title}</h1>
       <div className="board-post-meta"><strong>{post.author}</strong><PostDate value={post.date}/></div>
     </header>
     {post.meta && <p className="board-post-info">{post.meta}</p>}
@@ -192,7 +192,6 @@ export default function Community({query, writing, navigate}) {
   const selected = allPosts.find(post => post.id === query.get('post'));
 
   return <>
-    <CareerHeader title="커뮤니티"/>
     <div className={'career-content community-content ' + (writing || selected ? 'board-reading-content' : 'board-list-content')}>
       {(writing || selected) && <a className="board-back board-list-back" href={'#' + boardPath(category)}>
         <ArrowLeft size={17} aria-hidden="true"/>목록으로

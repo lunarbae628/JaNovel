@@ -111,12 +111,8 @@ export function InterviewPractice({application, session, navigate, onChange}) {
     answer: '답변할 차례예요',
   }[speech];
 
-  return <main className="practice-page">
+  return <main className="practice-page" aria-label="AI 모의면접">
     <div className="practice-layout">
-      <header className="practice-header">
-        <span className="career-wordmark">JaNovel.</span>
-        <div className="practice-heading"><h1>AI 모의면접</h1><span>{application.company} · {practiceModeLabels[mode]}</span></div>
-      </header>
       {question ? <>
         <section className="practice-question" aria-label="현재 질문">
           <div className="practice-visual">
@@ -124,9 +120,10 @@ export function InterviewPractice({application, session, navigate, onChange}) {
             <p role="status">{status}</p>
           </div>
           <div className="practice-current">
+            <p className="practice-session-name">{application.company} · {practiceModeLabels[mode]}</p>
             <div className="practice-progress"><span>질문 {index + 1} / {questions.length}</span>
               <span>진행 시간 {timecode(elapsed)}</span></div>
-            <div className="practice-prompt" aria-live="polite"><h2>{question.prompt}</h2></div>
+            <div className="practice-prompt" aria-live="polite"><h1>{question.prompt}</h1></div>
             {error && <Notice type="error">{error}</Notice>}
             <div className="practice-controls">
               <button className="career-button" disabled={paused || ['loading', 'reading'].includes(speech)} onClick={() => speak(question)}>

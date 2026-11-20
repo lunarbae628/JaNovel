@@ -1,13 +1,21 @@
-.app-header { gap: 20px; }
-.app-header .back-link:hover { color: var(--primary); }
-.header-context { min-width: 0; }
-.header-context > strong { overflow: hidden; text-overflow: ellipsis; }
-.editor-page .header-actions { flex-grow: 1; margin-left: 0; }
-.header-actions .essay-interview-button {
-  min-height: 36px; margin-inline-end: auto; padding-inline: 12px; border-color: #c3d0eb;
-  background: #eaf0fa; color: var(--primary); font-size: 13px; font-weight: 650; white-space: nowrap;
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.back-link { width: fit-content; min-height: 36px; color: #586274; }
+.back-link:hover { color: var(--primary); }
+.page-back { margin-bottom: 10px; }
+.essay-context {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px 16px;
+  border-bottom: 1px solid var(--border); margin-bottom: 15px; padding-bottom: 12px;
 }
-.header-actions .essay-interview-button:hover { background: #dce7f8; border-color: #9eb4dc; }
+.essay-context-origin, .essay-context-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+.essay-company { display: flex; min-width: 0; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; overflow-wrap: anywhere; }
+.essay-company strong { color: #202735; font-size: 15px; }
+.essay-company span, .merge-context, .submissions-actions p, .detail-title p { color: #586274; font-size: 13px; overflow-wrap: anywhere; }
+.essay-context-actions .button { min-height: 35px; padding-inline: 9px; font-size: 12px; }
+.essay-context-actions .essay-interview-button {
+  border-color: #c3d0eb; background: #eaf0fa; color: var(--primary); font-weight: 650;
+}
+.essay-context-actions .essay-interview-button:hover { background: #dce7f8; border-color: #9eb4dc; }
+.essay-context-actions .text-button { min-height: 35px; }
 .editor-page .editor-layout { min-height: 480px; }
 .editor-view-switch { display: none; }
 .editor-page .editor-toolbar, .editor-page .panel-toolbar { min-height: 51px; height: 51px; }
@@ -19,7 +27,7 @@
   position: absolute; inset: auto var(--selection-inset, 0) 0; height: 2px; background: var(--primary); content: "";
 }
 .editor-page .question-tabs > button { --selection-inset: 6px; }
-.editor-page .writing-content { padding-top: 24px; padding-bottom: 14px; }
+.editor-page .writing-content { padding-top: 16px; padding-bottom: 14px; }
 .editor-page .writing-content:not(.is-comparing) > * { width: 100%; max-width: 820px; margin-inline: auto; }
 .editor-page .question-heading { justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
 .essay-question-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; min-width: 0; }
@@ -49,7 +57,18 @@
 .editor-page .body-editor { padding: 9px 0 15px; font-size: 15px; line-height: 1.9; }
 .editor-page .chat-panel .panel-toolbar small { color: #586274; }
 
-.posting-page, .detail-page, .submissions-page { padding-top: 28px; }
+.posting-page, .detail-page, .submissions-page { padding-top: 18px; }
+.detail-main > .detail-title { margin-block: 0 9px; }
+.detail-title h1 { overflow-wrap: anywhere; }
+.detail-actions, .submissions-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.detail-actions { margin-top: 12px; }
+.submissions-title { grid-column: 1 / -1; }
+.submissions-page { row-gap: 18px; }
+.merge-page { padding-top: 16px; }
+.merge-title-row { align-items: flex-end; flex-wrap: wrap; gap: 8px 16px; }
+.merge-title-row .question-heading h1 { overflow-wrap: anywhere; }
+.merge-title-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 10px; }
+.merge-title-actions small { color: #586274; }
 .posting-page h1, .detail-page h1, .submissions-page h1 { line-height: 1.45; letter-spacing: -.02em; }
 .posting-page .tabs, .posting-page .stage-fields { margin-bottom: 20px; }
 .posting-page .field > span, .detail-page .field > span { font-weight: 600; }
@@ -66,24 +85,25 @@
     display: block;
     width: 100%;
     min-width: 0;
-    min-height: calc(100dvh - 180px);
+    min-height: calc(100dvh - 48px);
     height: auto;
     overflow: visible;
   }
   .editor-view-switch {
-    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+    display: grid; grid-template-columns: 42px repeat(3, minmax(0, 1fr)); gap: 4px;
     padding: 5px 12px; border-bottom: 1px solid var(--border); background: #f6f8fb;
   }
-  .editor-view-switch button {
+  .editor-view-switch :is(a, button) {
     display: flex; align-items: center; justify-content: center; gap: 7px;
     min-height: 37px; border-radius: 6px; color: #586274; font-size: 13px;
   }
+  .essay-context .essay-context-back { display: none; }
   .editor-view-switch button[aria-pressed=true] { color: var(--primary); background: #eaf0fa; font-weight: 700; }
   .editor-layout .panel-resizer, .editor-layout .history-panel, .editor-layout .chat-panel,
   .editor-layout:not([data-compact-view=writing]) .writing-panel { display: none; }
   .editor-layout[data-compact-view=history] .history-panel,
   .editor-layout[data-compact-view=chat] .chat-panel {
-    display: flex; min-height: max(460px, calc(100dvh - 155px));
+    display: flex; min-height: max(460px, calc(100dvh - 48px));
   }
   .editor-layout .history-panel .option-panel-toolbar .icon-button:last-child,
   .editor-layout .chat-panel .panel-toolbar > .icon-button { display: none; }
@@ -96,20 +116,11 @@
   .editor-page .question-tabs > button:not(.icon-button) { height: 42px; }
   .editor-layout[data-compact-view=history] .graph-scroll { min-height: 260px; }
   .editor-page .chat-panel .panel-toolbar { padding-inline: 16px; }
-  .editor-page .body-editor { min-height: max(300px, calc(100dvh - 345px)); }
+  .editor-page .body-editor { min-height: max(300px, calc(100dvh - 270px)); }
 }
 
 @media (max-width: 650px) {
-  .app-header, .editor-page > .app-header {
-    position: static; display: grid; grid-template-columns: auto minmax(0,1fr);
-    min-width: 0; height: auto; padding: 9px 13px; gap: 6px 12px;
-  }
-  .app-header .back-link { min-height: 30px; white-space: nowrap; }
-  .app-header .header-context { align-items: start; }
-  .app-header .header-context > strong { overflow-wrap: anywhere; }
-  .app-header .header-actions { grid-column: 1 / -1; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
-  .app-header .header-actions:empty { display: none; }
-  .editor-page .essay-interview-button { min-height: 42px; }
+  .essay-context-actions .button, .essay-context-actions .text-button { min-height: 40px; }
 
   .editor-page .editor-actions { flex-wrap: wrap; max-width: 100%; row-gap: 3px; }
   .editor-page .question-heading { align-items: flex-start; flex-wrap: nowrap; }
@@ -122,6 +133,7 @@
   .editor-page .comparison-source { min-height: 160px; max-height: 40dvh; overflow: auto; }
   .detail-page, .submissions-page { display: block; }
   .detail-page .application-side { border: 0; border-top: 1px solid var(--border); margin-top: 22px; padding: 18px 0 0; }
+  .submissions-title { margin-bottom: 16px; }
   .submission-list { display: flex; gap: 7px; overflow-x: auto; border: 0; margin-bottom: 16px; padding: 4px; }
   .submission-list > button { flex: 0 0 145px; }
   .merge-title-row { align-items: flex-start; flex-direction: column; gap: 4px; }

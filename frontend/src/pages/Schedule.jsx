@@ -1,7 +1,6 @@
 import React, {useRef, useState} from 'react';
 import {Check, ChevronLeft, ChevronRight, Plus, Repeat2} from 'lucide-react';
 import Dropdown from '../components/Dropdown.jsx';
-import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import {allEvents} from './Applications.jsx';
 import {uid} from '../model.js';
@@ -184,11 +183,10 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   }
 
   return <>
-    <CareerHeader title="일정"/>
     <div className="career-content schedule-content">
       <section className="schedule-month career-sheet" aria-label="월간 캘린더">
         <div className="schedule-month-heading">
-          <h2>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</h2>
+          <h1>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</h1>
           <div>
             {undated.length > 0 && <button className="career-button schedule-undated" onClick={() => setDialog({type: 'undated'})}>
               날짜 미정 <span>{undated.length}</span>

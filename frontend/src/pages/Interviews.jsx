@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {ArrowLeft, ArrowRight, CalendarDays, Mic, Plus, Trash2} from 'lucide-react';
-import {CareerHeader, writingPath} from '../components/CareerLayout.jsx';
+import {writingPath} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import AnswerRecording from '../components/AnswerRecording.jsx';
@@ -65,8 +65,8 @@ export function Interviews({store, navigate, query, onApplicationChange, onInter
   const open = (id, record) => navigate(recordsPath + '&' + new URLSearchParams({application: id, record}));
 
   return <>
-    <CareerHeader title="면접 준비"/>
     <div className="career-content interview-list">
+      <h1 className="visually-hidden">면접 준비</h1>
       <div className="interview-list-toolbar">
         <nav className="career-tabs" aria-label="면접 준비 보기">
           <a href="#/interviews" aria-current={tab === 'planned' ? 'page' : undefined}>준비 목록 <span>{planned.length}</span></a>
@@ -212,17 +212,21 @@ export function InterviewDetail({application, record, query, navigate, onChange,
   const practiceMode = query.get('mode') || (designated.length ? 'materials' : 'expected');
 
   return <>
-    <CareerHeader title={application.company}
-      subtitle={[application.role, plannedInterviews(application)[0]?.title].filter(Boolean).join(' · ')}>
-      {tab !== 'practice' && <button className="career-button interview-material-button" onClick={() => setDialog('materials')}>자료</button>}
-      {tab !== 'practice' && <a className="career-button primary interview-start-button" href={'#' + practicePath}>AI 모의면접</a>}
-    </CareerHeader>
     <div className="career-content interview-content">
-      <nav className="career-tabs" aria-label="면접 준비">
-        <a href={'#' + questionsPath} aria-current={tab === 'questions' ? 'page' : undefined}>예상 질문</a>
-        <a href={'#' + practicePath} aria-current={tab === 'practice' ? 'page' : undefined}>AI 모의면접</a>
-        <a href={'#' + recordsPath} aria-current={tab === 'records' ? 'page' : undefined}>기록</a>
-      </nav>
+      <div className="interview-context">
+        <h1>{application.company}</h1>
+        <p>{[application.role, plannedInterviews(application)[0]?.title].filter(Boolean).join(' · ')}</p>
+      </div>
+      <div className="interview-list-toolbar">
+        <nav className="career-tabs" aria-label="면접 준비">
+          <a href={'#' + questionsPath} aria-current={tab === 'questions' ? 'page' : undefined}>예상 질문</a>
+          <a href={'#' + practicePath} aria-current={tab === 'practice' ? 'page' : undefined}>
+            <Mic size={14} aria-hidden="true"/>AI 모의면접
+          </a>
+          <a href={'#' + recordsPath} aria-current={tab === 'records' ? 'page' : undefined}>기록</a>
+        </nav>
+        {tab !== 'practice' && <button className="career-button near-action" onClick={() => setDialog('materials')}>자료</button>}
+      </div>
       {error && <Notice type="error">{error}</Notice>}
       {record ? <InterviewRecord key={record.id} record={record} application={application} backPath={recordsPath} onChange={onChange}/> :
         tab === 'records' ? <InterviewRecords records={interview.records.map(record => ({record, application}))}

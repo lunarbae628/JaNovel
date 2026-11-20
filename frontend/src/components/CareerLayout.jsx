@@ -49,10 +49,3 @@ export function CareerLayout({section, store, onSettings, children}) {
     <main className="career-main">{children}</main>
   </div>;
 }
-
-export function CareerHeader({title, subtitle, children}) {
-  return <header className="career-header">
-    <div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>
-    {children && <div className="career-header-actions">{children}</div>}
-  </header>;
-}

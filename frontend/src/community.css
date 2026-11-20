@@ -10,7 +10,8 @@
 .friends-layout { display: grid; grid-template-columns: minmax(170px, 220px) minmax(0, 1fr); align-items: start; gap: 16px; }
 .friend-list { min-width: 0; padding: 12px; }
 .friend-list .community-section-head { gap: 6px; }
-.friend-list h2 small { color: var(--career-muted); font-size: 12px; white-space: nowrap; }
+.friend-list h1, .community-thread header h1 { font-size: 16px; line-height: 1.5; }
+.friend-list h1 small { color: var(--career-muted); font-size: 12px; white-space: nowrap; }
 .friend-list ul { display: grid; gap: 6px; }
 .friend-list li { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .friend-list a { color: var(--career-ink); text-decoration: none; border-radius: 6px; }
@@ -160,8 +161,8 @@
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px;
   padding-block: 20px 12px;
 }
-.board-editor header h2 { font-size: 22px; font-weight: 700; }
-.board-editor h2:focus, .board-detail h2:focus { outline: none; }
+.board-editor header h1 { font-size: 22px; font-weight: 700; }
+.board-editor h1:focus, .board-detail h1:focus { outline: none; }
 .board-back {
   display: inline-flex; align-items: center; gap: 5px; min-height: 44px;
   color: var(--career-muted, var(--primary)); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;
@@ -189,7 +190,7 @@
 .board-editor .career-button, .board-comments .career-button { min-height: 44px; border-radius: 5px; }
 .board-detail, .board-comments { padding-block: clamp(16px, 3vw, 28px); }
 .board-detail header { padding-bottom: 18px; border-bottom: 1px solid var(--career-border); }
-.board-detail h2 { margin: 8px 0; font-size: clamp(20px, 3vw, 26px); line-height: 1.45; overflow-wrap: anywhere; }
+.board-detail h1 { margin: 8px 0; font-size: clamp(20px, 3vw, 26px); line-height: 1.45; overflow-wrap: anywhere; }
 .board-post-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; color: var(--career-muted); font-size: 13px; }
 .board-post-info { padding-top: 15px; color: var(--career-muted); font-size: 13px; }
 .board-detail .community-post-body { max-width: 76ch; padding-top: 20px; }

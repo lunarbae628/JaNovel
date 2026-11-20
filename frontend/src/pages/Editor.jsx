@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useMemo,useState} from 'react';
 import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic} from 'lucide-react';
-import {Header,ApplyLink,IconButton,PanelGlyph,Modal,RecordForm,Notice,copyText} from '../components/UI.jsx';
+import {BackLink,ApplyLink,IconButton,PanelGlyph,Modal,RecordForm,Notice,copyText} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import PanelResizer from '../components/PanelResizer.jsx';
 import OptionHistory from '../components/OptionHistory.jsx';
@@ -153,12 +153,8 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
  function removeSnapshot(){try{applyCleanup(deleteSnapshot(q,shown.id));}catch(e){setError(errorMessage(e));setModal('');}}
  function removeBranch(){try{applyCleanup(deleteBranch(q,deletingBranch));}catch(e){setError(errorMessage(e));setModal('');}}
  return <div className="editor-page">
-  <Header title={a.company} subtitle={a.role} back="지원 현황" onBack={()=>navigate('/applications')}>
-   <a className="button essay-interview-button" href={'#/interviews/'+a.id+'?tab=practice'}><Mic size={16} aria-hidden="true"/>면접 연습</a>
-   <button className="text-button" onClick={()=>navigate('/application/'+a.id)}>공고 정보</button>
-   <ApplyLink url={safeUrl(a.url)} onMissing={()=>navigate('/posting/'+a.id)}/>
-  </Header>
   <nav className="editor-view-switch" aria-label="작성 화면 보기">
+   <a className="editor-mobile-back" href="#/applications" aria-label="지원 현황"><ArrowLeft size={16} aria-hidden="true"/></a>
    {compactViews.map(([view,label,Icon,panel])=><button type="button" key={view} aria-pressed={compactView===view} aria-controls={panel} onClick={()=>{
     setCompactView(view);
     if(view==='history')setLeftOpen(true);
@@ -174,7 +170,19 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
      <IconButton label="새 작성안" onClick={()=>{setError('');setModal('option')}}><Plus size={18}/></IconButton><IconButton label="합쳐서 새 작성안 만들기" disabled={!!aiReference} onClick={advancedMerge}><MergeIcon size={18} className="downward-icon flow-action-icon"/></IconButton>
      <button className="button small primary snapshot-action" disabled={mode==='read'||(comparing&&right.kind!=='draft')||!activeBranch.draft.dirty||!work.text.trim()} onClick={()=>{setError('');setModal('snapshot')}}><Camera size={15}/>스냅샷</button>
     </div></div>
-    <div className={'writing-content'+(comparing?' is-comparing':'')}><div className="question-heading">
+    <div className={'writing-content'+(comparing?' is-comparing':'')}>
+     <div className="essay-context">
+      <div className="essay-context-origin">
+       <BackLink className="essay-context-back" to="/applications">지원 현황</BackLink>
+       <div className="essay-company"><strong>{a.company}</strong><span>{a.role}</span></div>
+      </div>
+      <div className="essay-context-actions">
+       <a className="button essay-interview-button" href={'#/interviews/'+a.id+'?tab=practice'}><Mic size={16} aria-hidden="true"/>면접 연습</a>
+       <a className="text-button" href={'#/application/'+a.id}>공고 정보</a>
+       <ApplyLink url={safeUrl(a.url)} onMissing={()=>navigate('/posting/'+a.id)}/>
+      </div>
+     </div>
+     <div className="question-heading">
      <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&<span className={shown.text.length>q.limit?'over-limit':''}>{shown.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</span>}</div>
      <button type="button" className="button essay-export-button" onClick={()=>setModal('pdf')}><Download size={15} strokeWidth={1.7}/>내보내기</button>
     </div><div className="essay-submission">

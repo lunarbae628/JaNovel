@@ -3,7 +3,9 @@ import {createPortal} from 'react-dom';
 import {X,ExternalLink,ChevronLeft,ChevronRight,Maximize2,Minimize2,ArrowLeft} from 'lucide-react';
 export function IconButton({label,children,className='',...props}){return <button type="button" className={'icon-button '+className} title={label} aria-label={label} {...props}>{children}</button>}
 export function PanelGlyph({kind}){const Comp={left:ChevronLeft,right:ChevronRight,expand:Maximize2,shrink:Minimize2}[kind];return <Comp size={18} strokeWidth={1.5} className={kind==='left'||kind==='right'?'panel-chevron':''}/>}
-export function Header({title,subtitle,back,onBack,children}){return <header className="app-header">{back?<button className="back-link" onClick={onBack}><ArrowLeft size={16}/>{back}</button>:<a className="wordmark" href="#/applications">JaNovel<span>.</span></a>}<div className="header-context"><strong>{title}</strong>{subtitle&&<span>{subtitle}</span>}</div><div className="header-actions">{children}</div></header>}
+export function BackLink({to, children, className=''}) {
+ return <a className={('back-link ' + className).trim()} href={'#' + to}><ArrowLeft size={16} aria-hidden="true"/>{children}</a>;
+}
 export function ApplyLink({url,onMissing}){return url?<a className="button primary apply-link" href={url} target="_blank" rel="noopener noreferrer">지원하러 가기 <ExternalLink size={14}/></a>:onMissing?<button className="button" onClick={onMissing}>지원 링크 추가 <ExternalLink size={14}/></button>:null}
 export function Modal({title,children,onClose,wide=false,className='',showClose=true}){const ref=useRef(null),close=useRef(onClose);useEffect(()=>{close.current=onClose},[onClose]);useEffect(()=>{const previous=document.activeElement;const node=ref.current;const old=document.body.style.overflow;document.body.style.overflow='hidden';(node.querySelector('input:not(:disabled),textarea:not(:disabled),select:not(:disabled)')||node.querySelector('button:not(:disabled)')||node).focus();function key(e){if(e.key==='Escape'){
  if(e.target.closest('[data-dropdown]')?.querySelector('[aria-expanded="true"]'))return;
