@@ -3,25 +3,11 @@ import {CalendarDays, Check, ChevronLeft, ChevronRight, MessageCircle, Search, S
 import {Field, Modal, dateLabel} from '../components/UI.jsx';
 import {uid} from '../model.js';
 import {addDays, calendarWeeks, scheduleTone, todayKey} from '../schedule.js';
-import {usePreviewState} from '../community-preview.js';
+import {addPreviewFriend, demoComments, directory, markInboxRead, studyRoom} from '../social-preview.js';
+import Inbox from './Inbox.jsx';
 import '../community.css';
 
-const directory = [
-  {id: 'jian', name: '이지안', mark: '지', color: 'blue'},
-  {id: 'minjun', name: '박민준', mark: '민', color: 'green'},
-  {id: 'harin', name: '정하린', mark: '하', color: 'violet'},
-  {id: 'doyun', name: '김도윤', mark: '윤', color: 'blue'},
-];
-const studyRoom = {id: 'interview', name: '백엔드 면접 스터디', color: 'violet', group: true};
 const weekday = ['일', '월', '화', '수', '목', '금', '토'];
-const demoChat = {
-  jian: [{id: 'j1', from: '이지안', text: '이번 주에 자소서 서로 한 번씩 봐줄까?'}],
-  minjun: [{id: 'm1', from: '박민준', text: '모의면접 일정 잡히면 캘린더에 공유할게!'}],
-  interview: [
-    {id: 'i1', from: '이지안', text: '이번 주에는 DB 트랜잭션이랑 동시성 질문을 연습하면 어때요?'},
-    {id: 'i2', from: '박민준', text: '좋아요. 저는 면접관 역할 준비해 갈게요.'},
-  ],
-};
 function exampleEvents(day) {
   return [
     ['e1', 'jian', '면접 답변 초안 정리', 0, '체크리스트', true],
@@ -90,9 +76,9 @@ function Composer({label, action, onSend}) {
   </form>;
 }
 
-function FriendCalendar({person, today, comments, onOpen}) {
-  const [selected, setSelected] = useState(today);
-  const [month, setMonth] = useState(today.slice(0, 7) + '-01');
+function FriendsWorkspace({person, friends, pending, today, startDate, comments, onOpen, onAdd}) {
+  const [selected, setSelected] = useState(startDate);
+  const [month, setMonth] = useState(startDate.slice(0, 7) + '-01');
   const weeks = calendarWeeks(month);
   const events = exampleEvents(today).filter(item => item.owner === person.id);
   const onDay = day => events.filter(item => item.start <= day && item.end >= day);
@@ -108,7 +94,8 @@ function FriendCalendar({person, today, comments, onOpen}) {
     jump(date.toISOString().slice(0, 10));
   }
 
-  return <div className="community-calendar">
+  return <div className="friends-layout">
+    <FriendList friends={friends} selected={person} pending={pending} onAdd={onAdd}/>
     <section className="career-sheet community-month" aria-label={person.name + '의 캘린더'}>
       <div className="community-section-head">
         <div><h2>{person.name}의 캘린더</h2>
@@ -140,11 +127,15 @@ function FriendCalendar({person, today, comments, onOpen}) {
         {picked.map(item => {
           const key = item.owner + '/' + item.id;
           return <li key={key}><button onClick={() => onOpen(item, key, selected)}>
-            <Avatar person={person}/><span><strong>{item.title}</strong><small>{item.type}{item.time && ' · ' + item.time}</small></span>
-            {item.type === '체크리스트' && <span className={'community-task-status' + (item.done ? ' done' : '')}>
-              {item.done && <Check size={13}/>} {item.done ? '완료' : '진행 중'}
-            </span>}
-            <span className="community-comment-count"><MessageCircle size={15} aria-hidden="true"/>댓글 {(comments[key] || []).length}</span>
+            <span className="community-agenda-copy">
+              <strong>{item.title}</strong>
+              <small className={'schedule-tone ' + scheduleTone(item)}>{item.type}{item.time && ' · ' + item.time}
+                {item.type === '체크리스트' && (item.done ? ' · 완료' : ' · 진행 중')}
+              </small>
+            </span>
+            <span className="community-comment-count" aria-label={'댓글 ' + (comments[key] || []).length + '개'}>
+              <MessageCircle size={15} aria-hidden="true"/>{(comments[key] || []).length}
+            </span>
           </button></li>;
         })}
       </ul> : <p className="community-empty">이 날짜에 볼 수 있는 일정이 없어요.</p>}
@@ -221,42 +212,54 @@ function FriendList({friends, selected, pending, onAdd}) {
   </nav>;
 }
 
-const initialSocial = {friendIds: ['jian', 'minjun'], invites: [], comments: {}, chat: demoChat};
 function appendMessage(messages, key, text) {
   return {...messages, [key]: [...(messages[key] || []), {id: uid('message'), from: '나', text}]};
 }
 
-export default function Social({section, query}) {
+export default function Social({section, query, preview, setPreview}) {
   const [today] = useState(todayKey);
-  const [dialog, setDialog] = useState(null);
-  const [{friendIds, invites, comments, chat}, setPreview] = usePreviewState('social', initialSocial);
+  const {friendIds, invites, chat} = preview;
+  const comments = {...demoComments, ...preview.comments};
   const friends = directory.filter(friend => friendIds.includes(friend.id));
   const channels = [...friends, studyRoom];
   const person = friends.find(friend => friend.id === query.get('friend')) || friends[0];
   const channel = channels.find(item => item.id === query.get('conversation')) || channels[0];
+  const inChat = section === 'chat';
+  const inFriends = section === 'friends';
+  const linkedEvent = inFriends && exampleEvents(today).find(item => item.owner === person.id && item.id === query.get('event'));
+  const [dialog, setDialog] = useState(() => linkedEvent ? {
+    event: linkedEvent, key: linkedEvent.owner + '/' + linkedEvent.id, day: linkedEvent.start,
+  } : null);
   const close = () => setDialog(null);
   const event = dialog?.event;
-  const inChat = section === 'chat';
+  const openChannel = inChat ? channel.id : '';
+  const openEvent = event?.id;
+
+  useEffect(() => {
+    if (!openChannel && !openEvent) return;
+    setPreview(current => markInboxRead(current, item =>
+      (item.kind === 'message' && item.target === openChannel) || (item.kind === 'comment' && item.eventId === openEvent)));
+  }, [openChannel, openEvent, setPreview]);
 
   return <>
-    <div className="career-content community-content">
-      {inChat ? <Chat selected={channel} channels={channels} messages={chat[channel.id] || []}
-        onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/> :
-        <div className="friends-layout">
-          <FriendList friends={friends} selected={person} pending={invites.length} onAdd={() => setDialog({type: 'search'})}/>
-          <FriendCalendar key={person.id} person={person} today={today} comments={comments}
-            onOpen={(item, key, day) => setDialog({event: item, key, day})}/>
-        </div>}
-      <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
+    <div className={'career-content community-content ' + (section === 'inbox' ? 'inbox-content' : inFriends ? 'friends-content' : '')}>
+      {section === 'inbox' ? <Inbox preview={preview} setPreview={setPreview}/> :
+        inChat ? <Chat selected={channel} channels={channels} messages={chat[channel.id] || []}
+          onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/> :
+        <FriendsWorkspace key={person.id} person={person} friends={friends} pending={invites.length}
+          today={today} startDate={linkedEvent?.start || today} comments={comments} onAdd={() => setDialog({type: 'search'})}
+          onOpen={(item, key, day) => setDialog({event: item, key, day})}/>}
+      <p className="community-preview-note">{section === 'inbox' ? '미리보기 · 예시 알림과 읽음 상태는 이 브라우저에만 저장돼요.' :
+        '미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.'}</p>
     </div>
-    {!inChat && dialog?.type === 'search' && <FriendSearchDialog friends={friends} onClose={close}
+    {inFriends && dialog?.type === 'search' && <FriendSearchDialog friends={friends} onClose={close}
       onInvite={() => setDialog({type: 'invite'})} onAdd={id => {
-        setPreview(current => current.friendIds.includes(id) ? current : {...current, friendIds: [...current.friendIds, id]});
+        setPreview(current => addPreviewFriend(current, id));
       }}/>}
-    {!inChat && dialog?.type === 'invite' && <InviteDialog invites={invites} onClose={close}
+    {inFriends && dialog?.type === 'invite' && <InviteDialog invites={invites} onClose={close}
       onInvite={email => setPreview(current => current.invites.includes(email) ? current :
         {...current, invites: [...current.invites, email]})}/>}
-    {!inChat && event && <Modal title={event.title} className="community-modal" onClose={close}>
+    {inFriends && event && <Modal title={event.title} className="community-modal" onClose={close}>
       <div className="community-event-comments">
         <p className="community-modal-note">{person.name} · {dateLabel(dialog.day, event.time)}</p>
         <h3>댓글</h3>
@@ -264,7 +267,7 @@ export default function Social({section, query}) {
           {comments[dialog.key].map(item => <li key={item.id}><strong>{item.from}</strong><p>{item.text}</p></li>)}
         </ul> : <p className="community-modal-note">아직 댓글이 없어요.</p>}
         <Composer label="댓글 입력" action="댓글 등록" onSend={text =>
-          setPreview(current => ({...current, comments: appendMessage(current.comments, dialog.key, text)}))}/>
+          setPreview(current => ({...current, comments: appendMessage({...demoComments, ...current.comments}, dialog.key, text)}))}/>
       </div>
     </Modal>}
   </>;

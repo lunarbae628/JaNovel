@@ -11,6 +11,8 @@ import {CareerLayout} from './components/CareerLayout.jsx';
 import {Modal, Field, Notice, Empty, useHashRoute} from './components/UI.jsx';
 import {loadStore, saveStore, downloadBackup, STORE_KEY} from './storage.js';
 import {validateStore, errorMessage, updateQuestion} from './model.js';
+import {usePreviewState} from './community-preview.js';
+import {initialSocial} from './social-preview.js';
 import './styles.css';
 import './career.css';
 import './workspace.css';
@@ -22,7 +24,7 @@ const Community = lazy(() => import('./pages/Community.jsx'));
 const Social = lazy(() => import('./pages/Social.jsx'));
 
 const pageTitles = {
-  applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '커뮤니티', friends: '친구', chat: '채팅',
+  applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '커뮤니티', friends: '친구', chat: '채팅', inbox: '수신함',
   posting: '공고 등록', write: '작성', merge: '병합', submissions: '제출본',
   login: '로그인', signup: '회원가입', 'signup-details': '계정 정보',
   reset: '비밀번호 재설정', application: '지원 상세',
@@ -44,6 +46,7 @@ class ErrorBoundary extends React.Component {
 
 function App() {
   const [initial] = useState(loadStore);
+  const [socialPreview, setSocialPreview] = usePreviewState('social', initialSocial);
   const [store, setStore] = useState(initial.data);
   const [saveBlocked, setSaveBlocked] = useState(Boolean(initial.error));
   const [storageError, setStorageError] = useState(initial.error);
@@ -59,7 +62,7 @@ function App() {
   const application = store.applications.find(item => item.id === aid);
   const question = application?.questions.find(item => item.id === qid) || application?.questions[0];
   const isAuth = authPages.includes(kind);
-  const careerPage = !kind || ['applications', 'schedule', 'interviews', 'community', 'friends', 'chat'].includes(kind);
+  const careerPage = !kind || ['applications', 'schedule', 'interviews', 'community', 'friends', 'chat', 'inbox'].includes(kind);
 
   useEffect(() => {
     if (saveBlocked) return;
@@ -124,13 +127,15 @@ function App() {
       session={matchingSession} navigate={navigate} onChange={action => updateInterview(aid, action)}/>;
   } else if (careerPage) {
     const section = '/' + (kind || 'applications');
-    content = <CareerLayout section={section} store={store} onSettings={openSettings}>
+    content = <CareerLayout section={section} store={store} onSettings={openSettings}
+      unreadCount={socialPreview.inbox.filter(item => !item.read).length}>
       {section === '/applications' ? <Applications store={store} navigate={navigate} onApplicationChange={changeApplication}/> : section === '/schedule' ?
         <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
           onApplicationChange={changeApplication}/> : section === '/community' ?
         <Community query={query} writing={aid === 'write'} navigate={navigate}/> :
-        kind === 'friends' || kind === 'chat' ? <Social key={route} section={kind} query={query}/> :
+        ['friends', 'chat', 'inbox'].includes(kind) ?
+        <Social key={route} section={kind} query={query} preview={socialPreview} setPreview={setSocialPreview}/> :
         application ? <InterviewDetail key={aid} application={application} navigate={navigate}
           query={expiredPractice ? new URLSearchParams('tab=practice&mode=materials&expired') : query}
           record={interviewRecord} onChange={action => updateInterview(aid, action)} storageError={storageError}
