@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {calendarWeeks, completeOccurrence, projectSchedule, replaceOccurrence, saveApplicationEvent, validateScheduleItem, packWeek} from '../src/schedule.js';
+import {calendarWeeks, completeOccurrence, projectSchedule, replaceOccurrence, removeApplicationEvent, saveApplicationEvent, validateScheduleItem, packWeek} from '../src/schedule.js';
 
 const plan = {
   id: 'p1', title: '포트폴리오 정리', kind: 'task', start: '2026-11-28', end: '2026-12-02',
@@ -20,6 +20,18 @@ test('an undated interview can be scheduled by ID without replacing other events
   assert.equal(edited.deadline, '2026-11-23');
   assert.equal(edited.deadlineTime, '14:00');
   assert.deepEqual(edited.events, scheduled.events);
+});
+
+test('마감의 표시 정보 수정과 삭제는 지원 건과 나머지 일정을 보존한다', () => {
+  const event = {id: 'interview', title: '기술 면접', type: '면접'};
+  const application = {id: 'company', company: '회사', deadline: '2026-11-21', deadlineTime: '', events: [event]};
+  const details = {title: '서류 접수 마감', note: '지원 링크 확인', color: 'pink'};
+  const updated = saveApplicationEvent(application, {deadline: true, date: '2026-11-22', time: '14:00', ...details});
+  assert.deepEqual(updated.deadlineDetails, details);
+  const moved = saveApplicationEvent(updated, {deadline: true, date: '2026-11-23', time: '18:00'});
+  assert.deepEqual(moved.deadlineDetails, details);
+  assert.deepEqual(removeApplicationEvent(moved, {deadline: true}), {...application, deadline: '', deadlineTime: ''});
+  assert.deepEqual(removeApplicationEvent(moved, event), {...moved, events: []});
 });
 
 test('a period retains the same event ID across month and week boundaries', () => {

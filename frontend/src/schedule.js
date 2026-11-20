@@ -13,11 +13,29 @@ const isTime = time => typeof time === 'string' && (!time || /^([01]\d|2[0-3]):[
 export const applicationEventTypes = ['면접', '과제', '코딩테스트', '마감', '기타'];
 
 export function saveApplicationEvent(application, event) {
-  if (event.deadline) return {...application, deadline: event.date, deadlineTime: event.time};
+  if (event.deadline) {
+    const next = {...application, deadline: event.date, deadlineTime: event.date ? event.time : ''};
+    if (event.date) {
+      const current = application.deadlineDetails || {};
+      next.deadlineDetails = {
+        title: event.title ?? current.title ?? '지원 마감',
+        note: event.note ?? current.note ?? '',
+        color: event.color ?? current.color ?? 'default',
+      };
+    } else {
+      delete next.deadlineDetails;
+    }
+    return next;
+  }
   const exists = application.events.some(item => item.id === event.id);
   return {...application, events: exists
     ? application.events.map(item => item.id === event.id ? event : item)
     : [...application.events, event]};
+}
+
+export function removeApplicationEvent(application, event) {
+  if (event.deadline) return saveApplicationEvent(application, {deadline: true, date: ''});
+  return {...application, events: application.events.filter(item => item.id !== event.id)};
 }
 
 export function calendarWeeks(month) {

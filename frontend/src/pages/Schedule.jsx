@@ -2,14 +2,18 @@ import React, {useRef, useState} from 'react';
 import {Check, ChevronLeft, ChevronRight, Plus, Repeat2} from 'lucide-react';
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
-import {allEvents, EventForm} from './Applications.jsx';
+import {allEvents} from './Applications.jsx';
 import {uid} from '../model.js';
 import {
   applicationEventTypes, calendarWeeks, completeOccurrence, isDateKey, packWeek, projectSchedule, replaceOccurrence,
-  saveApplicationEvent, scheduleColors, todayKey, validateScheduleItem,
+  removeApplicationEvent, saveApplicationEvent, scheduleColors, todayKey, validateScheduleItem,
 } from '../schedule.js';
 
 const colors = ['기본', '파랑', '보라', '초록', '황토', '분홍'];
+const tones = {'마감': 'deadline', '면접': 'blue', '과제': 'assignment', '코딩테스트': 'coding'};
+const legend = [...Object.entries(tones), ['체크리스트', 'green'], ['일정', 'default']];
+const eventTone = event => event.color && event.color !== 'default' ? event.color :
+  event.kind === 'task' ? 'green' : tones[event.type] || 'default';
 const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 const formatDay = key => new Intl.DateTimeFormat('ko-KR', {
   month: 'long', day: 'numeric', weekday: 'long', timeZone: 'UTC',
@@ -25,9 +29,10 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComple
   const [error, setError] = useState('');
   const change = (key, value) => setData(previous => ({...previous, [key]: value}));
   const support = Boolean(data.applicationId);
+  const deadline = Boolean(data.deadline);
   const conflict = data.repeat && data.start !== data.end;
 
-  return <Modal title={data.id ? '일정 수정' : '일정 추가'} onClose={onClose} className="schedule-modal">
+  return <Modal title={deadline ? '지원 마감 수정' : data.id ? '일정 수정' : '일정 추가'} onClose={onClose} className="schedule-modal">
     <form onSubmit={event => {
       event.preventDefault();
       const next = {...data, title: data.title.trim(), time: allDay ? '' : data.time,
@@ -35,7 +40,7 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComple
       const problem = validateScheduleItem(next);
       if (problem) setError(problem); else onSave(next);
     }}>
-      {applications.length > 0 && <Field label="연결할 지원">
+      {!deadline && applications.length > 0 && <Field label="연결할 지원">
         <select value={data.applicationId || ''} disabled={Boolean(data.id)} onChange={event => {
           const applicationId = event.target.value;
           setData(previous => ({...previous, applicationId,
@@ -46,20 +51,20 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComple
         </select>
       </Field>}
       <Field label="제목"><input value={data.title} maxLength={100} required onChange={event => change('title', event.target.value)}/></Field>
-      {support && <Field label="종류"><select value={data.type || '면접'} onChange={event => change('type', event.target.value)}>
+      {support && !deadline && <Field label="종류"><select value={data.type || '면접'} onChange={event => change('type', event.target.value)}>
         {[...new Set([...applicationEventTypes, data.type || '면접'])].map(type => <option key={type}>{type}</option>)}
       </select></Field>}
       <div className="form-grid">
-        <Field label="시작일"><input type="date" required value={data.start} onChange={event => {
+        <Field label={deadline ? '마감일' : '시작일'}><input type="date" required value={data.start} onChange={event => {
           const start = event.target.value;
           setData(previous => ({...previous, start, end: previous.start === previous.end ? start : previous.end}));
         }}/></Field>
-        <Field label="종료일"><input type="date" required value={data.end} onChange={event => change('end', event.target.value)}/></Field>
+        {!deadline && <Field label="종료일"><input type="date" required value={data.end} onChange={event => change('end', event.target.value)}/></Field>}
       </div>
-      <label className="schedule-checkbox"><input type="checkbox" checked={allDay} onChange={event => setAllDay(event.target.checked)}/>종일</label>
+      <label className="schedule-checkbox"><input type="checkbox" checked={allDay} onChange={event => setAllDay(event.target.checked)}/>{deadline ? '시간 미정' : '종일'}</label>
       {!allDay && <div className="form-grid">
-        <Field label="시작 시간"><input type="time" value={data.time} onChange={event => change('time', event.target.value)}/></Field>
-        <Field label="종료 시간"><input type="time" value={data.endTime || ''} onChange={event => change('endTime', event.target.value)}/></Field>
+        <Field label={deadline ? '마감 시간' : '시작 시간'}><input type="time" value={data.time} onChange={event => change('time', event.target.value)}/></Field>
+        {!deadline && <Field label="종료 시간"><input type="time" value={data.endTime || ''} onChange={event => change('endTime', event.target.value)}/></Field>}
       </div>}
       {!support && dialog.scope !== 'date' && <>
         <div className="form-grid">
@@ -75,11 +80,12 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComple
           <input type="date" value={data.repeatUntil || ''} onChange={event => change('repeatUntil', event.target.value)}/>
         </Field>}
       </>}
-      {!support && <fieldset className="schedule-palette"><legend>색상</legend>
-        {scheduleColors.map((color, i) => <button key={color} type="button" className={'schedule-swatch ' + color}
+      <fieldset className="schedule-palette"><legend>색상</legend>
+        {scheduleColors.map((color, i) => <button key={color} type="button" className={'schedule-swatch schedule-tone ' + (color === 'default' ? eventTone({...data, color}) : color)}
           aria-label={colors[i]} title={colors[i]} aria-pressed={data.color === color} onClick={() => change('color', color)}/>)}
-      </fieldset>}
-      <Field label="메모"><input value={data.note} maxLength={240} onChange={event => change('note', event.target.value)}/></Field>
+      </fieldset>
+      <Field label="메모"><textarea value={data.note} rows={2} maxLength={240}
+        onChange={event => change('note', event.target.value)}/></Field>
       {error && !conflict && <Notice type="error">{error}</Notice>}
       {(onComplete || onPrepare) && <div className="schedule-context-actions">
         {onComplete && <button type="button" className="button" onClick={onComplete}>{dialog.done ? '완료 취소' : '완료 표시'}</button>}
@@ -105,7 +111,6 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   const applications = store.applications;
   const supportEvents = applications.flatMap(allEvents).map(item => ({
     ...item, start: item.date, end: item.endDate || item.date,
-    color: item.type === '면접' ? 'blue' : item.type === '과제' ? 'assignment' : 'default',
   }));
   const weeks = calendarWeeks(month);
   const events = [...supportEvents.filter(item => isDateKey(item.start)),
@@ -126,9 +131,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
     setDialog({type: 'form', item: personalItem(start, end)});
   }
   function edit(event) {
-    if (event.deadline) {
-      setDialog({type: 'deadline', item: event});
-    } else if (event.applicationId) {
+    if (event.applicationId) {
       setDialog({type: 'form', item: {...personalItem(event.start, event.end), ...event}});
     } else {
       const item = items.find(item => item.id === event.id);
@@ -140,7 +143,8 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
     if (next.applicationId) {
       onApplicationChange(next.applicationId, application => saveApplicationEvent(application, {
         id, title: next.title, type: next.type || '면접', date: next.start, endDate: next.end,
-        time: next.time, endTime: next.endTime, note: next.note,
+        time: next.time, endTime: next.endTime, note: next.note, color: next.color,
+        ...(next.deadline && {deadline: true}),
       }));
     } else if (dialog.scope === 'date') {
       onItemsChange(previous => previous.flatMap(item => item.id === dialog.original.id
@@ -159,7 +163,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
       onItemsChange(previous => previous.flatMap(item => item.id === dialog.original.id
         ? replaceOccurrence(item, dialog.date) : [item]));
     } else if (item.applicationId) {
-      onApplicationChange(item.applicationId, application => ({...application, events: application.events.filter(event => event.id !== item.id)}));
+      onApplicationChange(item.applicationId, application => removeApplicationEvent(application, item));
     } else {
       onItemsChange(previous => previous.filter(event => event.id !== item.id));
     }
@@ -203,7 +207,8 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
             <button className="career-button schedule-arrow" aria-label="다음 달" onClick={() => moveMonth(1)}><ChevronRight size={15}/></button>
           </div>
         </div>
-        <div className="schedule-legend"><span>마감</span><span>면접</span><span>과제</span><span>일정</span></div>
+        <div className="schedule-legend">{legend.map(([label, tone]) =>
+          <span className={'schedule-tone ' + tone} key={label}>{label}</span>)}</div>
         <div className="schedule-weekdays" aria-hidden="true">{weekdays.map(day => <span key={day}>{day}</span>)}</div>
         <div className="schedule-calendar" style={{'--week-count': weeks.length}} onPointerUp={finishRange} onPointerCancel={() => {anchor.current = ''; setDrag(null);}}
           onPointerLeave={() => {anchor.current = ''; setDrag(null);}}>
@@ -232,11 +237,11 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
               })}
               {bars.map(({event, startColumn, endColumn, lane}) => <button type="button"
                 key={(event.applicationId || '') + '/' + event.id + '/' + event.date}
-                className={'schedule-bar ' + event.color + (event.done ? ' completed' : '')}
+                className={'schedule-bar schedule-tone ' + eventTone(event) + (event.done ? ' completed' : '')}
                 style={{gridColumn: startColumn + ' / ' + endColumn, gridRow: lane + 2}}
-                title={event.title + ' · 더블클릭하여 수정'}
+                title={[event.title, event.type || (event.kind === 'task' ? '체크리스트' : '일정'), '더블클릭하여 수정·삭제'].join(' · ')}
                 aria-label={[event.company, event.title, formatDay(event.date),
-                  event.kind === 'task' && (event.done ? '완료' : '할 일'), '수정'].filter(Boolean).join(' · ')}
+                  event.type || (event.kind === 'task' && (event.done ? '완료' : '할 일')), '수정 및 삭제'].filter(Boolean).join(' · ')}
                 onClick={click => {
                   setSelected(days[startColumn - 1]);
                   if (!click.detail || click.nativeEvent.pointerType === 'touch') edit(event);
@@ -263,16 +268,11 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
       onSave={save} onRemove={dialog.item.id ? () => setDialog({...dialog, type: 'remove'}) : undefined}
       onComplete={dialog.item.kind === 'task' && dialog.date && !dialog.item.repeat && !dialog.scope ? toggleComplete : undefined}
       onPrepare={dialog.item.type === '면접' ? () => navigate('/interviews/' + dialog.item.applicationId) : undefined}/>}
-    {dialog?.type === 'deadline' && <Modal title="지원 마감 수정" onClose={() => setDialog(null)}>
-      <EventForm event={dialog.item} onClose={() => setDialog(null)} onSubmit={next => {
-        onApplicationChange(dialog.item.applicationId, application => saveApplicationEvent(application, next));
-        jump(next.date);
-        setDialog(null);
-      }}/>
-    </Modal>}
     {dialog?.type === 'remove' && <Modal title="일정 삭제" onClose={() => setDialog(null)}>
       <p>{dialog.item.title} 일정을 삭제할까요?</p>
-      <div className="form-actions"><button className="button" onClick={() => setDialog(null)}>취소</button>
+      {dialog.item.deadline && <p className="muted">지원 건의 마감일과 마감 시간이 지워져요.</p>}
+      {dialog.item.repeat && <p className="muted">이 일정의 모든 반복 날짜가 삭제돼요.</p>}
+      <div className="form-actions"><button className="button" onClick={() => setDialog({...dialog, type: 'form'})}>취소</button>
         <button className="button danger" onClick={remove}>삭제</button></div>
     </Modal>}
     {dialog?.type === 'repeat' && <Modal title={'매일 반복 · ' + formatDay(dialog.date)} onClose={() => setDialog(null)}>

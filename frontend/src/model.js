@@ -1,5 +1,5 @@
 import {isInterview} from './interview.js';
-import {isScheduleItem} from './schedule.js';
+import {isScheduleItem, scheduleColors} from './schedule.js';
 const previousColors=['#2563EB','#D97706','#7C3AED','#0D9488','#DB2777','#6A7F16','#0891B2','#9A3412'];
 export const colors=['#274690','#39816F','#A4753E','#8869A4','#63758C','#657D55','#4B7E97','#9B5E77'];
 export function branchColor(b){if(!previousColors.includes(b.color)&&!colors.includes(b.color))return b.color;return colors[b.order]||`hsl(${Math.round(b.order*137.508)%360} 30% 44%)`;}
@@ -74,7 +74,12 @@ export function validateStore(data){
   check(object(a)&&str(a.id)&&a.id&&str(a.company)&&str(a.role)&&str(a.url)&&str(a.duties)&&str(a.requirements)&&str(a.status)&&date(a.deadline)&&time(a.deadlineTime)&&list(a.questions)&&a.questions.length>0&&list(a.events)&&list(a.stages)&&a.stages.every(str)&&list(a.submissions));
   if(a.interview!==undefined)check(isInterview(a.interview));
   check(unique(a.questions.map(q=>q?.id))&&unique(a.events.map(e=>e?.id))&&unique(a.submissions.map(s=>s?.id)));
-  for(const e of a.events)check(object(e)&&str(e.id)&&str(e.title)&&str(e.type)&&date(e.date)&&time(e.time)&&str(e.note));
+  if(a.deadlineDetails!==undefined){
+   const details=a.deadlineDetails;
+   check(object(details)&&str(details.title)&&details.title.trim()&&str(details.note)&&scheduleColors.includes(details.color));
+  }
+  for(const e of a.events)check(object(e)&&str(e.id)&&str(e.title)&&str(e.type)&&date(e.date)&&time(e.time)&&str(e.note)&&
+   (e.color===undefined||scheduleColors.includes(e.color)));
   for(const submission of a.submissions){
    check(object(submission)&&str(submission.id)&&str(submission.name)&&timestamp(submission.createdAt)&&typeof submission.submitted==='boolean'&&list(submission.answers)&&submission.answers.length>0);
    check(unique(submission.answers.map(n=>n?.questionId)));
