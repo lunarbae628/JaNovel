@@ -10,6 +10,12 @@ export const isDateKey = key => typeof key === 'string' && /^\d{4}-\d\d-\d\d$/.t
   Number.isFinite(dateValue(key)) && dateKey(dateValue(key)) === key;
 const isTime = time => typeof time === 'string' && (!time || /^([01]\d|2[0-3]):[0-5]\d$/.test(time));
 
+const scheduleTones = {'마감': 'deadline', '면접': 'blue', '과제': 'assignment', '코딩테스트': 'coding',
+  '체크리스트': 'green', '일정': 'default'};
+export const scheduleLegend = Object.entries(scheduleTones);
+export const scheduleTone = event => event.color && event.color !== 'default' ? event.color :
+  scheduleTones[event.kind === 'task' ? '체크리스트' : event.type] || 'default';
+
 export const applicationEventTypes = ['면접', '과제', '코딩테스트', '마감', '기타'];
 
 export function saveApplicationEvent(application, event) {

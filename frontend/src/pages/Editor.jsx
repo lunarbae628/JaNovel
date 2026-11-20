@@ -1,6 +1,7 @@
 import React,{lazy,Suspense,useMemo,useState} from 'react';
 import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic} from 'lucide-react';
-import {Header,ApplyLink,IconButton,PanelGlyph,Modal,Field,RecordForm,Notice,copyText} from '../components/UI.jsx';
+import {Header,ApplyLink,IconButton,PanelGlyph,Modal,RecordForm,Notice,copyText} from '../components/UI.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 import PanelResizer from '../components/PanelResizer.jsx';
 import OptionHistory from '../components/OptionHistory.jsx';
 import VersionGraph from '../components/VersionGraph.jsx';
@@ -19,7 +20,18 @@ const compactViews = [
  ['chat', 'AI 채팅', MessagesSquare, 'chat-panel'],
 ];
 
-export function RecordSelect({question:q,value,onChange,label='비교할 버전'}){return <select className="record-select" aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{q.branches.map(b=><optgroup key={b.id} label={b.name}><option value={'draft:'+b.id}>{b.draft.closed||!b.draft.dirty?'마지막 본문':'작성 중'} · {b.name}</option>{q.snapshots.filter(s=>s.branchId===b.id).map(s=><option key={s.id} value={'snapshot:'+s.id}>{b.name} · {s.label} · {s.title}</option>)}</optgroup>)}</select>}
+export function RecordSelect({question, value, onChange, label = '비교할 버전', field = false}) {
+ const options = question.branches.map(branch => ({
+  label: branch.name,
+  options: [
+   {value: 'draft:' + branch.id, label: branch.name + ' · ' + (branch.draft.closed || !branch.draft.dirty ? '마지막 본문' : '작성 중')},
+   ...question.snapshots.filter(item => item.branchId === branch.id).map(item => ({
+    value: 'snapshot:' + item.id, label: branch.name + ' · ' + item.label + ' · ' + item.title,
+   })),
+  ],
+ }));
+ return <Dropdown className="record-select" label={label} value={value} options={options} onChange={onChange} field={field}/>;
+}
 
 function QuestionSubmissionDialog({question, number, initialKey, onSave, onClose}) {
  const [key,setKey]=useState(initialKey);
@@ -36,8 +48,8 @@ function QuestionSubmissionDialog({question, number, initialKey, onSave, onClose
     onClose();
    } catch(problem){setError(errorMessage(problem));}
   }}>
-   <Field label="제출할 버전"><RecordSelect question={question} label="제출할 버전" value={key}
-    onChange={value=>{setKey(value);setError('');}}/></Field>
+   <RecordSelect question={question} label="제출할 버전" value={key} field
+    onChange={value=>{setKey(value);setError('');}}/>
    <p className="muted">지정한 본문은 이 문항의 제출본으로 보관되며, 자료 기반 면접 연습에 사용돼요.</p>
    <p className="essay-submission-preview">{preview.text || '선택한 버전의 본문이 비어 있어요.'}</p>
    {recent&&<details className="essay-submission-history"><summary>지정 이력 {question.submissionHistory.length}개</summary>
@@ -175,7 +187,8 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
      <div className={'body-columns '+(comparing?'comparing':'')}>
       <section className="body-column"><div className="record-heading"><div>
        {comparing?(aiReference?<strong>AI 수정안</strong>:<RecordSelect question={q} value={referenceKey} onChange={changeReference} label="참고할 기록"/>):<strong>{mode==='write'?(activeBranch.snapshotIds.length?work.label:'본문'):record.label+' · '+record.title}</strong>}
-       {mode==='write'?<div className="record-context"><select aria-label="작성할 작성안" value={activeId} onChange={e=>chooseBranch(e.target.value)}>{q.branches.map(b=><option key={b.id} value={b.id}>{b.name} · {b.draft.closed||!b.draft.dirty?'스냅샷':'작성 중'}</option>)}</select></div>:!comparing&&<small title={record.description}>{q.branches.find(b=>b.id===record.branchId)?.name}{record.description?' · '+record.description:''}</small>}
+       {mode==='write'?<div className="record-context"><Dropdown label="작성할 작성안" value={activeId} onChange={chooseBranch}
+        options={q.branches.map(b=>({value:b.id,label:b.name+' · 작성 중'}))}/></div>:!comparing&&<small title={record.description}>{q.branches.find(b=>b.id===record.branchId)?.name}{record.description?' · '+record.description:''}</small>}
       </div>{comparing&&<small>{source.text.length.toLocaleString()}자</small>}<IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>{shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}</div>
        {copied&&<small className="copy-notice" role="status">복사했어요</small>}
        {comparing?<><ComparisonSource segments={parts} onTake={right.kind==='draft'?take:undefined}/></>:mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}

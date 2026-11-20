@@ -3,7 +3,7 @@ import {CalendarDays, Check, ChevronLeft, ChevronRight, MessageCircle, Search, S
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, dateLabel} from '../components/UI.jsx';
 import {uid} from '../model.js';
-import {addDays, calendarWeeks, todayKey} from '../schedule.js';
+import {addDays, calendarWeeks, scheduleTone, todayKey} from '../schedule.js';
 import {usePreviewState} from '../community-preview.js';
 import '../community.css';
 
@@ -128,7 +128,7 @@ function FriendCalendar({person, today, comments, onOpen}) {
             aria-label={dateLabel(day) + ' 일정 ' + entries.length + '건'} aria-pressed={day === selected}
             aria-current={day === today ? 'date' : undefined} onClick={() => jump(day)}>
             <strong>{Number(day.slice(8))}</strong>
-            {entries.length > 0 && <span className="community-day-mark">
+            {entries.length > 0 && <span className={'community-day-mark schedule-tone ' + (entries.length === 1 ? scheduleTone(entries[0]) : 'default')}>
               <CalendarDays size={12} aria-hidden="true"/><span>{entries.length === 1 ? entries[0].title : '일정 ' + entries.length + '건'}</span>
             </span>}
           </button>;
@@ -200,9 +200,14 @@ function Chat({selected, channels, messages, onSend}) {
   </section>;
 }
 
-function FriendList({friends, selected, pending}) {
+function FriendList({friends, selected, pending, onAdd}) {
   return <nav className="career-sheet friend-list" aria-label="친구 목록">
-    <div className="community-section-head"><h2>친구 목록</h2><span>{friends.length}명</span></div>
+    <div className="community-section-head">
+      <h2>친구 목록 <small>{friends.length}명</small></h2>
+      <button className="career-button primary near-action" onClick={onAdd}>
+        <UserPlus size={15} aria-hidden="true"/>친구 추가
+      </button>
+    </div>
     <ul>
       {friends.map(person => <li key={person.id}>
         <a className="friend-calendar-link" href={'#/friends?friend=' + person.id}
@@ -235,16 +240,12 @@ export default function Social({section, query}) {
   const inChat = section === 'chat';
 
   return <>
-    <CareerHeader title={inChat ? '채팅' : '친구'}>
-      {!inChat && <button className="career-button primary" onClick={() => setDialog({type: 'search'})}>
-        <UserPlus size={16} aria-hidden="true"/>친구 추가
-      </button>}
-    </CareerHeader>
+    <CareerHeader title={inChat ? '채팅' : '친구'}/>
     <div className="career-content community-content">
       {inChat ? <Chat selected={channel} channels={channels} messages={chat[channel.id] || []}
         onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/> :
         <div className="friends-layout">
-          <FriendList friends={friends} selected={person} pending={invites.length}/>
+          <FriendList friends={friends} selected={person} pending={invites.length} onAdd={() => setDialog({type: 'search'})}/>
           <FriendCalendar key={person.id} person={person} today={today} comments={comments}
             onOpen={(item, key, day) => setDialog({event: item, key, day})}/>
         </div>}

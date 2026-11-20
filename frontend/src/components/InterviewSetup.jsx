@@ -1,3 +1,4 @@
+import Dropdown from './Dropdown.jsx';
 import React, {useMemo, useState} from 'react';
 import {ArrowRight, ClipboardList, FileText, Plus, Upload, Volume2, X} from 'lucide-react';
 import {Field, IconButton, Notice} from './UI.jsx';
@@ -73,11 +74,7 @@ export default function InterviewSetup({application, source, designated, questio
         <ul>{designated.map(answer => <li key={answer.questionId}>문항 {answer.number} · {answer.label}</li>)}</ul>
       </div>}
       <div className="practice-upload">
-        <Field label="자료 종류">
-          <select value={kind} disabled={reading} onChange={event => setKind(event.target.value)}>
-            {materialKinds.map(item => <option key={item}>{item}</option>)}
-          </select>
-        </Field>
+        <Dropdown field label="자료 종류" value={kind} disabled={reading} options={materialKinds} onChange={setKind}/>
         <label className="career-button practice-file">
           <Upload size={15} aria-hidden="true"/>{reading ? '파일 읽는 중…' : '파일 추가'}
           <input aria-label="자료 파일 추가" type="file" disabled={reading}

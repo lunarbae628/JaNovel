@@ -1,7 +1,8 @@
-import React, {useEffect, useId, useRef, useState} from 'react';
-import {ArrowLeft, Check, ChevronDown, MessageCircle, PenLine, Search} from 'lucide-react';
+import React, {useEffect, useRef, useState} from 'react';
+import {ArrowLeft, MessageCircle, PenLine, Search} from 'lucide-react';
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field} from '../components/UI.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 import {uid} from '../model.js';
 import {addDays, todayKey} from '../schedule.js';
 import {usePreviewState} from '../community-preview.js';
@@ -52,76 +53,6 @@ function boardPath(category, {post, writing = false} = {}) {
   return (writing ? '/community/write' : '/community') + (query.size ? '?' + query : '');
 }
 
-function CategoryPicker({value, onChange}) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  const picker = useRef(null);
-  const trigger = useRef(null);
-  const menu = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    menu.current.querySelector('[aria-checked="true"]').focus({preventScroll: true});
-    function dismiss(event) {
-      if (!picker.current.contains(event.target)) setOpen(false);
-    }
-    document.addEventListener('pointerdown', dismiss);
-    return () => document.removeEventListener('pointerdown', dismiss);
-  }, [open]);
-
-  function close() {
-    setOpen(false);
-    trigger.current.focus({preventScroll: true});
-  }
-
-  function handleKey(event) {
-    if (!open) {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        setOpen(true);
-      }
-      return;
-    }
-    if (event.key === 'Tab') {
-      close();
-      return;
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      close();
-      return;
-    }
-    const options = Array.from(menu.current.children);
-    const index = options.indexOf(document.activeElement);
-    const targets = {
-      ArrowDown: (index + 1) % options.length,
-      ArrowUp: (index - 1 + options.length) % options.length,
-      Home: 0,
-      End: options.length - 1,
-    };
-    if (Object.hasOwn(targets, event.key)) {
-      event.preventDefault();
-      options[targets[event.key]].focus();
-    }
-  }
-
-  return <div className="board-picker" ref={picker} onKeyDown={handleKey}
-    onBlur={event => {if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);}}>
-    <span id={id + '-label'}>말머리</span>
-    <button className="board-picker-trigger" ref={trigger} type="button" aria-haspopup="menu" aria-expanded={open}
-      aria-labelledby={id + '-label ' + id + '-value'} aria-controls={open ? id + '-menu' : undefined}
-      onClick={() => setOpen(current => !current)}>
-      <span id={id + '-value'}>{categoryName(value)}</span><ChevronDown size={16} aria-hidden="true"/>
-    </button>
-    {open && <div className="board-picker-menu" id={id + '-menu'} ref={menu} role="menu" aria-labelledby={id + '-label'}>
-      {categories.map(([key, label]) => <button key={key} type="button" role="menuitemradio"
-        aria-checked={key === value} tabIndex={-1} onClick={() => {onChange(key); close();}}>
-        {key === value && <Check size={16} aria-hidden="true"/>}<span>{label}</span>
-      </button>)}
-    </div>}
-  </div>;
-}
-
 function PostEditor({category, onCreate}) {
   const [kind, setKind] = useState(category || 'general');
   const [title, setTitle] = useState('');
@@ -137,7 +68,8 @@ function PostEditor({category, onCreate}) {
     }}>
       <header>
         <h2 id="board-editor-title" ref={heading} tabIndex={-1}>글쓰기</h2>
-        <CategoryPicker value={kind} onChange={setKind}/>
+        <Dropdown label="말머리" field className="board-picker" options={categories.map(([value, label]) => ({value, label}))}
+          value={kind} onChange={setKind}/>
       </header>
       <div className="board-editor-title-field">
         <input name="title" aria-label="제목" placeholder="제목을 입력하세요" maxLength={80} required
@@ -167,6 +99,9 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
         {[['', '전체'], ...categories].map(([id, label]) => <a key={id} href={'#' + boardPath(id)}
           aria-current={category === id ? 'page' : undefined}>{label}</a>)}
       </nav>
+      <a className="career-button primary near-action board-write" href={'#' + boardPath(category, {writing: true})}>
+        <PenLine size={15} aria-hidden="true"/>글쓰기
+      </a>
       <div className="board-tools">
         <p role="status">게시글 <strong>{visiblePosts.length}</strong>개</p>
         <label className="board-search">
@@ -257,11 +192,7 @@ export default function Community({query, writing, navigate}) {
   const selected = allPosts.find(post => post.id === query.get('post'));
 
   return <>
-    <CareerHeader title="커뮤니티">
-      {!writing && !selected && <a className="career-button primary" href={'#' + boardPath(category, {writing: true})}>
-        <PenLine size={16} aria-hidden="true"/>글쓰기
-      </a>}
-    </CareerHeader>
+    <CareerHeader title="커뮤니티"/>
     <div className={'career-content community-content ' + (writing || selected ? 'board-reading-content' : 'board-list-content')}>
       {(writing || selected) && <a className="board-back board-list-back" href={'#' + boardPath(category)}>
         <ArrowLeft size={17} aria-hidden="true"/>목록으로

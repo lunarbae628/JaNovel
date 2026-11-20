@@ -45,7 +45,7 @@
 .essay-submission-history summary { width: fit-content; margin-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
 .essay-submission-history details { margin-left: 10px; }
 .editor-page .record-heading { border-bottom: 1px solid #e5e9f1; padding-bottom: 9px; }
-.editor-page .record-heading .record-context select { font-size: 12px; color: #586274; }
+.editor-page .record-heading .record-context .dropdown-trigger { color: #586274; }
 .editor-page .body-editor { padding: 9px 0 15px; font-size: 15px; line-height: 1.9; }
 .editor-page .chat-panel .panel-toolbar small { color: #586274; }
 

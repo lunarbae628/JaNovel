@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {ArrowLeft, ArrowRight, CalendarDays, Mic, Plus, Trash2} from 'lucide-react';
 import {CareerHeader, writingPath} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 import AnswerRecording from '../components/AnswerRecording.jsx';
 import InterviewSetup from '../components/InterviewSetup.jsx';
 import {deleteAttachment} from '../storage.js';
@@ -41,11 +42,9 @@ function InterviewRecords({records, onOpen}) {
 function AddInterview({applications, onSave, onClose}) {
   const [id, setId] = useState(() => applications.length === 1 ? applications[0].id : '');
   return <Modal title="면접 추가" onClose={onClose} className="interview-modal">
-    <EventForm fixedType="면접" allowUndated onClose={onClose} onSubmit={event => onSave(id, event)}>
-      <Field label="지원 건"><select value={id} onChange={event => setId(event.target.value)} required>
-        <option value="" disabled>지원 건 선택</option>
-        {applications.map(item => <option key={item.id} value={item.id}>{item.company} · {item.role}</option>)}
-      </select></Field>
+    <EventForm fixedType="면접" allowUndated submitDisabled={!id} onClose={onClose} onSubmit={event => onSave(id, event)}>
+      <Dropdown field label="지원 건" value={id} placeholder="지원 건 선택" onChange={setId}
+        options={applications.map(item => ({value: item.id, label: item.company + ' · ' + item.role}))}/>
     </EventForm>
   </Modal>;
 }
@@ -66,16 +65,17 @@ export function Interviews({store, navigate, query, onApplicationChange, onInter
   const open = (id, record) => navigate(recordsPath + '&' + new URLSearchParams({application: id, record}));
 
   return <>
-    <CareerHeader title="면접 준비">
-      <button className="career-button primary" onClick={() => applications.length ? setAdding(true) : navigate('/posting')}>
-        <Plus size={16}/>{applications.length ? '면접 추가' : '공고 등록'}
-      </button>
-    </CareerHeader>
+    <CareerHeader title="면접 준비"/>
     <div className="career-content interview-list">
-      <nav className="career-tabs" aria-label="면접 준비 보기">
-        <a href="#/interviews" aria-current={tab === 'planned' ? 'page' : undefined}>준비 목록 <span>{planned.length}</span></a>
-        <a href={'#' + recordsPath} aria-current={tab === 'records' ? 'page' : undefined}>연습 기록</a>
-      </nav>
+      <div className="interview-list-toolbar">
+        <nav className="career-tabs" aria-label="면접 준비 보기">
+          <a href="#/interviews" aria-current={tab === 'planned' ? 'page' : undefined}>준비 목록 <span>{planned.length}</span></a>
+          <a href={'#' + recordsPath} aria-current={tab === 'records' ? 'page' : undefined}>연습 기록</a>
+        </nav>
+        <button className="career-button primary near-action" onClick={() => applications.length ? setAdding(true) : navigate('/posting')}>
+          <Plus size={15} aria-hidden="true"/>{applications.length ? '면접 추가' : '공고 등록'}
+        </button>
+      </div>
       {tab === 'planned' ? <>
         <section className="interview-cards" aria-label="준비할 면접">
           {planned.map(({application, events}) => {

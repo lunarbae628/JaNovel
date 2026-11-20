@@ -1,19 +1,16 @@
 import React, {useRef, useState} from 'react';
 import {Check, ChevronLeft, ChevronRight, Plus, Repeat2} from 'lucide-react';
+import Dropdown from '../components/Dropdown.jsx';
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import {allEvents} from './Applications.jsx';
 import {uid} from '../model.js';
 import {
   applicationEventTypes, calendarWeeks, completeOccurrence, isDateKey, packWeek, projectSchedule, replaceOccurrence,
-  removeApplicationEvent, saveApplicationEvent, scheduleColors, todayKey, validateScheduleItem,
+  removeApplicationEvent, saveApplicationEvent, scheduleColors, scheduleLegend, scheduleTone, todayKey, validateScheduleItem,
 } from '../schedule.js';
 
 const colors = ['기본', '파랑', '보라', '초록', '황토', '분홍'];
-const tones = {'마감': 'deadline', '면접': 'blue', '과제': 'assignment', '코딩테스트': 'coding'};
-const legend = [...Object.entries(tones), ['체크리스트', 'green'], ['일정', 'default']];
-const eventTone = event => event.color && event.color !== 'default' ? event.color :
-  event.kind === 'task' ? 'green' : tones[event.type] || 'default';
 const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 const formatDay = key => new Intl.DateTimeFormat('ko-KR', {
   month: 'long', day: 'numeric', weekday: 'long', timeZone: 'UTC',
@@ -40,20 +37,14 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComple
       const problem = validateScheduleItem(next);
       if (problem) setError(problem); else onSave(next);
     }}>
-      {!deadline && applications.length > 0 && <Field label="연결할 지원">
-        <select value={data.applicationId || ''} disabled={Boolean(data.id)} onChange={event => {
-          const applicationId = event.target.value;
-          setData(previous => ({...previous, applicationId,
-            ...(applicationId && {kind: 'event', repeat: false, repeatUntil: ''})}));
-        }}>
-          <option value="">개인 일정</option>
-          {applications.map(item => <option value={item.id} key={item.id}>{item.company} · {item.role}</option>)}
-        </select>
-      </Field>}
+      {!deadline && applications.length > 0 && <Dropdown field label="연결할 지원"
+        value={data.applicationId || ''} disabled={Boolean(data.id)}
+        options={[{value: '', label: '개인 일정'}, ...applications.map(item => ({value: item.id, label: item.company + ' · ' + item.role}))]}
+        onChange={applicationId => setData(previous => ({...previous, applicationId,
+          ...(applicationId && {kind: 'event', repeat: false, repeatUntil: ''})}))}/>}
       <Field label="제목"><input value={data.title} maxLength={100} required onChange={event => change('title', event.target.value)}/></Field>
-      {support && !deadline && <Field label="종류"><select value={data.type || '면접'} onChange={event => change('type', event.target.value)}>
-        {[...new Set([...applicationEventTypes, data.type || '면접'])].map(type => <option key={type}>{type}</option>)}
-      </select></Field>}
+      {support && !deadline && <Dropdown field label="종류" value={data.type || '면접'}
+        options={[...new Set([...applicationEventTypes, data.type || '면접'])]} onChange={value => change('type', value)}/>}
       <div className="form-grid">
         <Field label={deadline ? '마감일' : '시작일'}><input type="date" required value={data.start} onChange={event => {
           const start = event.target.value;
@@ -68,12 +59,12 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComple
       </div>}
       {!support && dialog.scope !== 'date' && <>
         <div className="form-grid">
-          <Field label="반복"><select value={data.repeat ? 'daily' : 'none'} onChange={event => change('repeat', event.target.value === 'daily')}>
-            <option value="none">반복 안 함</option><option value="daily">매일</option>
-          </select></Field>
-          <Field label="관리 방식"><select value={data.kind} onChange={event => change('kind', event.target.value)}>
-            <option value="event">일반 일정</option><option value="task">체크리스트</option>
-          </select></Field>
+          <Dropdown field label="반복" value={data.repeat ? 'daily' : 'none'}
+            options={[{value: 'none', label: '반복 안 함'}, {value: 'daily', label: '매일'}]}
+            onChange={value => change('repeat', value === 'daily')}/>
+          <Dropdown field label="관리 방식" value={data.kind}
+            options={[{value: 'event', label: '일반 일정'}, {value: 'task', label: '체크리스트'}]}
+            onChange={value => change('kind', value)}/>
         </div>
         {conflict && <Notice type="error">일일 반복은 하루 일정에만 설정할 수 있어요.</Notice>}
         {data.repeat && <Field label="반복 종료일" hint="비워 두면 계속 반복해요.">
@@ -81,7 +72,7 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove, onComple
         </Field>}
       </>}
       <fieldset className="schedule-palette"><legend>색상</legend>
-        {scheduleColors.map((color, i) => <button key={color} type="button" className={'schedule-swatch schedule-tone ' + (color === 'default' ? eventTone({...data, color}) : color)}
+        {scheduleColors.map((color, i) => <button key={color} type="button" className={'schedule-swatch schedule-tone ' + (color === 'default' ? scheduleTone({...data, color}) : color)}
           aria-label={colors[i]} title={colors[i]} aria-pressed={data.color === color} onClick={() => change('color', color)}/>)}
       </fieldset>
       <Field label="메모"><textarea value={data.note} rows={2} maxLength={240}
@@ -207,7 +198,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
             <button className="career-button schedule-arrow" aria-label="다음 달" onClick={() => moveMonth(1)}><ChevronRight size={15}/></button>
           </div>
         </div>
-        <div className="schedule-legend">{legend.map(([label, tone]) =>
+        <div className="schedule-legend">{scheduleLegend.map(([label, tone]) =>
           <span className={'schedule-tone ' + tone} key={label}>{label}</span>)}</div>
         <div className="schedule-weekdays" aria-hidden="true">{weekdays.map(day => <span key={day}>{day}</span>)}</div>
         <div className="schedule-calendar" style={{'--week-count': weeks.length}} onPointerUp={finishRange} onPointerCancel={() => {anchor.current = ''; setDrag(null);}}
@@ -237,7 +228,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
               })}
               {bars.map(({event, startColumn, endColumn, lane}) => <button type="button"
                 key={(event.applicationId || '') + '/' + event.id + '/' + event.date}
-                className={'schedule-bar schedule-tone ' + eventTone(event) + (event.done ? ' completed' : '')}
+                className={'schedule-bar schedule-tone ' + scheduleTone(event) + (event.done ? ' completed' : '')}
                 style={{gridColumn: startColumn + ' / ' + endColumn, gridRow: lane + 2}}
                 title={[event.title, event.type || (event.kind === 'task' ? '체크리스트' : '일정'), '더블클릭하여 수정·삭제'].join(' · ')}
                 aria-label={[event.company, event.title, formatDay(event.date),
