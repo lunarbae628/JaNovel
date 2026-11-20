@@ -85,10 +85,11 @@ function App() {
   }, [kind, aid, Boolean(application)]);
 
   const openSettings = () => setSettings(true);
-  const saveApplication = next => setStore(previous => ({
+  const changeApplication = (id, update) => setStore(previous => ({
     ...previous,
-    applications: previous.applications.map(item => item.id === next.id ? next : item),
+    applications: previous.applications.map(item => item.id === id ? update(item) : item),
   }));
+  const saveApplication = next => changeApplication(next.id, () => next);
   const saveQuestion = next => setStore(previous => updateQuestion(previous, aid, question.id, next));
 
   const updateInterview = action => setStore(previous => ({
@@ -109,12 +110,10 @@ function App() {
   } else if (!kind || ['applications', 'schedule', 'interviews'].includes(kind)) {
     const section = '/' + (kind || 'applications');
     content = <CareerLayout section={section} store={store} onSettings={openSettings}>
-      {section === '/applications' ? <Applications store={store} navigate={navigate}/> : section === '/schedule' ?
+      {section === '/applications' ? <Applications store={store} navigate={navigate} onApplicationChange={changeApplication}/> : section === '/schedule' ?
         <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
-          onApplicationChange={(id, update) => setStore(previous => ({...previous,
-            applications: previous.applications.map(item => item.id === id ? update(item) : item),
-          }))}/> : interviewRecord ?
+          onApplicationChange={changeApplication}/> : interviewRecord ?
         <InterviewRecord key={qid} application={application} record={interviewRecord} navigate={navigate} onChange={updateInterview}/> :
         application ? <InterviewDetail key={aid} application={application} navigate={navigate} query={query}
           onChange={updateInterview} storageError={storageError}/> :

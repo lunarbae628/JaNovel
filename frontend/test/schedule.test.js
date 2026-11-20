@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {calendarWeeks, completeOccurrence, projectSchedule, replaceOccurrence, validateScheduleItem, packWeek} from '../src/schedule.js';
+import {calendarWeeks, completeOccurrence, projectSchedule, replaceOccurrence, saveApplicationEvent, validateScheduleItem, packWeek} from '../src/schedule.js';
 
 const plan = {
   id: 'p1', title: '포트폴리오 정리', kind: 'task', start: '2026-11-28', end: '2026-12-02',
   time: '', note: '', color: 'purple', repeat: false, repeatUntil: '', completed: [], skipped: [],
 };
 const daily = {...plan, title: '알고리즘 2문제', start: '2026-11-28', end: '2026-11-28', repeat: true, repeatUntil: '2026-12-02'};
+
+test('an undated interview can be scheduled by ID without replacing other events or the deadline', () => {
+  const event = {id: 'interview', title: '기술 면접', type: '면접', date: '', time: '', note: ''};
+  const assignment = {...event, id: 'assignment', type: '과제', date: '2026-11-21'};
+  const application = {id: 'company', deadline: '2026-11-20', events: [assignment]};
+  const registered = saveApplicationEvent(application, event);
+  assert.deepEqual(registered.events, [assignment, event]);
+  const scheduled = saveApplicationEvent(registered, {...event, date: '2026-11-22', endDate: '2026-11-24'});
+  assert.deepEqual(scheduled.events, [assignment, {...event, date: '2026-11-22', endDate: '2026-11-24'}]);
+  const edited = saveApplicationEvent(scheduled, {deadline: true, date: '2026-11-23', time: '14:00'});
+  assert.equal(edited.deadline, '2026-11-23');
+  assert.equal(edited.deadlineTime, '14:00');
+  assert.deepEqual(edited.events, scheduled.events);
+});
 
 test('a period retains the same event ID across month and week boundaries', () => {
   assert.equal(calendarWeeks('2026-11-01').at(-1).at(-1), '2026-12-05');

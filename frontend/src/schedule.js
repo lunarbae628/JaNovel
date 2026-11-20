@@ -10,6 +10,16 @@ export const isDateKey = key => typeof key === 'string' && /^\d{4}-\d\d-\d\d$/.t
   Number.isFinite(dateValue(key)) && dateKey(dateValue(key)) === key;
 const isTime = time => typeof time === 'string' && (!time || /^([01]\d|2[0-3]):[0-5]\d$/.test(time));
 
+export const applicationEventTypes = ['면접', '과제', '코딩테스트', '마감', '기타'];
+
+export function saveApplicationEvent(application, event) {
+  if (event.deadline) return {...application, deadline: event.date, deadlineTime: event.time};
+  const exists = application.events.some(item => item.id === event.id);
+  return {...application, events: exists
+    ? application.events.map(item => item.id === event.id ? event : item)
+    : [...application.events, event]};
+}
+
 export function calendarWeeks(month) {
   const start = month.slice(0, 7) + '-01';
   const first = addDays(start, -new Date(dateValue(start)).getUTCDay());

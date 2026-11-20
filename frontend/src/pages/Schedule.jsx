@@ -2,11 +2,11 @@ import React, {useRef, useState} from 'react';
 import {ChevronLeft, ChevronRight, Plus, Repeat2} from 'lucide-react';
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
-import {allEvents} from './Applications.jsx';
+import {allEvents, EventForm} from './Applications.jsx';
 import {uid} from '../model.js';
 import {
-  calendarWeeks, completeOccurrence, isDateKey, packWeek, projectSchedule, replaceOccurrence,
-  scheduleColors, todayKey, validateScheduleItem,
+  applicationEventTypes, calendarWeeks, completeOccurrence, isDateKey, packWeek, projectSchedule, replaceOccurrence,
+  saveApplicationEvent, scheduleColors, todayKey, validateScheduleItem,
 } from '../schedule.js';
 
 const colors = ['기본', '파랑', '보라', '초록', '황토', '분홍'];
@@ -48,7 +48,7 @@ function ScheduleForm({dialog, applications, onClose, onSave, onRemove}) {
       </Field>}
       <Field label="제목"><input value={data.title} maxLength={100} required onChange={event => change('title', event.target.value)}/></Field>
       {support && <Field label="종류"><select value={data.type || '면접'} onChange={event => change('type', event.target.value)}>
-        {['면접', '과제', '코딩테스트', '기타'].map(type => <option key={type}>{type}</option>)}
+        {[...new Set([...applicationEventTypes, data.type || '면접'])].map(type => <option key={type}>{type}</option>)}
       </select></Field>}
       <div className="form-grid">
         <Field label="시작일"><input type="date" required value={data.start} onChange={event => {
@@ -126,7 +126,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   }
   function edit(event) {
     if (event.deadline) {
-      navigate('/posting/' + event.applicationId);
+      setDialog({type: 'deadline', item: event});
     } else if (event.applicationId) {
       setDialog({type: 'form', item: {...personalItem(event.start, event.end), ...event}});
     } else {
@@ -137,12 +137,9 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   function save(next) {
     const id = next.id || uid('event');
     if (next.applicationId) {
-      onApplicationChange(next.applicationId, application => ({
-        ...application,
-        events: [...application.events.filter(event => event.id !== id), {
-          id, title: next.title, type: next.type || '면접', date: next.start, endDate: next.end,
-          time: next.time, endTime: next.endTime, note: next.note,
-        }],
+      onApplicationChange(next.applicationId, application => saveApplicationEvent(application, {
+        id, title: next.title, type: next.type || '면접', date: next.start, endDate: next.end,
+        time: next.time, endTime: next.endTime, note: next.note,
       }));
     } else if (dialog.scope === 'date') {
       onItemsChange(previous => previous.flatMap(item => item.id === dialog.original.id
@@ -186,9 +183,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   }
 
   return <>
-    <CareerHeader title="일정">
-      <button type="button" className="career-button primary" onClick={() => add()}><Plus size={14}/>일정 추가</button>
-    </CareerHeader>
+    <CareerHeader title="일정"/>
     <div className="career-content schedule-content">
       <section className="schedule-month career-sheet" aria-label="월간 캘린더">
         <div className="schedule-month-heading">
@@ -215,19 +210,23 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
                   }}>
                   <button type="button" className={'schedule-day' + (day === today ? ' today' : '') + (day.slice(0, 7) !== month.slice(0, 7) ? ' outside' : '')}
                     aria-label={formatDay(day) + ' 일정 보기'} aria-pressed={day === selected}
+                    title="더블클릭하여 일정 추가"
                     onPointerDown={event => {
                       if (event.button !== 0 || event.pointerType === 'touch') return;
                       anchor.current = day;
                     }}
-                    onClick={() => jump(day)}>
+                    onClick={() => setSelected(day)} onDoubleClick={() => add(day)}>
                     {Number(day.slice(8))}
                   </button>
+                  {day === selected && <button type="button" className="schedule-cell-add"
+                    aria-label={formatDay(day) + ' 일정 추가'} onClick={() => add(day)}><Plus size={13}/></button>}
                 </div>;
               })}
               {bars.map(({event, startColumn, endColumn, lane}) => <button type="button"
                 key={event.id + event.date} className={'schedule-bar ' + event.color + (event.done ? ' completed' : '')}
                 style={{gridColumn: startColumn + ' / ' + endColumn, gridRow: lane + 2}}
-                title={event.title} onClick={() => setSelected(days[startColumn - 1])}>
+                title={event.title + ' · 더블클릭하여 수정'} onClick={() => setSelected(days[startColumn - 1])}
+                onDoubleClick={() => edit(event)}>
                 {event.company && <strong>{event.company}</strong>}
                 <span>{event.title}{event.time ? ' ' + event.time : ''}</span>
                 {event.repeat && <Repeat2 size={13} aria-label="일일 반복"/>}
@@ -263,10 +262,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
             <button className="career-button" onClick={() => edit(event)}>할 일 수정</button>
           </div>)}
         </section>}
-        {!selectedEvents.length && <div className="schedule-empty">
-          <p>등록된 일정이 없어요.</p>
-          <button className="career-button" onClick={() => add()}><Plus size={14}/>일정 추가</button>
-        </div>}
+        {!selectedEvents.length && <p className="schedule-empty">등록된 일정이 없어요.</p>}
         {supportEvents.some(event => !event.date) && <section className="schedule-tasks">
           <h3>날짜 미정</h3>
           {supportEvents.filter(event => !event.date).map(event => <button className="career-button" key={event.id}
@@ -276,6 +272,13 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
     </div>
     {dialog?.type === 'form' && <ScheduleForm dialog={dialog} applications={applications} onClose={() => setDialog(null)}
       onSave={save} onRemove={dialog.item.id ? () => setDialog({...dialog, type: 'remove'}) : undefined}/>}
+    {dialog?.type === 'deadline' && <Modal title="지원 마감 수정" onClose={() => setDialog(null)}>
+      <EventForm event={dialog.item} onClose={() => setDialog(null)} onSubmit={next => {
+        onApplicationChange(dialog.item.applicationId, application => saveApplicationEvent(application, next));
+        jump(next.date);
+        setDialog(null);
+      }}/>
+    </Modal>}
     {dialog?.type === 'remove' && <Modal title="일정 삭제" onClose={() => setDialog(null)}>
       <p>{dialog.item.title} 일정을 삭제할까요?</p>
       <div className="form-actions"><button className="button" onClick={() => setDialog(null)}>취소</button>
