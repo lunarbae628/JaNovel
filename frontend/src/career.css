@@ -82,6 +82,10 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
 .career-main { display: flex; flex-direction: column; min-width: 0; background: var(--career-canvas); }
 .career-content { padding: 20px 28px 24px; }
 .career-main > .career-content { width: 100%; max-width: var(--career-content-max, 1440px); margin-inline: auto; }
+.career-main > .career-full-width {
+  --career-content-max: none;
+  flex: 1; padding: 0; background: #fff;
+}
 .career-content h2 { margin: 0; font-size: 16px; line-height: 26px; font-weight: 600; }
 .career-button {
   display: inline-flex;
@@ -247,8 +251,8 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
 }
 
 
-.schedule-content { display: flex; flex: 1; flex-direction: column; }
-.schedule-month { display: flex; flex: 1; flex-direction: column; padding: 15px 14px 14px; }
+.schedule-content { display: flex; flex-direction: column; }
+.schedule-month { display: flex; flex: 1; flex-direction: column; padding: 14px 16px; }
 .schedule-month-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; }
 .schedule-month-heading h1 { font-size: 18px; }
 .schedule-month-heading > div { display: flex; gap: 6px; }
@@ -271,7 +275,7 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
 .schedule-weekdays span { padding: 3px 12px 11px; color: var(--career-muted); font-size: 12px; }
 .schedule-calendar {
   display: grid; flex: 1; grid-template-rows: repeat(var(--week-count), auto);
-  border: 1px solid var(--career-border); border-right: 0; border-bottom: 0; border-radius: 7px; user-select: none;
+  border: 1px solid var(--career-border); border-right: 0; border-bottom: 0; user-select: none;
 }
 .schedule-week { min-height: 94px; grid-template-rows: 29px repeat(var(--lanes), minmax(22px, auto)) 1fr; }
 .schedule-cell { grid-row: 1 / -1; border: solid var(--border); border-width: 0 1px 1px 0; }

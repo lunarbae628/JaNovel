@@ -59,7 +59,7 @@ function PostEditor({category, onCreate}) {
   const heading = useRef(null);
   useEffect(() => heading.current.focus(), []);
 
-  return <section className="career-sheet board-editor" aria-labelledby="board-editor-title">
+  return <section className="board-editor" aria-labelledby="board-editor-title">
     <form onSubmit={event => {
       event.preventDefault();
       if (!title.trim() || !body.trim()) return;
@@ -92,7 +92,7 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
   const visiblePosts = posts.filter(post => (!category || category === post.category) &&
     [post.title, post.body, post.author].some(value => value.toLowerCase().includes(term)));
 
-  return <section className="career-sheet community-board" aria-label="게시글 목록">
+  return <section className="community-board" aria-label="게시글 목록">
     <h1 className="visually-hidden">커뮤니티</h1>
     <div className="board-toolbar">
       <nav className="career-tabs" aria-label="게시판 말머리">
@@ -192,7 +192,7 @@ export default function Community({query, writing, navigate}) {
   const selected = allPosts.find(post => post.id === query.get('post'));
 
   return <>
-    <div className={'career-content community-content' + (writing || selected ? ' board-reading-content' : '')}>
+    <div className="career-content career-full-width community-content">
       {(writing || selected) && <BackLink className="page-back board-list-back" to={boardPath(category)}>
         목록으로
       </BackLink>}
@@ -200,7 +200,7 @@ export default function Community({query, writing, navigate}) {
         setPreview(current => ({...current, posts: [post, ...current.posts]}));
         setKeyword('');
         navigate(boardPath(post.category, {post: post.id}));
-      }}/> : selected ? <div className="career-sheet board-reader" key={selected.id}>
+      }}/> : selected ? <div className="board-reader" key={selected.id}>
         <PostDetail post={selected} joined={joinedRequests.includes(selected.id)}
           onJoin={() => setPreview(current => ({...current, joinedRequests: current.joinedRequests.includes(selected.id)
             ? current.joinedRequests.filter(id => id !== selected.id) : [...current.joinedRequests, selected.id]}))}/>

@@ -235,7 +235,7 @@ export default function Social({query, preview, setPreview}) {
   }, [openChannel, openEvent, setPreview]);
 
   return <>
-    <div className="career-content friends-content friends-layout">
+    <div className="career-content career-full-width friends-content friends-layout">
       <FriendList friends={friends} selected={channel} chat={chat} panel={panel} pending={invites.length}
         onAdd={() => setDialog({type: 'search'})}/>
       <div className="friend-workspace">

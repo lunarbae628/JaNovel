@@ -183,8 +183,8 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   }
 
   return <>
-    <div className="career-content schedule-content">
-      <section className="schedule-month career-sheet" aria-label="월간 캘린더">
+    <div className="career-content career-full-width schedule-content">
+      <section className="schedule-month" aria-label="월간 캘린더">
         <div className="schedule-month-heading">
           <h1>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</h1>
           <div>
