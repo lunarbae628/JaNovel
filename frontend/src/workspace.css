@@ -2,6 +2,12 @@
 .app-header .back-link:hover { color: var(--primary); }
 .header-context { min-width: 0; }
 .header-context > strong { overflow: hidden; text-overflow: ellipsis; }
+.editor-page .header-actions { flex-grow: 1; margin-left: 0; }
+.header-actions .essay-interview-button {
+  min-height: 36px; margin-inline-end: auto; padding-inline: 12px; border-color: #c3d0eb;
+  background: #eaf0fa; color: var(--primary); font-size: 13px; font-weight: 650; white-space: nowrap;
+}
+.header-actions .essay-interview-button:hover { background: #dce7f8; border-color: #9eb4dc; }
 .editor-page .editor-layout { min-height: 480px; }
 .editor-view-switch { display: none; }
 .editor-page .editor-toolbar, .editor-page .panel-toolbar { min-height: 51px; height: 51px; }
@@ -88,6 +94,7 @@
   .app-header .header-context > strong { overflow-wrap: anywhere; }
   .app-header .header-actions { grid-column: 1 / -1; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
   .app-header .header-actions:empty { display: none; }
+  .editor-page .essay-interview-button { min-height: 42px; }
 
   .editor-page .editor-actions { flex-wrap: wrap; max-width: 100%; row-gap: 3px; }
   .editor-page .question-heading { align-items: flex-start; flex-wrap: nowrap; }

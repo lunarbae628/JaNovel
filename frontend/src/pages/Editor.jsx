@@ -1,5 +1,5 @@
 import React,{lazy,Suspense,useMemo,useState} from 'react';
-import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download} from 'lucide-react';
+import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic} from 'lucide-react';
 import {Header,ApplyLink,IconButton,PanelGlyph,Modal,RecordForm,Notice,copyText} from '../components/UI.jsx';
 import PanelResizer from '../components/PanelResizer.jsx';
 import OptionHistory from '../components/OptionHistory.jsx';
@@ -105,7 +105,11 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
  function removeSnapshot(){try{applyCleanup(deleteSnapshot(q,shown.id));}catch(e){setError(errorMessage(e));setModal('');}}
  function removeBranch(){try{applyCleanup(deleteBranch(q,deletingBranch));}catch(e){setError(errorMessage(e));setModal('');}}
  return <div className="editor-page">
-  <Header title={a.company} subtitle={a.role} back="지원 현황" onBack={()=>navigate('/applications')}><button className="text-button" onClick={()=>navigate('/application/'+a.id)}>공고 정보</button><button className="text-button" onClick={()=>navigate('/interviews/'+a.id)}>면접 준비</button><ApplyLink url={safeUrl(a.url)} onMissing={()=>navigate('/posting/'+a.id)}/></Header>
+  <Header title={a.company} subtitle={a.role} back="지원 현황" onBack={()=>navigate('/applications')}>
+   <a className="button essay-interview-button" href={'#/interviews/'+a.id+'?tab=practice'}><Mic size={16} aria-hidden="true"/>면접 연습</a>
+   <button className="text-button" onClick={()=>navigate('/application/'+a.id)}>공고 정보</button>
+   <ApplyLink url={safeUrl(a.url)} onMissing={()=>navigate('/posting/'+a.id)}/>
+  </Header>
   <nav className="editor-view-switch" aria-label="작성 화면 보기">
    {compactViews.map(([view,label,Icon,panel])=><button type="button" key={view} aria-pressed={compactView===view} aria-controls={panel} onClick={()=>{
     setCompactView(view);

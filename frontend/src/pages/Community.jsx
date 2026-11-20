@@ -288,11 +288,11 @@ export default function Community({store, query}) {
   }
 
   return <>
-    <CareerHeader title="친구·스터디">
+    <CareerHeader title="커뮤니티">
       <button className="career-button primary" onClick={() => setDialog({type: 'invite'})}><UserPlus size={16}/>친구 초대</button>
     </CareerHeader>
     <div className="career-content community-content">
-      <nav className="career-tabs community-tabs" aria-label="친구·스터디 메뉴">
+      <nav className="career-tabs community-tabs" aria-label="커뮤니티 메뉴">
         {tabs.map(([key, label]) => <a key={key} href={'#/community' + (key === 'calendar' ? '' : '?tab=' + key)}
           aria-current={key === tab ? 'page' : undefined}>{label}</a>)}
       </nav>

@@ -5,7 +5,7 @@ const links = [
   ['/applications', '지원 현황', BriefcaseBusiness],
   ['/schedule', '일정', CalendarDays],
   ['/interviews', '면접 준비', MessagesSquare],
-  ['/community', '친구·스터디', UsersRound],
+  ['/community', '커뮤니티', UsersRound],
 ];
 
 export function writingPath(application) {

@@ -21,7 +21,7 @@ const InterviewPractice = lazy(() => import('./pages/InterviewPractice.jsx').the
 const Community = lazy(() => import('./pages/Community.jsx'));
 
 const pageTitles = {
-  applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '친구·스터디',
+  applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '커뮤니티',
   posting: '공고 등록', write: '작성', merge: '병합', submissions: '제출본',
   login: '로그인', signup: '회원가입', 'signup-details': '계정 정보',
   reset: '비밀번호 재설정', application: '지원 상세',
