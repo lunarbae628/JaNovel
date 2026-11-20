@@ -1,4 +1,4 @@
-import React,{useRef,useState} from 'react';
+import React,{useLayoutEffect,useRef,useState} from 'react';
 import {Plus,ChevronRight,Search,ChevronDown,ArrowUp,ArrowDown,Trash2,CalendarDays,FileText,Pencil} from 'lucide-react';
 import {Header,IconButton,Modal,Field,Notice,Empty,ApplyLink,dateLabel} from '../components/UI.jsx';
 import {createApplication} from '../seed.js';
@@ -21,12 +21,20 @@ function upcomingEvents(applications) {
 function EditableField({label, value, maxLength, onSave}) {
   const [editing, setEditing] = useState(false);
   const button = useRef(null);
+  const restoreFocus = useRef(false);
 
-  function finish(input, save, restoreFocus = false) {
+  useLayoutEffect(() => {
+    if (!editing && restoreFocus.current) {
+      restoreFocus.current = false;
+      button.current?.focus();
+    }
+  }, [editing]);
+
+  function finish(input, save, fromKeyboard = false) {
     const next = input.value.trim();
+    restoreFocus.current = fromKeyboard;
     setEditing(false);
     if (save && next && next !== value) onSave(next);
-    if (restoreFocus) requestAnimationFrame(() => button.current?.focus());
   }
 
   return editing ? <input autoFocus aria-label={label} defaultValue={value} maxLength={maxLength}
@@ -110,6 +118,8 @@ export function Applications({store, navigate, onApplicationChange}) {
                 schedules.find(item => !item.date) || schedules[0];
               const interview = events.find(item => item.applicationId === application.id && item.type === '면접') ||
                 schedules.find(item => item.type === '면접' && !item.date);
+              const separateInterview = interview && interview.id !== event?.id;
+              const remaining = schedules.length - (separateInterview ? 2 : 1);
               const setField = (field, value) => onApplicationChange(application.id, current => ({...current, [field]: value}));
               return <li key={application.id} className="dashboard-grid dashboard-row">
                 <div className="dashboard-company">
@@ -120,9 +130,10 @@ export function Applications({store, navigate, onApplicationChange}) {
                   onClick={() => setScheduleId(application.id)}>
                   {event ? <>
                     <strong>{event.date ? event.date.slice(5).replace('-', '.') + (event.time ? ' ' + event.time : '') : '날짜 미정'}</strong>
-                    <span>{event.title}</span>
-                    {interview && interview.id !== event.id && <span className="dashboard-interview">
+                    <span>{event.title}{!separateInterview && remaining > 0 && ' 외 ' + remaining + '건'}</span>
+                    {separateInterview && <span className="dashboard-interview">
                       {interview.title} · {interview.date ? interview.date.slice(5).replace('-', '.') : '날짜 미정'}
+                      {remaining > 0 && ' 외 ' + remaining + '건'}
                     </span>}
                   </> : '일정 없음'}
                 </button>
@@ -193,7 +204,7 @@ export function EventForm({event, allowUndated = false, fixedType, children, onS
   const [error, setError] = useState('');
   const change = (field, value) => setData(current => ({...current, [field]: value}));
   const hasEnd = !event?.deadline && Boolean(event?.endTime || (event?.endDate && event.endDate !== event.date));
-  const dateOptional = allowUndated || !event?.date && Boolean(event?.id);
+  const dateOptional = allowUndated || Boolean(event?.id && !event.date);
 
   function submit(formEvent) {
     formEvent.preventDefault();

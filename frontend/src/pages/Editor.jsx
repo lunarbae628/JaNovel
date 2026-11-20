@@ -105,7 +105,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
  function removeSnapshot(){try{applyCleanup(deleteSnapshot(q,shown.id));}catch(e){setError(errorMessage(e));setModal('');}}
  function removeBranch(){try{applyCleanup(deleteBranch(q,deletingBranch));}catch(e){setError(errorMessage(e));setModal('');}}
  return <div className="editor-page">
-  <Header title={a.company} subtitle={a.role} back="지원 현황" onBack={()=>navigate('/applications')}><button className="text-button" onClick={()=>navigate('/application/'+a.id)}>공고 정보</button><ApplyLink url={safeUrl(a.url)} onMissing={()=>navigate('/posting/'+a.id)}/></Header>
+  <Header title={a.company} subtitle={a.role} back="지원 현황" onBack={()=>navigate('/applications')}><button className="text-button" onClick={()=>navigate('/application/'+a.id)}>공고 정보</button><button className="text-button" onClick={()=>navigate('/interviews/'+a.id)}>면접 준비</button><ApplyLink url={safeUrl(a.url)} onMissing={()=>navigate('/posting/'+a.id)}/></Header>
   <nav className="editor-view-switch" aria-label="작성 화면 보기">
    {compactViews.map(([view,label,Icon,panel])=><button type="button" key={view} aria-pressed={compactView===view} aria-controls={panel} onClick={()=>{
     setCompactView(view);

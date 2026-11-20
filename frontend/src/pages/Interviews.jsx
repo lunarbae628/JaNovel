@@ -1,12 +1,13 @@
 import React, {useState} from 'react';
-import {ArrowRight, ClipboardList, FileText, Mic, Plus, Trash2} from 'lucide-react';
+import {ArrowLeft, ArrowRight, CalendarDays, ClipboardList, FileText, Mic, Plus, Trash2} from 'lucide-react';
 import {CareerHeader, writingPath} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import AnswerRecording from '../components/AnswerRecording.jsx';
 import {deleteAttachment} from '../storage.js';
 import {interviewFor, patchInterviewQuestion, timecode} from '../interview.js';
 import {uid} from '../model.js';
-import {todayKey} from '../schedule.js';
+import {saveApplicationEvent, todayKey} from '../schedule.js';
+import {EventForm} from './Applications.jsx';
 
 const timeLabel = (day, time) => new Intl.DateTimeFormat('ko-KR', {
   month: 'long', day: 'numeric', weekday: 'long', timeZone: 'UTC',
@@ -14,19 +15,21 @@ const timeLabel = (day, time) => new Intl.DateTimeFormat('ko-KR', {
 const recordDate = value => new Date(value).toLocaleDateString('ko-KR', {month: '2-digit', day: '2-digit'});
 export const recordingKey = (application, question) => 'interview-audio/' + application.id + '/' + question.id;
 
-function nextInterview(application) {
-  const events = application.events.filter(event => event.type === '면접' && event.date)
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  return events.find(event => event.date >= todayKey()) || (application.example ? events.at(-1) : undefined);
+function plannedInterviews(application) {
+  const today = todayKey();
+  const events = application.events.filter(event => event.type === '면접');
+  const dated = events.filter(event => event.date).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const active = [...dated.filter(event => (event.endDate || event.date) >= today), ...events.filter(event => !event.date)];
+  return active.length ? active : dated.slice(-1);
 }
 
 export function interviewTitle(application) {
-  return application.company + ' · ' + (nextInterview(application)?.title || '면접 준비');
+  return application.company + ' · ' + (plannedInterviews(application)[0]?.title || '면접 준비');
 }
 
 function InterviewRecords({records, onOpen}) {
   return records.length > 0 ? <div className="interview-records">
-    {records.map(({record, application}) => <article key={record.id}>
+    {records.map(({record, application}) => <article className="career-sheet" key={application.id + '/' + record.id}>
       <div><strong>{interviewTitle(application)}</strong>
         <p>{recordDate(record.createdAt)} · 음성 모의면접 · {timecode(record.duration)}</p></div>
       <button className="career-button" onClick={() => onOpen(application.id, record.id)}>기록 보기</button>
@@ -34,37 +37,65 @@ function InterviewRecords({records, onOpen}) {
   </div> : <p className="career-empty-copy">아직 연습 기록이 없어요.</p>;
 }
 
-export function Interviews({store, navigate, query}) {
+function AddInterview({applications, onSave, onClose}) {
+  const [id, setId] = useState(() => applications.length === 1 ? applications[0].id : '');
+  return <Modal title="면접 추가" onClose={onClose} className="interview-modal">
+    <EventForm fixedType="면접" allowUndated onClose={onClose} onSubmit={event => onSave(id, event)}>
+      <Field label="지원 건"><select value={id} onChange={event => setId(event.target.value)} required>
+        <option value="" disabled>지원 건 선택</option>
+        {applications.map(item => <option key={item.id} value={item.id}>{item.company} · {item.role}</option>)}
+      </select></Field>
+    </EventForm>
+  </Modal>;
+}
+
+export function Interviews({store, navigate, query, onApplicationChange, onInterviewChange}) {
+  const [adding, setAdding] = useState(false);
   const {applications} = store;
   const records = applications.flatMap(application => interviewFor(application).records
     .map(record => ({application, record}))).sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
-  const planned = applications.filter(application => nextInterview(application) ||
-    application.submissions.length || interviewFor(application).questions.length ||
-    ['서류 전형', '작성 중', '최종 면접', '기술 면접'].includes(application.status));
-  const others = applications.filter(application => !planned.includes(application));
+  const planned = applications.map(application => ({application, events: plannedInterviews(application)}))
+    .filter(({application, events}) => events.length || application.submissions.length || interviewFor(application).questions.length ||
+      ['서류 전형', '작성 중', '최종 면접', '기술 면접'].includes(application.status));
+  const others = applications.filter(application => !planned.some(item => item.application === application));
   const tab = query.get('tab') === 'records' ? 'records' : 'planned';
-  const open = (id, record) => navigate('/interviews/' + id + '/' + record);
+  const recordsPath = '/interviews?tab=records';
+  const opened = tab === 'records' && records.find(({application, record}) =>
+    application.id === query.get('application') && record.id === query.get('record'));
+  const open = (id, record) => navigate(recordsPath + '&' + new URLSearchParams({application: id, record}));
 
   return <>
-    <CareerHeader title="면접 준비"/>
+    <CareerHeader title="면접 준비">
+      <button className="career-button primary" onClick={() => applications.length ? setAdding(true) : navigate('/posting')}>
+        <Plus size={16}/>{applications.length ? '면접 추가' : '공고 등록'}
+      </button>
+    </CareerHeader>
     <div className="career-content interview-list">
       <nav className="career-tabs" aria-label="면접 준비 보기">
-        <a href="#/interviews" aria-current={tab === 'planned' ? 'page' : undefined}>예정 {planned.length}</a>
-        <a href="#/interviews?tab=records" aria-current={tab === 'records' ? 'page' : undefined}>연습 기록</a>
+        <a href="#/interviews" aria-current={tab === 'planned' ? 'page' : undefined}>준비 목록 <span>{planned.length}</span></a>
+        <a href={'#' + recordsPath} aria-current={tab === 'records' ? 'page' : undefined}>연습 기록</a>
       </nav>
       {tab === 'planned' ? <>
         <section className="interview-cards" aria-label="준비할 면접">
-          {planned.map(application => {
-            const event = nextInterview(application);
+          {planned.map(({application, events}) => {
             const count = interviewFor(application).questions.length;
             const submitted = application.submissions.filter(item => item.submitted).at(-1);
             return <article className="interview-card" key={application.id}>
-              <div><span className="dashboard-stage accented">{event?.title || application.status}</span>
-                <h2>{application.company}</h2><p>{application.role}</p></div>
-              <div><p>{event ? timeLabel(event.date, event.time) : '일정 미정'}</p>
-                <p>{submitted ? '제출본 ' + recordDate(submitted.createdAt) : '제출본 없음 · 현재 작성본으로 연습 가능'}
-                  {count > 0 && ' · 예상 질문 ' + count + '개'}</p></div>
-              <button className="career-button primary" onClick={() => navigate('/interviews/' + application.id)}>준비하기</button>
+              <div className="interview-card-identity">
+                <h2>{application.company}</h2><p>{application.role}</p>
+                {(count > 0 || submitted) && <small>{[
+                  count > 0 && '예상 질문 ' + count + '개', submitted && '제출본 ' + recordDate(submitted.createdAt),
+                ].filter(Boolean).join(' · ')}</small>}
+              </div>
+              <div className="interview-card-schedule">
+                <CalendarDays size={17} strokeWidth={1.65} aria-hidden="true"/>
+                <ul>{events.length ? events.map(event => <li key={event.id}>
+                  <strong>{event.title}</strong>
+                  <span>{event.date ? timeLabel(event.date, event.time) : '날짜 미정'}</span>
+                </li>) : <li><strong>{application.status}</strong><span>일정 미정</span></li>}</ul>
+              </div>
+              <a className="career-button interview-open" href={'#/interviews/' + application.id}
+                aria-label={application.company + ' 면접 준비하기'}>준비하기<ArrowRight size={14}/></a>
             </article>;
           })}
           {!planned.length && <p className="career-empty-copy">예정된 면접이 없어요.</p>}
@@ -78,9 +109,17 @@ export function Interviews({store, navigate, query}) {
             </select>
           </label>}
         </section>
-        <section className="interview-recent"><h2>최근 연습</h2><InterviewRecords records={records.slice(0, 3)} onOpen={open}/></section>
-      </> : <InterviewRecords records={records} onOpen={open}/>}
+        {records.length > 0 && <section className="interview-recent"><h2>최근 연습</h2>
+          <InterviewRecords records={records.slice(0, 3)} onOpen={open}/>
+        </section>}
+      </> : opened ? <InterviewRecord key={opened.application.id + '/' + opened.record.id} {...opened} backPath={recordsPath}
+        onChange={action => onInterviewChange(opened.application.id, action)}/> : <InterviewRecords records={records} onOpen={open}/>}
     </div>
+    {adding && <AddInterview applications={applications} onClose={() => setAdding(false)} onSave={(id, event) => {
+      onApplicationChange(id, application => saveApplicationEvent(application, event));
+      setAdding(false);
+      if (tab === 'records') navigate('/interviews');
+    }}/>}
   </>;
 }
 
@@ -142,14 +181,15 @@ function Materials({application, source, onChange, onClose, navigate}) {
   </Modal>;
 }
 
-export function InterviewDetail({application, query, navigate, onChange, storageError}) {
+export function InterviewDetail({application, record, query, navigate, onChange, storageError}) {
   const interview = interviewFor(application);
   const root = '/interviews/' + application.id;
   const requestedTab = query.get('tab');
-  const tab = ['practice', 'records'].includes(requestedTab) ? requestedTab : 'questions';
+  const tab = record ? 'records' : ['practice', 'records'].includes(requestedTab) ? requestedTab : 'questions';
   const question = interview.questions.find(item => item.id === query.get('question')) || interview.questions[0];
   const questionsPath = root + (question ? '?question=' + encodeURIComponent(question.id) : '');
   const practicePath = root + '?tab=practice' + (question ? '&question=' + encodeURIComponent(question.id) : '');
+  const recordsPath = root + '?tab=records';
   const [dialog, setDialog] = useState('');
   const [error, setError] = useState('');
 
@@ -171,18 +211,20 @@ export function InterviewDetail({application, query, navigate, onChange, storage
   const selectedSource = application.submissions.find(record => record.id === interview.source);
 
   return <>
-    <CareerHeader title={interviewTitle(application)}>
+    <CareerHeader title={application.company}
+      subtitle={[application.role, plannedInterviews(application)[0]?.title].filter(Boolean).join(' · ')}>
       {tab !== 'practice' && <button className="career-button interview-material-button" onClick={() => setDialog('materials')}>자료</button>}
-      {tab !== 'practice' && <a className="career-button primary interview-start-button" href={'#' + practicePath}>모의면접</a>}
+      {tab !== 'practice' && <a className="career-button primary interview-start-button" href={'#' + practicePath}>AI 모의면접</a>}
     </CareerHeader>
     <div className="career-content interview-content">
       <nav className="career-tabs" aria-label="면접 준비">
         <a href={'#' + questionsPath} aria-current={tab === 'questions' ? 'page' : undefined}>예상 질문</a>
-        <a href={'#' + practicePath} aria-current={tab === 'practice' ? 'page' : undefined}>모의면접</a>
-        <a href={'#' + root + '?tab=records'} aria-current={tab === 'records' ? 'page' : undefined}>기록</a>
+        <a href={'#' + practicePath} aria-current={tab === 'practice' ? 'page' : undefined}>AI 모의면접</a>
+        <a href={'#' + recordsPath} aria-current={tab === 'records' ? 'page' : undefined}>기록</a>
       </nav>
       {error && <Notice type="error">{error}</Notice>}
-      {tab === 'records' ? <InterviewRecords records={interview.records.map(record => ({record, application}))}
+      {record ? <InterviewRecord key={record.id} record={record} application={application} backPath={recordsPath} onChange={onChange}/> :
+        tab === 'records' ? <InterviewRecords records={interview.records.map(record => ({record, application}))}
         onOpen={(_, id) => navigate(root + '/' + id)}/> : tab === 'practice' ?
         <InterviewSetup application={application} source={selectedSource} count={interview.questions.length}
           questionsPath={questionsPath} onMaterials={() => setDialog('materials')} onStart={() => navigate(root + '/practice')}/> :
@@ -238,18 +280,46 @@ export function InterviewDetail({application, query, navigate, onChange, storage
   </>;
 }
 
+function InterviewRecord({application, record, backPath, onChange}) {
+  const [index, setIndex] = useState(0);
+  const question = record.questions[index];
+  return <section className="practice-record career-sheet" aria-label="면접 연습 기록">
+    <div className="practice-record-meta">
+      <a className="career-button" href={'#' + backPath}><ArrowLeft size={14}/>기록 목록</a>
+      <span>{application.company} · {recordDate(record.createdAt)} · {timecode(record.duration)}</span>
+    </div>
+    <div className="practice-record-nav">
+      <span className="dashboard-stage accented">질문 {index + 1} / {record.questions.length}</span>
+      {record.questions.length > 1 && <div>
+        <button className="career-button" disabled={index === 0} onClick={() => setIndex(index - 1)}>이전</button>
+        <button className="career-button" disabled={index === record.questions.length - 1} onClick={() => setIndex(index + 1)}>다음</button>
+      </div>}
+    </div>
+    <h2>{question.prompt}</h2>
+    <label htmlFor="practice-note">다음 연습에서 확인할 것</label>
+    <textarea id="practice-note" maxLength={12000} value={record.note} onChange={event => {
+      const note = event.target.value;
+      onChange(previous => ({...previous, records: previous.records.map(item => item.id === record.id ? {...item, note} : item)}));
+    }}/>
+    <div className="practice-controls">
+      <a className="career-button primary" href={'#/interviews/' + application.id + '?tab=practice'}>다시 연습</a>
+      <a className="career-button" href={'#' + writingPath(application)}>자소서 확인</a>
+    </div>
+  </section>;
+}
+
 function InterviewSetup({application, source, count, questionsPath, onMaterials, onStart}) {
   return <section className="interview-setup career-sheet" aria-labelledby="interview-setup-title">
     <header>
-      <span className="interview-setup-icon"><Mic size={21} strokeWidth={1.65}/></span>
-      <div><h2 id="interview-setup-title">음성 모의면접</h2><p>{application.company} · {application.role}</p></div>
+      <div><h2 id="interview-setup-title">AI 모의면접</h2><p>{application.company} · {application.role}</p></div>
+      <span className="practice-orb setup-orb" aria-hidden="true"/>
     </header>
     <dl>
       <div><FileText size={17} strokeWidth={1.65}/><dt>연습 자료</dt><dd>{source?.name || '현재 작성본'} · 채용 공고</dd></div>
       <div><ClipboardList size={17} strokeWidth={1.65}/><dt>예상 질문</dt><dd>{count ? count + '개' : '등록한 질문 없음'}</dd></div>
     </dl>
     <div className="interview-setup-help">
-      <Mic size={17} strokeWidth={1.65}/><p>시작 후 브라우저에서 마이크 권한을 허용해 주세요. 예상 질문을 소리로 들을 수 있고, 연습한 질문과 시간이 기록됩니다.</p>
+      <Mic size={17} strokeWidth={1.65}/><p>음성 연습 미리보기에서 브라우저가 예상 질문을 읽어 줘요. 마이크를 허용하면 답변할 때 구체가 반응하고, 연습한 질문과 시간이 기록돼요.</p>
     </div>
     <footer>
       <button className="career-button" type="button" onClick={onMaterials}>자료 변경</button>

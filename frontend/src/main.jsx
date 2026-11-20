@@ -18,7 +18,6 @@ import './workspace.css';
 const Interviews = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.Interviews})));
 const InterviewDetail = lazy(() => import('./pages/Interviews.jsx').then(module => ({default: module.InterviewDetail})));
 const InterviewPractice = lazy(() => import('./pages/InterviewPractice.jsx').then(module => ({default: module.InterviewPractice})));
-const InterviewRecord = lazy(() => import('./pages/InterviewPractice.jsx').then(module => ({default: module.InterviewRecord})));
 
 const pageTitles = {
   applications: '지원 현황', schedule: '일정', interviews: '면접 준비',
@@ -87,16 +86,17 @@ function App() {
   const openSettings = () => setSettings(true);
   const changeApplication = (id, update) => setStore(previous => ({
     ...previous,
-    applications: previous.applications.map(item => item.id === id ? update(item) : item),
+    applications: previous.applications.map(item => {
+      if (item.id !== id) return item;
+      const next = update(item);
+      return item.example && !item.interview && next.company !== item.company
+        ? {...next, interview: interviewFor(item)} : next;
+    }),
   }));
   const saveApplication = next => changeApplication(next.id, () => next);
   const saveQuestion = next => setStore(previous => updateQuestion(previous, aid, question.id, next));
 
-  const updateInterview = action => setStore(previous => ({
-    ...previous,
-    applications: previous.applications.map(item => item.id === aid
-      ? {...item, interview: action(interviewFor(item))} : item),
-  }));
+  const updateInterview = (id, action) => changeApplication(id, item => ({...item, interview: action(interviewFor(item))}));
   const interviewRecord = application && kind === 'interviews' && qid && interviewFor(application).records.find(item => item.id === qid);
   let content;
   if (isAuth) {
@@ -106,18 +106,18 @@ function App() {
       navigate('/applications');
     }}/>;
   } else if (kind === 'interviews' && qid === 'practice' && application) {
-    content = <InterviewPractice key={aid} application={application} navigate={navigate} onChange={updateInterview}/>;
+    content = <InterviewPractice key={aid} application={application} navigate={navigate} onChange={action => updateInterview(aid, action)}/>;
   } else if (!kind || ['applications', 'schedule', 'interviews'].includes(kind)) {
     const section = '/' + (kind || 'applications');
     content = <CareerLayout section={section} store={store} onSettings={openSettings}>
       {section === '/applications' ? <Applications store={store} navigate={navigate} onApplicationChange={changeApplication}/> : section === '/schedule' ?
         <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
-          onApplicationChange={changeApplication}/> : interviewRecord ?
-        <InterviewRecord key={qid} application={application} record={interviewRecord} navigate={navigate} onChange={updateInterview}/> :
+          onApplicationChange={changeApplication}/> :
         application ? <InterviewDetail key={aid} application={application} navigate={navigate} query={query}
-          onChange={updateInterview} storageError={storageError}/> :
-        <Interviews store={store} navigate={navigate} query={query}/>}
+          record={interviewRecord} onChange={action => updateInterview(aid, action)} storageError={storageError}/> :
+        <Interviews store={store} navigate={navigate} query={query}
+          onApplicationChange={changeApplication} onInterviewChange={updateInterview}/>}
     </CareerLayout>;
   } else if (kind === 'posting' && (!aid || application)) {
     content = <Posting key={aid || 'new'} existing={application} navigate={navigate} onSave={saveApplication}

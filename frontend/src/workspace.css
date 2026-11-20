@@ -8,6 +8,11 @@
 .editor-page .history-panel { background: #f4f6fa; }
 .editor-page .chat-panel { background: #f8f9fc; }
 .editor-page .question-tabs > button[aria-current] { font-weight: 700; }
+.career-tabs [aria-current=page]::after, .dashboard-counts [aria-pressed=true]::after,
+.editor-page .question-tabs > button[aria-current]::after {
+  position: absolute; inset: auto var(--selection-inset, 0) 0; height: 2px; background: var(--primary); content: "";
+}
+.editor-page .question-tabs > button { --selection-inset: 6px; }
 .editor-page .writing-content { padding-top: 24px; padding-bottom: 14px; }
 .editor-page .writing-content:not(.is-comparing) > * { width: 100%; max-width: 820px; margin-inline: auto; }
 .editor-page .question-heading { justify-content: space-between; gap: 8px 12px; }

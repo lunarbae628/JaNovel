@@ -1,12 +1,14 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {ArrowLeft, Mic, MicOff, Pause, Play, Volume2} from 'lucide-react';
-import {CareerHeader, writingPath} from '../components/CareerLayout.jsx';
 import {Modal, Notice} from '../components/UI.jsx';
 import {interviewFor, startPracticeRecord, timecode} from '../interview.js';
 import {uid} from '../model.js';
 import {interviewTitle} from './Interviews.jsx';
 
-const bars = [12, 23, 38, 54, 38, 26, 42, 62, 46, 28, 17, 34, 50, 32, 18];
+const microphoneLabels = {
+  requesting: '마이크 연결 중', disconnected: '마이크 연결 필요', paused: '일시정지',
+  speaking: '질문을 읽고 있어요', muted: '마이크 꺼짐', listening: '답변 대기 중',
+};
 
 export function InterviewPractice({application, navigate, onChange}) {
   const [questions] = useState(() => interviewFor(application).questions);
@@ -21,6 +23,7 @@ export function InterviewPractice({application, navigate, onChange}) {
   const stream = useRef(null);
   const mounted = useRef(false);
   const root = '/interviews/' + application.id;
+  const micState = phase !== 'ready' ? phase : speaking ? 'speaking' : muted ? 'muted' : 'listening';
 
   async function connect() {
     setPhase('requesting');
@@ -124,7 +127,7 @@ export function InterviewPractice({application, navigate, onChange}) {
     <header className="practice-header">
       <a href="#/applications" className="career-wordmark">JaNovel.</a>
       <button className="practice-back" onClick={() => setEnding(true)}><ArrowLeft size={15}/>면접 준비</button>
-      <h1>{interviewTitle(application)}</h1>
+      <div className="practice-heading"><h1>AI 모의면접</h1><span>{interviewTitle(application)}</span></div>
       <button className="career-button" onClick={() => setEnding(true)}>종료</button>
     </header>
     {questions.length ? <div className="practice-layout">
@@ -133,15 +136,14 @@ export function InterviewPractice({application, navigate, onChange}) {
           <span>진행 시간 {timecode(elapsed)}</span></div>
         <h2>{questions[index].prompt}</h2>
         <div className="practice-microphone">
-          <div className="practice-wave" aria-hidden="true">{bars.map((height, i) => <i key={i}
-            style={{height: phase === 'ready' && !muted ? Math.max(5, height * (.2 + level)) : 5}}/>)}</div>
-          <strong>{phase === 'requesting' ? '마이크 연결 중' : phase === 'disconnected' ? '마이크 연결 필요' :
-            phase === 'paused' ? '일시정지' : speaking ? '질문을 읽고 있어요' : muted ? '마이크 꺼짐' : '마이크 연결됨'}</strong>
+          <div className="practice-orb" data-state={micState} aria-hidden="true"
+            style={micState === 'listening' ? {'--orb-scale': 1 + level * .12, '--orb-light': 1 + level * .24} : undefined}/>
+          <strong role="status">{microphoneLabels[micState]}</strong>
           {error && <Notice type="error">{error}</Notice>}
           {phase === 'disconnected' && <button className="career-button" onClick={connect}>마이크 다시 연결</button>}
         </div>
         <div className="practice-controls">
-          <button className="career-button" disabled={phase !== 'ready'} onClick={() => {
+          <button className="career-button" aria-pressed={!muted} disabled={phase !== 'ready'} onClick={() => {
             stream.current?.getAudioTracks().forEach(track => {track.enabled = muted;});
             setMuted(!muted);
           }}>{muted ? <MicOff size={15}/> : <Mic size={15}/>}마이크</button>
@@ -165,42 +167,10 @@ export function InterviewPractice({application, navigate, onChange}) {
         <p>음성 전사와 AI 피드백은 연결 전이에요.</p>
       </aside>
     </div> : <p className="career-content">연습할 질문을 예상 질문에서 먼저 추가해 주세요.</p>}
-    {ending && <Modal title="모의면접을 종료할까요?" className="interview-modal" onClose={() => setEnding(false)}>
+    {ending && <Modal title="AI 모의면접을 종료할까요?" className="interview-modal" onClose={() => setEnding(false)}>
       <p>연습한 질문과 시간을 기록에 남길 수 있어요.</p>
       <div className="form-actions"><button className="button" onClick={() => setEnding(false)}>계속 연습</button>
         <button className="button primary" onClick={finish}>종료</button></div>
     </Modal>}
   </main>;
-}
-
-export function InterviewRecord({application, record, navigate, onChange}) {
-  const [index, setIndex] = useState(0);
-  const question = record.questions[index] || record.questions[0];
-  const root = '/interviews/' + application.id;
-  return <>
-    <CareerHeader title={application.company + ' · 연습 기록'}
-      subtitle={new Date(record.createdAt).toLocaleDateString('ko-KR') + ' · 음성 모의면접 · ' + timecode(record.duration)}>
-      <button className="career-button" onClick={() => navigate(root)}>준비 화면</button>
-    </CareerHeader>
-    <div className="career-content practice-record">
-      <div className="practice-record-nav">
-        <span className="dashboard-stage accented">질문 {index + 1} / {record.questions.length}</span>
-        {record.questions.length > 1 && <div>
-          <button className="career-button" disabled={index === 0} onClick={() => setIndex(index - 1)}>이전</button>
-          <button className="career-button" disabled={index === record.questions.length - 1} onClick={() => setIndex(index + 1)}>다음</button>
-        </div>}
-      </div>
-      <h2>{question.prompt}</h2>
-      <p className="career-empty-copy">이번 기록에는 질문과 연습 시간이 저장돼 있어요.</p>
-      <label htmlFor="practice-note">다음 연습에서 확인할 것</label>
-      <textarea id="practice-note" maxLength={12000} value={record.note} onChange={event => {
-        const note = event.target.value;
-        onChange(previous => ({...previous, records: previous.records.map(item => item.id === record.id ? {...item, note} : item)}));
-      }}/>
-      <div className="practice-controls">
-        <button className="career-button primary" onClick={() => navigate(root + '?tab=practice')}>다시 연습</button>
-        <button className="career-button" onClick={() => navigate(writingPath(application))}>자소서 확인</button>
-      </div>
-    </div>
-  </>;
 }
