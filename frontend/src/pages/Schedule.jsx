@@ -106,6 +106,8 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   const events = [...supportEvents.filter(item => isDateKey(item.start)),
     ...projectSchedule(items, weeks[0][0], weeks.at(-1).at(-1))];
   const undated = supportEvents.filter(event => !event.date);
+  const selectedEvents = events.filter(event => event.start <= selected && event.end >= selected)
+    .sort((a, b) => a.time.localeCompare(b.time));
 
   function jump(date) {
     setSelected(date);
@@ -183,7 +185,7 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
   }
 
   return <>
-    <div className="career-content career-full-width schedule-content">
+    <div className="career-content schedule-content">
       <section className="schedule-month" aria-label="월간 캘린더">
         <div className="schedule-month-heading">
           <h1>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</h1>
@@ -199,11 +201,11 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
         <div className="schedule-legend">{scheduleLegend.map(([label, tone]) =>
           <span className={'schedule-tone ' + tone} key={label}>{label}</span>)}</div>
         <div className="schedule-weekdays" aria-hidden="true">{weekdays.map(day => <span key={day}>{day}</span>)}</div>
-        <div className="schedule-calendar" style={{'--week-count': weeks.length}} onPointerUp={finishRange} onPointerCancel={() => {anchor.current = ''; setDrag(null);}}
+        <div className="schedule-calendar" onPointerUp={finishRange} onPointerCancel={() => {anchor.current = ''; setDrag(null);}}
           onPointerLeave={() => {anchor.current = ''; setDrag(null);}}>
           {weeks.map(days => {
             const bars = packWeek(events, days);
-            const lanes = Math.max(2, ...bars.map(bar => bar.lane + 1));
+            const lanes = Math.max(1, ...bars.map(bar => bar.lane + 1));
             return <div className="schedule-week" key={days[0]} style={{'--lanes': lanes}}>
               {days.map((day, index) => {
                 const marked = drag && day >= drag[0] && day <= drag[1];
@@ -243,6 +245,17 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
             </div>;
           })}
         </div>
+      </section>
+      <section className="schedule-day-agenda" aria-labelledby="schedule-agenda-heading">
+        <h2 id="schedule-agenda-heading">{formatDay(selected)} 일정</h2>
+        {selectedEvents.length ? <ul>{selectedEvents.map(event =>
+          <li key={(event.applicationId || '') + '/' + event.id}>
+            <button className={'schedule-agenda-event schedule-tone ' + scheduleTone(event)} onClick={() => edit(event)}>
+              <small>{event.time || (event.applicationId ? '시간 미정' : '종일')}</small>
+              <strong>{event.title}{event.company && ' · ' + event.company}</strong>
+              <small>{event.kind === 'task' ? (event.done ? '완료' : '할 일') : event.type || '일정'}</small>
+            </button>
+          </li>)}</ul> : <p>등록된 일정이 없어요.</p>}
       </section>
     </div>
     {dialog?.type === 'undated' && <Modal title="날짜 미정 일정" onClose={() => setDialog(null)}>

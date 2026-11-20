@@ -103,32 +103,31 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
         <PenLine size={15} aria-hidden="true"/>글쓰기
       </a>
       <div className="board-tools">
-        <p role="status">게시글 <strong>{visiblePosts.length}</strong>개</p>
+        <p className="visually-hidden" role="status">게시글 {visiblePosts.length}개</p>
         <label className="board-search">
           <Search size={16} aria-hidden="true"/>
-          <input type="search" aria-label="게시글 검색" placeholder="제목, 내용, 작성자 검색"
+          <input type="search" aria-label="게시글 검색" placeholder="게시글 검색"
             value={keyword} onChange={event => setKeyword(event.target.value)}/>
         </label>
       </div>
     </div>
-    <table aria-label="게시글" className="board-table">
-      <thead><tr><th scope="col" className="board-number">번호</th><th scope="col" className="board-type">말머리</th>
-        <th scope="col">제목</th><th scope="col" className="board-author">작성자</th><th scope="col" className="board-date">작성일</th></tr></thead>
-      <tbody>{visiblePosts.map(post => <tr key={post.id}>
-        <td className="board-number">{post.number}</td>
-        <td className="board-type"><Category value={post.category}/></td>
-        <td><a className="board-title-link" href={'#' + boardPath(category, {post: post.id})}>
-          <span className="board-title-line"><strong>{post.title}</strong>
-            {comments[post.id]?.length > 0 && <span className="board-comment-count">
-              <MessageCircle size={13} aria-hidden="true"/>댓글 {comments[post.id].length}
-            </span>}
+    {visiblePosts.length > 0 && <ul className="board-posts" aria-label="게시글">
+      {visiblePosts.map(post => <li key={post.id}>
+        <a className="board-title-link" href={'#' + boardPath(category, {post: post.id})}>
+          <span className="board-avatar" aria-hidden="true">{post.author.slice(0, 1)}</span>
+          <span className="board-list-copy">
+            <strong>{post.title}</strong>
+            <span className="board-post-meta">
+              <Category value={post.category}/><span>{post.author}</span><PostDate value={post.date}/>
+            </span>
+            <span className="board-excerpt" aria-hidden="true">{post.body}</span>
           </span>
-          <span className="board-mobile-meta">{post.author} <span aria-hidden="true">·</span> <PostDate value={post.date}/></span>
-        </a></td>
-        <td className="board-author">{post.author}</td>
-        <td className="board-date"><PostDate value={post.date}/></td>
-      </tr>)}</tbody>
-    </table>
+          {comments[post.id]?.length > 0 && <span className="board-comment-count">
+            <MessageCircle size={15} aria-hidden="true"/><span className="visually-hidden">댓글 </span>{comments[post.id].length}
+          </span>}
+        </a>
+      </li>)}
+    </ul>}
     {!visiblePosts.length && <p className="board-empty">{term ? '검색 결과가 없어요.' : '아직 등록된 글이 없어요.'}</p>}
   </section>;
 }
@@ -188,11 +187,11 @@ export default function Community({query, writing, navigate}) {
   const examplePosts = Object.entries(examples).flatMap(([categoryId, items]) => items.map(post => ({
     ...post, category: categoryId, date: addDays(today, -postOrder.indexOf(post.id)),
   }))).sort((a, b) => b.date.localeCompare(a.date));
-  const allPosts = [...posts, ...examplePosts].map((post, index, list) => ({...post, number: list.length - index}));
+  const allPosts = [...posts, ...examplePosts];
   const selected = allPosts.find(post => post.id === query.get('post'));
 
   return <>
-    <div className="career-content career-full-width community-content">
+    <div className="career-content community-content">
       {(writing || selected) && <BackLink className="page-back board-list-back" to={boardPath(category)}>
         목록으로
       </BackLink>}

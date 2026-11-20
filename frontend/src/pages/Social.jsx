@@ -169,8 +169,9 @@ function Chat({selected, messages, panel, onSend}) {
 
   return <section id="friend-chat" className="community-chat" hidden={panel !== 'chat'} aria-label={selected.name + ' 채팅'}>
     {messages.length ? <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
-      {messages.map(item => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
-        <small>{item.from}</small><p>{item.text}</p>
+      {messages.map((item, index) => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
+        {messages[index - 1]?.from !== item.from && <small>{item.from}</small>}
+        <p>{item.text}</p>
       </li>)}
     </ol> : <p className="community-thread-empty">아직 메시지가 없어요.</p>}
     <Composer key={selected.id} label="메시지 입력" action="보내기" onSend={onSend}/>
@@ -235,7 +236,7 @@ export default function Social({query, preview, setPreview}) {
   }, [openChannel, openEvent, setPreview]);
 
   return <>
-    <div className="career-content career-full-width friends-content friends-layout">
+    <div className="career-content friends-content friends-layout">
       <FriendList friends={friends} selected={channel} chat={chat} panel={panel} pending={invites.length}
         onAdd={() => setDialog({type: 'search'})}/>
       <div className="friend-workspace">

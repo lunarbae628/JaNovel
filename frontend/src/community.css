@@ -6,8 +6,9 @@
 .community-section-head > span { color: var(--career-muted); font-size: 12px; }
 .community-month-nav { display: flex; flex-wrap: wrap; gap: 6px; }
 .community-month-nav > button { min-height: 34px; padding-inline: 10px; }
+.friends-content { --career-content-max: 960px; flex: 1; }
 .friends-layout {
-  display: grid; grid-template-columns: clamp(248px, 24%, 320px) minmax(0, 1fr);
+  display: grid; grid-template-columns: clamp(210px, 25%, 250px) minmax(0, 1fr);
 }
 .friend-list {
   display: flex; flex-direction: column; min-width: 0;
@@ -35,7 +36,10 @@
 .friend-list .community-empty { padding-bottom: 0; }
 .friend-study { margin-top: 12px; padding-top: 7px; border-top: 1px solid var(--career-border); }
 .friend-study h2 { margin: 0 8px 2px; color: var(--career-muted); font-size: 12px; }
-.friend-workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.friend-workspace {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  border-block: 1px solid var(--career-border); background: #fff;
+}
 .friend-workspace-header {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; flex: none; min-height: 58px;
   padding: 0 16px; border-bottom: 1px solid var(--career-border);
@@ -44,16 +48,16 @@
 .friend-name h2 { overflow-wrap: anywhere; }
 .friends-panel-switch { align-self: stretch; border: 0; }
 .friend-workspace [hidden] { display: none; }
-.friend-schedule, .community-month { display: flex; flex: 1; flex-direction: column; }
+.friend-schedule { flex: 1; }
 .community-month { padding: 14px 16px; }
 .community-month h3 { font-size: 16px; }
 .community-month-grid {
-  display: grid; flex: 1; grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: auto; grid-auto-rows: minmax(62px, 1fr); margin-top: 8px;
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto; grid-auto-rows: minmax(60px, auto); margin-top: 8px;
 }
 .community-weekday { padding: 6px 8px 9px; color: var(--career-muted); font-size: 12px; }
 .community-day {
-  display: grid; align-content: start; gap: 4px; min-height: 62px; padding: 6px 8px; text-align: left;
+  display: grid; align-content: start; gap: 4px; min-height: 60px; padding: 6px 8px; text-align: left;
   border-top: 1px solid var(--career-border); border-left: 1px solid var(--career-border); color: var(--career-ink);
 }
 .community-day:nth-child(7n) { border-right: 1px solid var(--career-border); }
@@ -98,10 +102,10 @@
 
 .community-chat { display: flex; flex: 1; flex-direction: column; min-height: 300px; }
 .community-messages {
-  display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 0;
+  display: flex; flex: 1; flex-direction: column; gap: 7px; min-height: 0;
   padding: 16px; margin: 0; list-style: none;
 }
-.community-messages li { align-self: flex-start; max-width: min(88%, 66ch); }
+.community-messages li { align-self: flex-start; max-width: min(82%, 54ch); }
 .community-messages li.mine { align-self: flex-end; text-align: right; }
 .community-messages small { color: var(--career-muted); font-size: 12px; }
 .community-messages p {
@@ -112,40 +116,28 @@
 .community-thread-empty { display: grid; flex: 1; min-height: 0; place-items: center; color: var(--career-muted); }
 .community-composer { display: flex; align-items: center; gap: 8px; }
 .community-chat .community-composer { flex: none; padding: 12px 16px; border-top: 1px solid var(--career-border); }
-.community-chat .community-composer input { max-width: 680px; }
 .community-composer input { flex: 1; min-width: 0; min-height: 42px; }
 .community-composer button { flex: none; min-height: 42px; white-space: nowrap; }
 .community-content {
-  --board-padding: clamp(16px, 2vw, 28px);
+  --career-content-max: 960px;
   display: flex; flex-direction: column;
 }
-.community-content > .community-preview-note {
-  margin-top: auto; padding: 12px var(--board-padding);
-  border-top: 1px solid var(--career-border);
-}
-.board-list-back { align-self: flex-start; margin: 10px var(--board-padding) 0; }
+.board-list-back { align-self: flex-start; margin-bottom: 4px; }
 .board-toolbar {
   display: grid; grid-template-columns: max-content max-content minmax(0, 1fr); grid-template-areas: "tabs write tools";
-  align-items: center; gap: 10px 12px; padding: 12px var(--board-padding); color: var(--career-muted); font-size: 13px;
+  align-items: center; gap: 10px 12px; padding-bottom: 11px;
 }
 .board-toolbar .career-tabs { grid-area: tabs; gap: clamp(10px, 1.65vw, 24px); border: 0; }
 .board-write { grid-area: write; }
 .board-tools { grid-area: tools; display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
-.board-tools p { white-space: nowrap; }
-.board-toolbar strong { color: var(--career-ink); }
 .board-search { position: relative; display: flex; align-items: center; width: 224px; }
 .board-search svg { position: absolute; left: 10px; pointer-events: none; }
 .board-search input { min-height: 40px; padding-left: 33px; font-size: 13px; }
 .board-search input::placeholder { color: var(--career-muted); }
-.board-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.board-table th, .board-table td { padding: 0 12px; border-top: 1px solid var(--career-border); text-align: left; }
-.board-table th { height: 37px; background: #f7f8fb; color: var(--career-muted); font-size: 12px; font-weight: 600; }
-.board-table td { height: 51px; color: var(--career-muted); font-size: 13px; overflow-wrap: anywhere; }
-.board-table tbody tr:hover, .board-table tbody tr:focus-within { background: #f8faff; }
-.board-table .board-number { width: 56px; text-align: center; }
-.board-type { width: 104px; }
-.board-author { width: 128px; }
-.board-date { width: 100px; }
+.board-posts {
+  border-block: 1px solid var(--career-border); background: #fff;
+}
+.board-posts > li + li { border-top: 1px solid var(--career-border); }
 .board-category {
   display: inline-block; color: var(--career-muted); font-size: 12px; font-weight: 650; line-height: 1.45; white-space: nowrap;
 }
@@ -153,19 +145,29 @@
 .board-category-reviews { color: #27604a; }
 .board-category-question { color: #584570; }
 .board-title-link {
-  display: block; padding: 14px 0; color: var(--career-ink); font-size: 14px; line-height: 1.5; text-decoration: none;
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: start; gap: 10px;
+  padding: 12px 14px; color: var(--career-ink); text-decoration: none;
 }
-.board-title-link strong { font-weight: 650; }
-.board-title-link:hover strong { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
-.board-title-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; }
+.board-title-link:hover, .board-title-link:focus-visible { background: #f8faff; }
+.board-title-link:focus-visible { outline-offset: -3px; }
+.board-avatar {
+  display: grid; place-items: center; width: 36px; aspect-ratio: 1;
+  border-radius: 50%; background: var(--career-active); color: var(--primary); font-weight: 650;
+}
+.board-list-copy { display: grid; min-width: 0; gap: 3px; overflow-wrap: anywhere; }
+.board-list-copy > strong { word-break: keep-all; font-size: 15px; font-weight: 660; line-height: 1.45; }
+.board-title-link:hover strong { color: var(--primary); }
+.board-list-copy .board-post-meta { align-items: center; gap: 3px 10px; font-size: 12px; }
+.board-excerpt {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--career-muted); font-size: 13px;
+}
 .board-comment-count {
-  display: inline-flex; align-items: center; gap: 4px; color: var(--career-muted); font-size: 12px;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px; padding-block: 4px;
+  color: var(--career-muted); font-size: 12px; font-variant-numeric: tabular-nums;
 }
-.board-mobile-meta { display: none; }
 .board-empty { padding: 32px 16px; text-align: center; color: var(--career-muted); }
-.board-editor, .board-reader { width: 100%; max-width: 1060px; padding-inline: var(--board-padding); }
-.board-editor, .board-editor form { display: flex; flex: 1; flex-direction: column; }
+.board-editor, .board-reader { width: 100%; max-width: 780px; }
+.board-editor form { display: flex; flex-direction: column; }
 .board-editor header {
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px;
   padding-block: 20px 12px;
@@ -182,7 +184,7 @@
 .board-editor input::placeholder, .board-editor textarea::placeholder { color: #69758a; }
 .board-editor input:focus, .board-editor textarea:focus { outline: 0; box-shadow: inset 0 -2px #576ca8; }
 .board-editor textarea {
-  display: block; flex: 1; min-height: clamp(280px, 38dvh, 420px); padding: 16px 2px;
+  display: block; min-height: clamp(280px, 42dvh, 430px); padding: 16px 2px;
   font-size: 15px; line-height: 1.8; resize: vertical;
 }
 .board-editor footer {
@@ -302,7 +304,7 @@
   .friends-panel-switch { gap: 14px; }
   .community-chat { min-height: 240px; }
   .community-month, .community-agenda, .community-chat .community-composer, .community-messages { padding-inline: 12px; }
-  .community-month-grid { grid-auto-rows: minmax(46px, 1fr); }
+  .community-month-grid { grid-auto-rows: minmax(46px, auto); }
   .community-day { min-height: 46px; padding-inline: 4px; }
   .community-weekday { padding-inline: 4px; }
 }
@@ -310,19 +312,14 @@
   .board-toolbar { grid-template-columns: minmax(0, 1fr) max-content; grid-template-areas: "tabs tabs" "tools write"; }
   .board-tools { justify-content: space-between; }
 }
-@media (max-width: 800px) {
-  .board-table .board-number, .board-table .board-author, .board-table .board-date { display: none; }
-  .board-mobile-meta { display: block; margin-top: 3px; color: var(--career-muted); font-size: 12px; }
-}
 @media (max-width: 580px) {
-  .board-table .board-type { width: 83px; }
   .board-tools { width: 100%; }
   .board-toolbar .career-tabs { justify-content: space-between; gap: 4px; }
   .board-toolbar .career-tabs a { min-height: 44px; font-size: 12px; }
   .board-tools { gap: 7px; }
-  .board-tools p { font-size: 12px; }
   .board-search { flex: 1; width: auto; min-width: 0; }
-  .board-table th, .board-table td { padding-inline: 9px; }
+  .board-title-link { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; padding: 11px 8px; }
+  .board-avatar { width: 28px; font-size: 12px; }
   .board-editor header { padding-top: 12px; }
   .board-editor textarea { min-height: 226px; }
 }
