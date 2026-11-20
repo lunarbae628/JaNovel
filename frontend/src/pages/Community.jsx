@@ -1,5 +1,5 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {ArrowLeft, MessageCircle, PenLine, Search} from 'lucide-react';
+import React, {useEffect, useId, useRef, useState} from 'react';
+import {ArrowLeft, Check, ChevronDown, MessageCircle, PenLine, Search} from 'lucide-react';
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field} from '../components/UI.jsx';
 import {uid} from '../model.js';
@@ -52,34 +52,102 @@ function boardPath(category, {post, writing = false} = {}) {
   return (writing ? '/community/write' : '/community') + (query.size ? '?' + query : '');
 }
 
+function CategoryPicker({value, onChange}) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const picker = useRef(null);
+  const trigger = useRef(null);
+  const menu = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    menu.current.querySelector('[aria-checked="true"]').focus({preventScroll: true});
+    function dismiss(event) {
+      if (!picker.current.contains(event.target)) setOpen(false);
+    }
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [open]);
+
+  function close() {
+    setOpen(false);
+    trigger.current.focus({preventScroll: true});
+  }
+
+  function handleKey(event) {
+    if (!open) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        setOpen(true);
+      }
+      return;
+    }
+    if (event.key === 'Tab') {
+      close();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+      return;
+    }
+    const options = Array.from(menu.current.children);
+    const index = options.indexOf(document.activeElement);
+    const targets = {
+      ArrowDown: (index + 1) % options.length,
+      ArrowUp: (index - 1 + options.length) % options.length,
+      Home: 0,
+      End: options.length - 1,
+    };
+    if (Object.hasOwn(targets, event.key)) {
+      event.preventDefault();
+      options[targets[event.key]].focus();
+    }
+  }
+
+  return <div className="board-picker" ref={picker} onKeyDown={handleKey}
+    onBlur={event => {if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);}}>
+    <span id={id + '-label'}>말머리</span>
+    <button className="board-picker-trigger" ref={trigger} type="button" aria-haspopup="menu" aria-expanded={open}
+      aria-labelledby={id + '-label ' + id + '-value'} aria-controls={open ? id + '-menu' : undefined}
+      onClick={() => setOpen(current => !current)}>
+      <span id={id + '-value'}>{categoryName(value)}</span><ChevronDown size={16} aria-hidden="true"/>
+    </button>
+    {open && <div className="board-picker-menu" id={id + '-menu'} ref={menu} role="menu" aria-labelledby={id + '-label'}>
+      {categories.map(([key, label]) => <button key={key} type="button" role="menuitemradio"
+        aria-checked={key === value} tabIndex={-1} onClick={() => {onChange(key); close();}}>
+        {key === value && <Check size={16} aria-hidden="true"/>}<span>{label}</span>
+      </button>)}
+    </div>}
+  </div>;
+}
+
 function PostEditor({category, onCreate}) {
+  const [kind, setKind] = useState(category || 'general');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const heading = useRef(null);
   useEffect(() => heading.current.focus(), []);
 
   return <section className="career-sheet board-editor" aria-labelledby="board-editor-title">
-    <header>
-      <h2 id="board-editor-title" ref={heading} tabIndex={-1}>글쓰기</h2>
-      <a className="board-back" href={'#' + boardPath(category)}><ArrowLeft size={16} aria-hidden="true"/>목록으로</a>
-    </header>
     <form onSubmit={event => {
       event.preventDefault();
       if (!title.trim() || !body.trim()) return;
-      const kind = new FormData(event.currentTarget).get('category');
       onCreate({id: uid('post'), category: kind, title: title.trim(), body: body.trim(), author: '나', date: todayKey()});
     }}>
-      <div className="board-editor-meta">
-        <Field label="말머리"><select name="category" defaultValue={category || 'general'}>
-          {categories.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select></Field>
-        <Field label="제목" hint={title.length + ' / 80자'}><input name="title" maxLength={80} required
-          value={title} onChange={event => setTitle(event.target.value)}/></Field>
+      <header>
+        <h2 id="board-editor-title" ref={heading} tabIndex={-1}>글쓰기</h2>
+        <CategoryPicker value={kind} onChange={setKind}/>
+      </header>
+      <div className="board-editor-title-field">
+        <input name="title" aria-label="제목" placeholder="제목을 입력하세요" maxLength={80} required
+          value={title} onChange={event => setTitle(event.target.value)}/>
+        <small>{title.length} / 80자</small>
       </div>
-      <Field label="내용" hint={body.length + ' / 2,400자'}><textarea name="body" rows={10} maxLength={2400} required
-        value={body} onChange={event => setBody(event.target.value)}/></Field>
-      <div className="form-actions"><a className="career-button" href={'#' + boardPath(category)}>취소</a>
-        <button className="career-button primary" disabled={!title.trim() || !body.trim()}>게시글 등록</button></div>
+      <textarea name="body" aria-label="내용" placeholder="본문을 입력하세요" rows={8} maxLength={2400} required
+        value={body} onChange={event => setBody(event.target.value)}/>
+      <footer><small>{body.length} / 2,400자</small>
+        <button className="career-button primary" disabled={!title.trim() || !body.trim()}>게시글 등록</button></footer>
     </form>
   </section>;
 }
@@ -93,13 +161,13 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
   const visiblePosts = posts.filter(post => (!category || category === post.category) &&
     [post.title, post.body, post.author].some(value => value.toLowerCase().includes(term)));
 
-  return <>
-    <nav className="career-tabs community-tabs" aria-label="게시판 말머리">
-      {[['', '전체'], ...categories].map(([id, label]) => <a key={id} href={'#' + boardPath(id)}
-        aria-current={category === id ? 'page' : undefined}>{label}</a>)}
-    </nav>
-    <section className="career-sheet community-board" aria-label="게시글 목록">
-      <div className="board-toolbar">
+  return <section className="career-sheet community-board" aria-label="게시글 목록">
+    <div className="board-toolbar">
+      <nav className="community-tabs" aria-label="게시판 말머리">
+        {[['', '전체'], ...categories].map(([id, label]) => <a key={id} href={'#' + boardPath(id)}
+          aria-current={category === id ? 'page' : undefined}>{label}</a>)}
+      </nav>
+      <div className="board-tools">
         <p role="status">게시글 <strong>{visiblePosts.length}</strong>개</p>
         <label className="board-search">
           <Search size={16} aria-hidden="true"/>
@@ -107,33 +175,33 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
             value={keyword} onChange={event => setKeyword(event.target.value)}/>
         </label>
       </div>
-      <table aria-label="게시글" className="board-table">
-        <thead><tr><th scope="col" className="board-number">번호</th><th scope="col" className="board-type">말머리</th>
-          <th scope="col">제목</th><th scope="col" className="board-author">작성자</th><th scope="col" className="board-date">작성일</th></tr></thead>
-        <tbody>{visiblePosts.map(post => <tr key={post.id}>
-          <td className="board-number">{post.number}</td>
-          <td className="board-type"><Category value={post.category}/></td>
-          <td><a className="board-title-link" href={'#' + boardPath(category, {post: post.id})}>
-            <span className="board-title-line"><strong>{post.title}</strong>
-              {comments[post.id]?.length > 0 && <span className="board-comment-count">
-                <MessageCircle size={13} aria-hidden="true"/>댓글 {comments[post.id].length}
-              </span>}
-            </span>
-            <span className="board-mobile-meta">{post.author} <span aria-hidden="true">·</span> <PostDate value={post.date}/></span>
-          </a></td>
-          <td className="board-author">{post.author}</td>
-          <td className="board-date"><PostDate value={post.date}/></td>
-        </tr>)}</tbody>
-      </table>
-      {!visiblePosts.length && <p className="board-empty">{term ? '검색 결과가 없어요.' : '아직 등록된 글이 없어요.'}</p>}
-    </section>
-  </>;
+    </div>
+    <table aria-label="게시글" className="board-table">
+      <thead><tr><th scope="col" className="board-number">번호</th><th scope="col" className="board-type">말머리</th>
+        <th scope="col">제목</th><th scope="col" className="board-author">작성자</th><th scope="col" className="board-date">작성일</th></tr></thead>
+      <tbody>{visiblePosts.map(post => <tr key={post.id}>
+        <td className="board-number">{post.number}</td>
+        <td className="board-type"><Category value={post.category}/></td>
+        <td><a className="board-title-link" href={'#' + boardPath(category, {post: post.id})}>
+          <span className="board-title-line"><strong>{post.title}</strong>
+            {comments[post.id]?.length > 0 && <span className="board-comment-count">
+              <MessageCircle size={13} aria-hidden="true"/>댓글 {comments[post.id].length}
+            </span>}
+          </span>
+          <span className="board-mobile-meta">{post.author} <span aria-hidden="true">·</span> <PostDate value={post.date}/></span>
+        </a></td>
+        <td className="board-author">{post.author}</td>
+        <td className="board-date"><PostDate value={post.date}/></td>
+      </tr>)}</tbody>
+    </table>
+    {!visiblePosts.length && <p className="board-empty">{term ? '검색 결과가 없어요.' : '아직 등록된 글이 없어요.'}</p>}
+  </section>;
 }
 
 function PostComments({comments, onAdd}) {
   const [text, setText] = useState('');
   const input = useRef(null);
-  return <section className="career-sheet board-comments" aria-labelledby="board-comments-title">
+  return <section className="board-comments" aria-labelledby="board-comments-title">
     <h2 id="board-comments-title">댓글 <span aria-live="polite">{comments.length}개</span></h2>
     {comments.length ? <ul className="board-comments-list">
       {comments.map(comment => <li key={comment.id}>
@@ -157,10 +225,10 @@ function PostComments({comments, onAdd}) {
   </section>;
 }
 
-function PostDetail({post, category, joined, onJoin}) {
+function PostDetail({post, joined, onJoin}) {
   const heading = useRef(null);
   useEffect(() => heading.current.focus(), []);
-  return <article className="career-sheet board-detail">
+  return <article className="board-detail">
     <header>
       <Category value={post.category}/>
       <h2 ref={heading} tabIndex={-1}>{post.title}</h2>
@@ -168,12 +236,11 @@ function PostDetail({post, category, joined, onJoin}) {
     </header>
     {post.meta && <p className="board-post-info">{post.meta}</p>}
     <p className="community-post-body">{post.body}</p>
-    <footer>
-      <a className="career-button" href={'#' + boardPath(category)}><ArrowLeft size={15} aria-hidden="true"/>목록으로</a>
-      {post.category === 'studies' && post.author !== '나' && <button className="career-button primary" onClick={onJoin}>
+    {post.category === 'studies' && post.author !== '나' && <footer>
+      <button className="career-button primary" onClick={onJoin}>
         {joined ? '신청 취소' : '참여 신청'}
-      </button>}
-    </footer>
+      </button>
+    </footer>}
   </article>;
 }
 
@@ -195,13 +262,16 @@ export default function Community({query, writing, navigate}) {
         <PenLine size={16} aria-hidden="true"/>글쓰기
       </a>}
     </CareerHeader>
-    <div className={'career-content community-content' + (writing ? ' board-editor-content' : '')}>
+    <div className={'career-content community-content ' + (writing || selected ? 'board-reading-content' : 'board-list-content')}>
+      {(writing || selected) && <a className="board-back board-list-back" href={'#' + boardPath(category)}>
+        <ArrowLeft size={17} aria-hidden="true"/>목록으로
+      </a>}
       {writing ? <PostEditor key={category} category={category} onCreate={post => {
         setPreview(current => ({...current, posts: [post, ...current.posts]}));
         setKeyword('');
         navigate(boardPath(post.category, {post: post.id}));
-      }}/> : selected ? <React.Fragment key={selected.id}>
-        <PostDetail post={selected} category={category} joined={joinedRequests.includes(selected.id)}
+      }}/> : selected ? <div className="career-sheet board-reader" key={selected.id}>
+        <PostDetail post={selected} joined={joinedRequests.includes(selected.id)}
           onJoin={() => setPreview(current => ({...current, joinedRequests: current.joinedRequests.includes(selected.id)
             ? current.joinedRequests.filter(id => id !== selected.id) : [...current.joinedRequests, selected.id]}))}/>
         <PostComments comments={comments[selected.id] || []} onAdd={text => {
@@ -209,7 +279,7 @@ export default function Community({query, writing, navigate}) {
           setPreview(current => ({...current, comments: {...current.comments,
             [selected.id]: [...(current.comments[selected.id] || []), comment]}}));
         }}/>
-      </React.Fragment> : <BoardList posts={allPosts} comments={comments} category={category} keyword={keyword} setKeyword={setKeyword}/>}
+      </div> : <BoardList posts={allPosts} comments={comments} category={category} keyword={keyword} setKeyword={setKeyword}/>}
       <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
     </div>
   </>;
