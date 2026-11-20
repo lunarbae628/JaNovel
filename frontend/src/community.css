@@ -6,12 +6,18 @@
 .community-section-head > span { color: var(--career-muted); font-size: 12px; }
 .community-month-nav { display: flex; flex-wrap: wrap; gap: 6px; }
 .community-month-nav > button { min-height: 34px; padding-inline: 10px; }
+.career-main > .friends-content {
+  --career-content-max: none;
+  flex: 1; padding: 0; background: #fff;
+}
 .friends-layout {
-  display: grid; grid-template-columns: minmax(248px, 24%) minmax(0, 1fr);
+  display: grid; grid-template-columns: clamp(248px, 24%, 320px) minmax(0, 1fr);
 }
 .friend-list {
-  min-width: 0; padding: 16px 12px; border-inline-end: 1px solid var(--career-border);
+  display: flex; flex-direction: column; min-width: 0;
+  padding: 10px 12px 16px; border-inline-end: 1px solid var(--career-border); background: var(--career-canvas);
 }
+.friend-list .community-preview-note { margin-top: auto; padding: 12px 4px 0; overflow-wrap: anywhere; }
 .friend-list .community-section-head { justify-content: flex-start; column-gap: 10px; padding-inline: 4px; }
 .friend-list h1, .friend-name h2 { font-size: 16px; line-height: 1.5; font-weight: 700; }
 .friend-list h1 small { margin-inline-start: 3px; color: var(--career-muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
@@ -33,18 +39,22 @@
 .friend-list .community-empty { padding-bottom: 0; }
 .friend-study { margin-top: 12px; padding-top: 7px; border-top: 1px solid var(--career-border); }
 .friend-study h2 { margin: 0 8px 2px; color: var(--career-muted); font-size: 12px; }
-.friend-workspace { min-width: 0; }
+.friend-workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .friend-workspace-header {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; min-height: 58px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; flex: none; min-height: 58px;
   padding: 0 16px; border-bottom: 1px solid var(--career-border);
 }
 .friend-name { display: flex; align-items: center; gap: 8px; min-width: 0; padding-block: 8px; }
 .friend-name h2 { overflow-wrap: anywhere; }
 .friends-panel-switch { align-self: stretch; border: 0; }
 .friend-workspace [hidden] { display: none; }
+.friend-schedule, .community-month { display: flex; flex: 1; flex-direction: column; }
 .community-month { padding: 14px 16px; }
 .community-month h3 { font-size: 16px; }
-.community-month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: 8px; }
+.community-month-grid {
+  display: grid; flex: 1; grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto; grid-auto-rows: minmax(62px, 1fr); margin-top: 8px;
+}
 .community-weekday { padding: 6px 8px 9px; color: var(--career-muted); font-size: 12px; }
 .community-day {
   display: grid; align-content: start; gap: 4px; min-height: 62px; padding: 6px 8px; text-align: left;
@@ -65,7 +75,7 @@
 }
 
 .community-day-mark span { overflow: hidden; text-overflow: ellipsis; }
-.community-agenda { border-top: 1px solid var(--career-border); padding: 10px 16px 8px; }
+.community-agenda { flex: none; border-top: 1px solid var(--career-border); padding: 10px 16px 8px; }
 .community-agenda .community-section-head { padding: 0 0 7px; }
 .community-agenda .community-empty { padding: 3px 0 12px; }
 .community-content ul, .friend-list ul, .community-agenda-list,
@@ -90,10 +100,10 @@
 }
 .community-empty { padding: 10px 2px 18px; color: var(--career-muted); font-size: 13px; }
 
-.community-chat { display: flex; flex-direction: column; min-height: 320px; }
+.community-chat { display: flex; flex: 1; flex-direction: column; min-height: 300px; }
 .community-messages {
-  display: flex; flex: 1; flex-direction: column; gap: 12px; max-height: min(52dvh, 480px);
-  padding: 16px; margin: 0; list-style: none; overflow: auto;
+  display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 0;
+  padding: 16px; margin: 0; list-style: none;
 }
 .community-messages li { align-self: flex-start; max-width: min(88%, 66ch); }
 .community-messages li.mine { align-self: flex-end; text-align: right; }
@@ -105,7 +115,7 @@
 .community-messages .mine p { background: var(--career-active); color: var(--primary); }
 .community-thread-empty { display: grid; flex: 1; min-height: 0; place-items: center; color: var(--career-muted); }
 .community-composer { display: flex; align-items: center; gap: 8px; }
-.community-chat .community-composer { padding: 12px 16px; border-top: 1px solid var(--career-border); }
+.community-chat .community-composer { flex: none; padding: 12px 16px; border-top: 1px solid var(--career-border); }
 .community-chat .community-composer input { max-width: 680px; }
 .community-composer input { flex: 1; min-width: 0; min-height: 42px; }
 .community-composer button { flex: none; min-height: 42px; white-space: nowrap; }
@@ -269,8 +279,15 @@
   .community-day-mark > * { display: none; }
 }
 
+@media (min-width: 701px) and (min-height: 480px) {
+  .career-main > .friends-content { flex: none; height: 100dvh; grid-template-rows: minmax(0, 1fr); }
+  .career-layout:has(.friends-content) > .career-sidebar { overflow-y: auto; }
+  .friend-list, .friend-schedule, .community-messages { min-height: 0; overflow-y: auto; }
+  .community-chat { min-height: 0; }
+  .community-messages li:first-child { margin-top: auto; }
+}
 @media (max-width: 700px) {
-  .friends-layout { grid-template-columns: minmax(0, 1fr); }
+  .friends-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .friend-list { padding: 10px; border-inline-end: 0; border-bottom: 1px solid var(--career-border); }
   .friend-list ul { grid-template-columns: repeat(auto-fit, minmax(min(100%, 126px), 1fr)); }
   .friend-list .community-section-head { padding-bottom: 7px; }
@@ -280,6 +297,7 @@
   .friends-panel-switch { gap: 14px; }
   .community-chat { min-height: 240px; }
   .community-month, .community-agenda, .community-chat .community-composer, .community-messages { padding-inline: 12px; }
+  .community-month-grid { grid-auto-rows: minmax(46px, 1fr); }
   .community-day { min-height: 46px; padding-inline: 4px; }
   .community-weekday { padding-inline: 4px; }
 }

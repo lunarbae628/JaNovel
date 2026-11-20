@@ -201,6 +201,7 @@ function FriendList({friends, selected, chat, panel, pending, onAdd}) {
     <ul>{friends.map(contactLink)}</ul>
     {pending > 0 && <p className="community-empty">초대 대기 {pending}명</p>}
     <div className="friend-study"><h2>스터디</h2><ul>{contactLink(studyRoom)}</ul></div>
+    <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
   </nav>;
 }
 
@@ -234,29 +235,26 @@ export default function Social({query, preview, setPreview}) {
   }, [openChannel, openEvent, setPreview]);
 
   return <>
-    <div className="career-content friends-content">
-      <div className="career-sheet friends-layout">
-        <FriendList friends={friends} selected={channel} chat={chat} panel={panel} pending={invites.length}
-          onAdd={() => setDialog({type: 'search'})}/>
-        <div className="friend-workspace">
-          <header className="friend-workspace-header">
-            <div className="friend-name"><Avatar person={channel}/><h2>{channel.name}</h2></div>
-            {!channel.group && <div className="career-tabs friends-panel-switch" role="group" aria-label="친구 화면 보기">
-              <button type="button" aria-pressed={panel === 'chat'} aria-controls="friend-chat" onClick={() => setPanel('chat')}>
-                <MessageCircle size={16} aria-hidden="true"/>채팅
-              </button>
-              <button type="button" aria-pressed={panel === 'schedule'} aria-controls="friend-schedule" onClick={() => setPanel('schedule')}>
-                <CalendarDays size={16} aria-hidden="true"/>캘린더
-              </button>
-            </div>}
-          </header>
-          <Chat selected={channel} messages={chat[channel.id] || []} panel={panel}
-            onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/>
-          {!channel.group && <FriendSchedule person={channel} today={today} startDate={linkedEvent?.start || today} comments={comments}
-            hidden={panel !== 'schedule'} onOpen={(item, key, day) => setDialog({event: item, key, day})}/>}
-        </div>
+    <div className="career-content friends-content friends-layout">
+      <FriendList friends={friends} selected={channel} chat={chat} panel={panel} pending={invites.length}
+        onAdd={() => setDialog({type: 'search'})}/>
+      <div className="friend-workspace">
+        <header className="friend-workspace-header">
+          <div className="friend-name"><Avatar person={channel}/><h2>{channel.name}</h2></div>
+          {!channel.group && <div className="career-tabs friends-panel-switch" role="group" aria-label="친구 화면 보기">
+            <button type="button" aria-pressed={panel === 'chat'} aria-controls="friend-chat" onClick={() => setPanel('chat')}>
+              <MessageCircle size={16} aria-hidden="true"/>채팅
+            </button>
+            <button type="button" aria-pressed={panel === 'schedule'} aria-controls="friend-schedule" onClick={() => setPanel('schedule')}>
+              <CalendarDays size={16} aria-hidden="true"/>캘린더
+            </button>
+          </div>}
+        </header>
+        <Chat selected={channel} messages={chat[channel.id] || []} panel={panel}
+          onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/>
+        {!channel.group && <FriendSchedule person={channel} today={today} startDate={linkedEvent?.start || today} comments={comments}
+          hidden={panel !== 'schedule'} onOpen={(item, key, day) => setDialog({event: item, key, day})}/>}
       </div>
-      <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
     </div>
     {dialog?.type === 'search' && <FriendSearchDialog friends={friends} onClose={close}
       onInvite={() => setDialog({type: 'invite'})} onAdd={id => {
