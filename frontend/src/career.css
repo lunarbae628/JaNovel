@@ -82,7 +82,6 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
 .career-main { display: flex; flex-direction: column; min-width: 0; background: var(--career-canvas); }
 .career-content { padding: 20px 28px 24px; }
 .career-main > .career-content { width: 100%; max-width: var(--career-content-max, 1440px); margin-inline: auto; }
-.career-main > :is(.schedule-content, .community-content, .friends-content) { margin-inline: 0 auto; }
 .career-content h2 { margin: 0; font-size: 16px; line-height: 26px; font-weight: 600; }
 .career-button {
   display: inline-flex;

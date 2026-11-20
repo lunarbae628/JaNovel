@@ -93,38 +93,36 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
     [post.title, post.body, post.author].some(value => value.toLowerCase().includes(term)));
 
   return <section className="community-board" aria-label="게시글 목록">
-    <h1 className="visually-hidden">커뮤니티</h1>
     <div className="board-toolbar">
+      <div className="board-heading">
+        <h1>커뮤니티</h1>
+        <a className="career-button primary near-action board-write" href={'#' + boardPath(category, {writing: true})}>
+          <PenLine size={15} aria-hidden="true"/>글쓰기
+        </a>
+      </div>
       <nav className="career-tabs" aria-label="게시판 말머리">
         {[['', '전체'], ...categories].map(([id, label]) => <a key={id} href={'#' + boardPath(id)}
           aria-current={category === id ? 'page' : undefined}>{label}</a>)}
       </nav>
-      <a className="career-button primary near-action board-write" href={'#' + boardPath(category, {writing: true})}>
-        <PenLine size={15} aria-hidden="true"/>글쓰기
-      </a>
-      <div className="board-tools">
-        <p className="visually-hidden" role="status">게시글 {visiblePosts.length}개</p>
-        <label className="board-search">
-          <Search size={16} aria-hidden="true"/>
-          <input type="search" aria-label="게시글 검색" placeholder="게시글 검색"
-            value={keyword} onChange={event => setKeyword(event.target.value)}/>
-        </label>
-      </div>
+      <label className="board-search">
+        <Search size={17} aria-hidden="true"/>
+        <input type="search" aria-label="게시글 검색" placeholder="게시글 검색"
+          value={keyword} onChange={event => setKeyword(event.target.value)}/>
+      </label>
+      <p className="visually-hidden" role="status">게시글 {visiblePosts.length}개</p>
     </div>
     {visiblePosts.length > 0 && <ul className="board-posts" aria-label="게시글">
       {visiblePosts.map(post => <li key={post.id}>
         <a className="board-title-link" href={'#' + boardPath(category, {post: post.id})}>
-          <span className="board-avatar" aria-hidden="true">{post.author.slice(0, 1)}</span>
-          <span className="board-list-copy">
-            <strong>{post.title}</strong>
-            <span className="board-post-meta">
-              <Category value={post.category}/><span>{post.author}</span><PostDate value={post.date}/>
-            </span>
-            <span className="board-excerpt" aria-hidden="true">{post.body}</span>
+          <span className="board-post-byline">
+            <span className="board-post-meta"><strong>{post.author}</strong><PostDate value={post.date}/></span>
+            <Category value={post.category}/>
           </span>
-          {comments[post.id]?.length > 0 && <span className="board-comment-count">
-            <MessageCircle size={15} aria-hidden="true"/><span className="visually-hidden">댓글 </span>{comments[post.id].length}
-          </span>}
+          <strong className="board-post-title">{post.title}</strong>
+          <span className="board-excerpt" aria-hidden="true">{post.body}</span>
+          <span className="board-comment-count">
+            <MessageCircle size={16} aria-hidden="true"/>댓글{comments[post.id]?.length > 0 && ' ' + comments[post.id].length}
+          </span>
         </a>
       </li>)}
     </ul>}
