@@ -5,15 +5,19 @@ import {materialExcerpts, materialKinds, materialQuestions, practiceModeLabels} 
 import {readMaterialFile} from '../interview-material-file.js';
 import {uid} from '../model.js';
 
-export default function InterviewSetup({application, source, questions, questionsPath, initialMode, expired, onStart}) {
+export default function InterviewSetup({application, source, designated, questions, questionsPath, initialMode, expired, onStart}) {
   const [mode, setMode] = useState(initialMode);
+  const [includeDesignated, setIncludeDesignated] = useState(true);
   const [documents, setDocuments] = useState([]);
   const [kind, setKind] = useState(materialKinds[0]);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [reading, setReading] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const tailored = useMemo(() => materialQuestions(documents), [documents]);
+  const tailored = useMemo(() => {
+    const answers = includeDesignated ? designated.map(answer => ({kind: '자기소개서', text: answer.text})) : [];
+    return materialQuestions([...answers, ...documents]);
+  }, [designated, documents, includeDesignated]);
   const activeQuestions = mode === 'materials' ? tailored : questions;
   const savedText = source ? source.answers.map(answer => answer.text).join('\n') : application.questions.map(question => {
     const branch = question.branches.find(item => item.id === question.activeBranchId) || question.branches[0];
@@ -63,6 +67,11 @@ export default function InterviewSetup({application, source, questions, question
     </fieldset>
     {mode === 'materials' && <div className="practice-material-input">
       <h3>연습 자료</h3>
+      {designated.length > 0 && <div className="practice-designated">
+        <label><input type="checkbox" checked={includeDesignated} onChange={event => setIncludeDesignated(event.target.checked)}/>
+          지정한 문항 제출본 사용 <span>{designated.length}개</span></label>
+        <ul>{designated.map(answer => <li key={answer.questionId}>문항 {answer.number} · {answer.label}</li>)}</ul>
+      </div>}
       <div className="practice-upload">
         <Field label="자료 종류">
           <select value={kind} disabled={reading} onChange={event => setKind(event.target.value)}>

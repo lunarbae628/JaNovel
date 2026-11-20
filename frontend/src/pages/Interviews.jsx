@@ -6,7 +6,7 @@ import AnswerRecording from '../components/AnswerRecording.jsx';
 import InterviewSetup from '../components/InterviewSetup.jsx';
 import {deleteAttachment} from '../storage.js';
 import {interviewFor, patchInterviewQuestion, practiceModeLabels, timecode} from '../interview.js';
-import {uid} from '../model.js';
+import {designatedSubmissionAnswers, uid} from '../model.js';
 import {saveApplicationEvent, todayKey} from '../schedule.js';
 import {EventForm} from './Applications.jsx';
 
@@ -56,7 +56,8 @@ export function Interviews({store, navigate, query, onApplicationChange, onInter
   const records = applications.flatMap(application => interviewFor(application).records
     .map(record => ({application, record}))).sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
   const planned = applications.map(application => ({application, events: plannedInterviews(application)}))
-    .filter(({application, events}) => events.length || application.submissions.length || interviewFor(application).questions.length ||
+    .filter(({application, events}) => events.length || application.submissions.length || designatedSubmissionAnswers(application).length ||
+      interviewFor(application).questions.length ||
       ['서류 전형', '작성 중', '최종 면접', '기술 면접'].includes(application.status));
   const tab = query.get('tab') === 'records' ? 'records' : 'planned';
   const recordsPath = '/interviews?tab=records';
@@ -141,7 +142,7 @@ function QuestionDialog({question, onSave, onDelete, onClose}) {
   </Modal>;
 }
 
-function Materials({application, source, onChange, onClose, navigate}) {
+function Materials({application, designated, source, onChange, onClose, navigate}) {
   const saved = application.submissions.find(record => record.id === source);
   const [choosing, setChoosing] = useState(false);
   const [draft, setDraft] = useState(saved?.id || '');
@@ -160,6 +161,13 @@ function Materials({application, source, onChange, onClose, navigate}) {
       <div className="form-actions"><button className="button" onClick={() => setChoosing(false)}>취소</button>
         <button className="button primary" onClick={() => {onChange(draft); setChoosing(false);}}>선택</button></div>
     </> : <>
+      {designated.length > 0 && <div className="interview-designated">
+        <h3>문항별 제출본</h3>
+        {designated.map(answer => <details key={answer.questionId}>
+          <summary>문항 {answer.number} · {answer.label}</summary>
+          <p>{answer.text}</p>
+        </details>)}
+      </div>}
       <div className="interview-materials">
         <button className="button" onClick={() => navigate(saved ? '/submissions/' + application.id : writingPath(application))}>
           {saved?.name || '현재 작성본'}
@@ -200,6 +208,8 @@ export function InterviewDetail({application, record, query, navigate, onChange,
     }
   }
   const selectedSource = application.submissions.find(record => record.id === interview.source);
+  const designated = designatedSubmissionAnswers(application);
+  const practiceMode = query.get('mode') || (designated.length ? 'materials' : 'expected');
 
   return <>
     <CareerHeader title={application.company}
@@ -217,8 +227,8 @@ export function InterviewDetail({application, record, query, navigate, onChange,
       {record ? <InterviewRecord key={record.id} record={record} application={application} backPath={recordsPath} onChange={onChange}/> :
         tab === 'records' ? <InterviewRecords records={interview.records.map(record => ({record, application}))}
         onOpen={(_, id) => navigate(root + '/' + id)}/> : tab === 'practice' ?
-        <InterviewSetup key={query.get('mode') || 'expected'} application={application} source={selectedSource} questions={interview.questions}
-          initialMode={query.get('mode') === 'materials' ? 'materials' : 'expected'} expired={query.has('expired')}
+        <InterviewSetup key={practiceMode} application={application} source={selectedSource} designated={designated} questions={interview.questions}
+          initialMode={practiceMode === 'materials' ? 'materials' : 'expected'} expired={query.has('expired')}
           questionsPath={questionsPath} onStart={onPracticeStart}/> :
         <div className="interview-workspace">
         <aside className="interview-questions">
@@ -264,7 +274,7 @@ export function InterviewDetail({application, record, query, navigate, onChange,
         }
         setDialog('');
       }}/>}
-    {dialog === 'materials' && <Materials application={application} source={interview.source} navigate={path => {
+    {dialog === 'materials' && <Materials application={application} designated={designated} source={interview.source} navigate={path => {
       setDialog(''); navigate(path);
     }} onChange={source => onChange(current => ({...current, source}))} onClose={() => setDialog('')}/>}
     {dialog === 'audio' && question && <AnswerRecording key={question.id} storageKey={recordingKey(application, question)}
