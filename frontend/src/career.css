@@ -242,13 +242,17 @@
 @media (max-width: 700px) {
   .career-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .career-sidebar { position: static; height: auto; min-height: 0; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
-  .career-sidebar nav { display: flex; flex-wrap: wrap; }
-  .career-sidebar nav a, .career-account button { width: auto; padding-inline: 9px; }
+  .career-sidebar nav { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+  .career-sidebar nav a { justify-content: center; gap: 6px; padding-inline: 4px; white-space: nowrap; }
+  .career-account button { width: auto; padding-inline: 9px; }
   .career-brand { margin: 0; padding: 0 0 6px; border: 0; }
   .career-account { position: absolute; top: 6px; right: 16px; margin: 0; padding: 0; border: 0; }
   .career-recent, .career-account > span, .career-account > a { display: none; }
   .career-header { min-height: 72px; padding: 16px; }
   .career-content { padding: 20px 16px; }
+}
+@media (max-width: 580px) {
+  .career-sidebar nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 
