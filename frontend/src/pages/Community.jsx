@@ -1,7 +1,7 @@
-import React, {useState} from 'react';
-import {ArrowLeft, PenLine, Search} from 'lucide-react';
+import React, {useEffect, useRef, useState} from 'react';
+import {ArrowLeft, MessageCircle, PenLine, Search} from 'lucide-react';
 import {CareerHeader} from '../components/CareerLayout.jsx';
-import {Field, Modal} from '../components/UI.jsx';
+import {Field} from '../components/UI.jsx';
 import {uid} from '../model.js';
 import {addDays, todayKey} from '../schedule.js';
 import {usePreviewState} from '../community-preview.js';
@@ -38,46 +38,57 @@ const examples = {
   ],
 };
 
-const initialBoard = {posts: [], joinedRequests: []};
+const initialBoard = {posts: [], joinedRequests: [], comments: {}};
 const postOrder = ['s1', 'q1', 'r1', 'g1', 's2', 'r2', 's3', 'r3'];
 
 function Category({value}) {
   return <span className={'board-category board-category-' + value}>{categoryName(value)}</span>;
 }
 
-function boardPath(category, post) {
+function boardPath(category, {post, writing = false} = {}) {
   const query = new URLSearchParams();
   if (category) query.set('category', category);
   if (post) query.set('post', post);
-  return '/community' + (query.size ? '?' + query : '');
+  return (writing ? '/community/write' : '/community') + (query.size ? '?' + query : '');
 }
 
-function PostDialog({category, onCreate, onClose}) {
-  return <Modal title="글쓰기" className="community-modal" onClose={onClose}>
+function PostEditor({category, onCreate}) {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const heading = useRef(null);
+  useEffect(() => heading.current.focus(), []);
+
+  return <section className="career-sheet board-editor" aria-labelledby="board-editor-title">
+    <header>
+      <h2 id="board-editor-title" ref={heading} tabIndex={-1}>글쓰기</h2>
+      <a className="board-back" href={'#' + boardPath(category)}><ArrowLeft size={16} aria-hidden="true"/>목록으로</a>
+    </header>
     <form onSubmit={event => {
       event.preventDefault();
-      const values = new FormData(event.currentTarget);
-      const title = values.get('title').trim();
-      const body = values.get('body').trim();
-      if (!title || !body) return;
-      onCreate({id: uid('post'), category: values.get('category'), title, body, author: '나', date: todayKey()});
+      if (!title.trim() || !body.trim()) return;
+      const kind = new FormData(event.currentTarget).get('category');
+      onCreate({id: uid('post'), category: kind, title: title.trim(), body: body.trim(), author: '나', date: todayKey()});
     }}>
-      <Field label="말머리"><select name="category" defaultValue={category || 'general'}>
-        {categories.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-      </select></Field>
-      <Field label="제목"><input name="title" placeholder="제목을 입력하세요" maxLength={80} required/></Field>
-      <Field label="내용"><textarea name="body" placeholder="내용을 입력하세요" rows={7} maxLength={2400} required/></Field>
-      <div className="form-actions"><button className="button" type="button" onClick={onClose}>취소</button>
-        <button className="button primary">등록</button></div>
+      <div className="board-editor-meta">
+        <Field label="말머리"><select name="category" defaultValue={category || 'general'}>
+          {categories.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select></Field>
+        <Field label="제목" hint={title.length + ' / 80자'}><input name="title" maxLength={80} required
+          value={title} onChange={event => setTitle(event.target.value)}/></Field>
+      </div>
+      <Field label="내용" hint={body.length + ' / 2,400자'}><textarea name="body" rows={10} maxLength={2400} required
+        value={body} onChange={event => setBody(event.target.value)}/></Field>
+      <div className="form-actions"><a className="career-button" href={'#' + boardPath(category)}>취소</a>
+        <button className="career-button primary" disabled={!title.trim() || !body.trim()}>게시글 등록</button></div>
     </form>
-  </Modal>;
+  </section>;
 }
 
 function PostDate({value}) {
   return <time dateTime={value}>{value.slice(2).replaceAll('-', '.')}</time>;
 }
 
-function BoardList({posts, category, keyword, setKeyword}) {
+function BoardList({posts, comments, category, keyword, setKeyword}) {
   const term = keyword.trim().toLowerCase();
   const visiblePosts = posts.filter(post => (!category || category === post.category) &&
     [post.title, post.body, post.author].some(value => value.toLowerCase().includes(term)));
@@ -102,8 +113,12 @@ function BoardList({posts, category, keyword, setKeyword}) {
         <tbody>{visiblePosts.map(post => <tr key={post.id}>
           <td className="board-number">{post.number}</td>
           <td className="board-type"><Category value={post.category}/></td>
-          <td><a className="board-title-link" href={'#' + boardPath(category, post.id)}>
-            <strong>{post.title}</strong>
+          <td><a className="board-title-link" href={'#' + boardPath(category, {post: post.id})}>
+            <span className="board-title-line"><strong>{post.title}</strong>
+              {comments[post.id]?.length > 0 && <span className="board-comment-count">
+                <MessageCircle size={13} aria-hidden="true"/>댓글 {comments[post.id].length}
+              </span>}
+            </span>
             <span className="board-mobile-meta">{post.author} <span aria-hidden="true">·</span> <PostDate value={post.date}/></span>
           </a></td>
           <td className="board-author">{post.author}</td>
@@ -115,11 +130,40 @@ function BoardList({posts, category, keyword, setKeyword}) {
   </>;
 }
 
+function PostComments({comments, onAdd}) {
+  const [text, setText] = useState('');
+  const input = useRef(null);
+  return <section className="career-sheet board-comments" aria-labelledby="board-comments-title">
+    <h2 id="board-comments-title">댓글 <span aria-live="polite">{comments.length}개</span></h2>
+    {comments.length ? <ul className="board-comments-list">
+      {comments.map(comment => <li key={comment.id}>
+        <div className="board-post-meta"><strong>{comment.author}</strong><PostDate value={comment.date}/></div>
+        <p>{comment.text}</p>
+      </li>)}
+    </ul> : <p className="board-comments-empty">아직 댓글이 없어요.</p>}
+    <form onSubmit={event => {
+      event.preventDefault();
+      if (!text.trim()) return;
+      onAdd(text.trim());
+      setText('');
+      input.current.focus();
+    }}>
+      <Field label="댓글 작성"><textarea ref={input} rows={3} maxLength={600} value={text}
+        onChange={event => setText(event.target.value)}/></Field>
+      <div className="board-comment-actions"><small>{text.length} / 600자</small>
+        <button className="career-button primary" disabled={!text.trim()}>댓글 등록</button>
+      </div>
+    </form>
+  </section>;
+}
+
 function PostDetail({post, category, joined, onJoin}) {
+  const heading = useRef(null);
+  useEffect(() => heading.current.focus(), []);
   return <article className="career-sheet board-detail">
     <header>
       <Category value={post.category}/>
-      <h2>{post.title}</h2>
+      <h2 ref={heading} tabIndex={-1}>{post.title}</h2>
       <div className="board-post-meta"><strong>{post.author}</strong><PostDate value={post.date}/></div>
     </header>
     {post.meta && <p className="board-post-info">{post.meta}</p>}
@@ -133,13 +177,12 @@ function PostDetail({post, category, joined, onJoin}) {
   </article>;
 }
 
-export default function Community({query, navigate}) {
+export default function Community({query, writing, navigate}) {
   const filteredCategory = query.get('category') || query.get('tab');
   const category = categoryName(filteredCategory) ? filteredCategory : '';
   const [today] = useState(todayKey);
-  const [writing, setWriting] = useState(false);
   const [keyword, setKeyword] = useState('');
-  const [{posts, joinedRequests}, setPreview] = usePreviewState('board', initialBoard);
+  const [{posts, joinedRequests, comments}, setPreview] = usePreviewState('board', initialBoard);
   const examplePosts = Object.entries(examples).flatMap(([categoryId, items]) => items.map(post => ({
     ...post, category: categoryId, date: addDays(today, -postOrder.indexOf(post.id)),
   }))).sort((a, b) => b.date.localeCompare(a.date));
@@ -148,22 +191,26 @@ export default function Community({query, navigate}) {
 
   return <>
     <CareerHeader title="커뮤니티">
-      {!selected && <button className="career-button primary" onClick={() => setWriting(true)}>
+      {!writing && !selected && <a className="career-button primary" href={'#' + boardPath(category, {writing: true})}>
         <PenLine size={16} aria-hidden="true"/>글쓰기
-      </button>}
+      </a>}
     </CareerHeader>
-    <div className="career-content community-content">
-      {selected ? <PostDetail key={selected.id} post={selected} category={category} joined={joinedRequests.includes(selected.id)}
-        onJoin={() => setPreview(current => ({...current, joinedRequests: current.joinedRequests.includes(selected.id)
-          ? current.joinedRequests.filter(id => id !== selected.id) : [...current.joinedRequests, selected.id]}))}/> :
-        <BoardList posts={allPosts} category={category} keyword={keyword} setKeyword={setKeyword}/>}
+    <div className={'career-content community-content' + (writing ? ' board-editor-content' : '')}>
+      {writing ? <PostEditor key={category} category={category} onCreate={post => {
+        setPreview(current => ({...current, posts: [post, ...current.posts]}));
+        setKeyword('');
+        navigate(boardPath(post.category, {post: post.id}));
+      }}/> : selected ? <React.Fragment key={selected.id}>
+        <PostDetail post={selected} category={category} joined={joinedRequests.includes(selected.id)}
+          onJoin={() => setPreview(current => ({...current, joinedRequests: current.joinedRequests.includes(selected.id)
+            ? current.joinedRequests.filter(id => id !== selected.id) : [...current.joinedRequests, selected.id]}))}/>
+        <PostComments comments={comments[selected.id] || []} onAdd={text => {
+          const comment = {id: uid('comment'), author: '나', text, date: todayKey()};
+          setPreview(current => ({...current, comments: {...current.comments,
+            [selected.id]: [...(current.comments[selected.id] || []), comment]}}));
+        }}/>
+      </React.Fragment> : <BoardList posts={allPosts} comments={comments} category={category} keyword={keyword} setKeyword={setKeyword}/>}
       <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
     </div>
-    {writing && <PostDialog category={category} onClose={() => setWriting(false)} onCreate={post => {
-      setPreview(current => ({...current, posts: [post, ...current.posts]}));
-      setKeyword('');
-      setWriting(false);
-      navigate(boardPath(post.category, post.id));
-    }}/>}
   </>;
 }

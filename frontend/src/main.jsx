@@ -72,8 +72,8 @@ function App() {
   }, [store, saveBlocked]);
 
   useEffect(() => {
-    document.title = 'JaNovel · ' + (pageTitles[kind] || '지원 기록');
-  }, [kind]);
+    document.title = 'JaNovel · ' + (kind === 'community' && aid === 'write' ? '글쓰기' : pageTitles[kind] || '지원 기록');
+  }, [kind, aid]);
 
   useEffect(() => {
     if (kind !== 'interviews' || qid !== 'practice') setPracticeSession(null);
@@ -128,7 +128,8 @@ function App() {
       {section === '/applications' ? <Applications store={store} navigate={navigate} onApplicationChange={changeApplication}/> : section === '/schedule' ?
         <Schedule key={search} store={store} initialDate={query.get('date')} navigate={navigate}
           onItemsChange={update => setStore(previous => ({...previous, scheduleItems: update(previous.scheduleItems || [])}))}
-          onApplicationChange={changeApplication}/> : section === '/community' ? <Community query={query} navigate={navigate}/> :
+          onApplicationChange={changeApplication}/> : section === '/community' ?
+        <Community query={query} writing={aid === 'write'} navigate={navigate}/> :
         kind === 'friends' || kind === 'chat' ? <Social key={route} section={kind} query={query}/> :
         application ? <InterviewDetail key={aid} application={application} navigate={navigate}
           query={expiredPractice ? new URLSearchParams('tab=practice&mode=materials&expired') : query}

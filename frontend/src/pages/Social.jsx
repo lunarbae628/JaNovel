@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {CalendarDays, Check, ChevronLeft, ChevronRight, MessageCircle, Send, UserPlus, UsersRound} from 'lucide-react';
+import {CalendarDays, Check, ChevronLeft, ChevronRight, MessageCircle, Search, Send, UserPlus, UsersRound} from 'lucide-react';
 import {CareerHeader} from '../components/CareerLayout.jsx';
 import {Field, Modal, dateLabel} from '../components/UI.jsx';
 import {uid} from '../model.js';
@@ -7,11 +7,13 @@ import {addDays, calendarWeeks, todayKey} from '../schedule.js';
 import {usePreviewState} from '../community-preview.js';
 import '../community.css';
 
-const friends = [
+const directory = [
   {id: 'jian', name: '이지안', mark: '지', color: 'blue'},
   {id: 'minjun', name: '박민준', mark: '민', color: 'green'},
+  {id: 'harin', name: '정하린', mark: '하', color: 'violet'},
+  {id: 'doyun', name: '김도윤', mark: '윤', color: 'blue'},
 ];
-const channels = [...friends, {id: 'interview', name: '백엔드 면접 스터디', mark: '면', color: 'violet', group: true}];
+const studyRoom = {id: 'interview', name: '백엔드 면접 스터디', color: 'violet', group: true};
 const weekday = ['일', '월', '화', '수', '목', '금', '토'];
 const demoChat = {
   jian: [{id: 'j1', from: '이지안', text: '이번 주에 자소서 서로 한 번씩 봐줄까?'}],
@@ -28,9 +30,46 @@ function exampleEvents(day) {
     ['e3', 'jian', '서류 제출', 2, '마감'],
     ['e4', 'minjun', '알고리즘 문제 풀이', 3, '체크리스트'],
     ['e5', 'jian', '백엔드 모의면접', 5, '면접', false, '19:30'],
+    ['e6', 'harin', '코딩테스트 복습', 0, '체크리스트', false],
+    ['e7', 'doyun', '포트폴리오 피드백', 1, '일정', false, '18:30'],
   ].map(([id, owner, title, offset, type, done, time]) => ({
     id, owner, title, type, done, time, start: addDays(day, offset), end: addDays(day, offset),
   }));
+}
+
+function FriendSearchDialog({friends, onAdd, onInvite, onClose}) {
+  const [keyword, setKeyword] = useState('');
+  const [status, setStatus] = useState('');
+  const input = useRef(null);
+  const term = keyword.trim().toLowerCase();
+  const matches = directory.filter(person => person.name.includes(term) || ('@' + person.id).includes(term));
+
+  return <Modal title="친구 추가" className="community-modal" onClose={onClose}>
+    <Field label="친구 검색">
+      <input ref={input} type="search" value={keyword} placeholder="이름 또는 @아이디" maxLength={80}
+        onChange={event => {setKeyword(event.target.value); setStatus('');}}/>
+    </Field>
+    <div className="friend-search-results">
+      <p role="status">{term ? '검색 결과 ' + matches.length + '명' : '미리보기 계정'}</p>
+      {matches.length ? <ul>{matches.map(person => {
+        const added = friends.some(friend => friend.id === person.id);
+        return <li key={person.id}>
+          <Avatar person={person}/>
+          <span className="friend-search-identity"><strong>{person.name}</strong><small>@{person.id}</small></span>
+          {added ? <span className="friend-search-added"><Check size={14} aria-hidden="true"/>친구</span> :
+            <button className="career-button" type="button" aria-label={person.name + ' 친구 추가'}
+              onClick={() => {
+                onAdd(person.id);
+                setStatus(person.name + ' 님을 친구 목록에 추가했어요.');
+                input.current.focus();
+              }}><UserPlus size={15} aria-hidden="true"/>추가</button>}
+        </li>;
+      })}</ul> : <p className="community-empty">일치하는 이름이나 아이디가 없어요.</p>}
+    </div>
+    <div className="friend-search-footer"><p role="status">{status}</p>
+      <button className="board-back" type="button" onClick={onInvite}>이메일로 초대</button>
+    </div>
+  </Modal>;
 }
 
 function Avatar({person}) {
@@ -135,8 +174,7 @@ function InviteDialog({invites, onInvite, onClose}) {
   </Modal>;
 }
 
-function Chat({active, messages, onSend}) {
-  const selected = channels.find(channel => channel.id === active);
+function Chat({selected, channels, messages, onSend}) {
   const thread = useRef(null);
   useEffect(() => {
     if (thread.current) thread.current.scrollTop = thread.current.scrollHeight;
@@ -146,23 +184,23 @@ function Chat({active, messages, onSend}) {
     <nav className="community-channels" aria-label="대화 목록">
       <h2>대화</h2>
       {channels.map(channel => <a key={channel.id} href={'#/chat?conversation=' + channel.id}
-        aria-current={channel.id === active ? 'page' : undefined}>
+        aria-current={channel.id === selected.id ? 'page' : undefined}>
         <Avatar person={channel}/><span>{channel.name}</span>
       </a>)}
     </nav>
     <div className="community-thread">
       <header><Avatar person={selected}/><div><h2>{selected.name}</h2><p>{selected.group ? '스터디 채팅' : '친구와의 대화'}</p></div></header>
-      <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
+      {messages.length ? <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
         {messages.map(item => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
           <small>{item.from}</small><p>{item.text}</p>
         </li>)}
-      </ol>
-      <Composer key={active} label="메시지 입력" action="보내기" onSend={onSend}/>
+      </ol> : <p className="community-thread-empty">아직 메시지가 없어요.</p>}
+      <Composer key={selected.id} label="메시지 입력" action="보내기" onSend={onSend}/>
     </div>
   </section>;
 }
 
-function FriendList({selected, pending}) {
+function FriendList({friends, selected, pending}) {
   return <nav className="career-sheet friend-list" aria-label="친구 목록">
     <div className="community-section-head"><h2>친구 목록</h2><span>{friends.length}명</span></div>
     <ul>
@@ -179,7 +217,7 @@ function FriendList({selected, pending}) {
   </nav>;
 }
 
-const initialSocial = {invites: [], comments: {}, chat: demoChat};
+const initialSocial = {friendIds: ['jian', 'minjun'], invites: [], comments: {}, chat: demoChat};
 function appendMessage(messages, key, text) {
   return {...messages, [key]: [...(messages[key] || []), {id: uid('message'), from: '나', text}]};
 }
@@ -187,7 +225,9 @@ function appendMessage(messages, key, text) {
 export default function Social({section, query}) {
   const [today] = useState(todayKey);
   const [dialog, setDialog] = useState(null);
-  const [{invites, comments, chat}, setPreview] = usePreviewState('social', initialSocial);
+  const [{friendIds, invites, comments, chat}, setPreview] = usePreviewState('social', initialSocial);
+  const friends = directory.filter(friend => friendIds.includes(friend.id));
+  const channels = [...friends, studyRoom];
   const person = friends.find(friend => friend.id === query.get('friend')) || friends[0];
   const channel = channels.find(item => item.id === query.get('conversation')) || channels[0];
   const close = () => setDialog(null);
@@ -196,20 +236,24 @@ export default function Social({section, query}) {
 
   return <>
     <CareerHeader title={inChat ? '채팅' : '친구'}>
-      {!inChat && <button className="career-button" onClick={() => setDialog({type: 'invite'})}>
-        <UserPlus size={16} aria-hidden="true"/>친구 초대
+      {!inChat && <button className="career-button primary" onClick={() => setDialog({type: 'search'})}>
+        <UserPlus size={16} aria-hidden="true"/>친구 추가
       </button>}
     </CareerHeader>
     <div className="career-content community-content">
-      {inChat ? <Chat active={channel.id} messages={chat[channel.id] || []}
+      {inChat ? <Chat selected={channel} channels={channels} messages={chat[channel.id] || []}
         onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/> :
         <div className="friends-layout">
-          <FriendList selected={person} pending={invites.length}/>
+          <FriendList friends={friends} selected={person} pending={invites.length}/>
           <FriendCalendar key={person.id} person={person} today={today} comments={comments}
             onOpen={(item, key, day) => setDialog({event: item, key, day})}/>
         </div>}
       <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
     </div>
+    {!inChat && dialog?.type === 'search' && <FriendSearchDialog friends={friends} onClose={close}
+      onInvite={() => setDialog({type: 'invite'})} onAdd={id => {
+        setPreview(current => current.friendIds.includes(id) ? current : {...current, friendIds: [...current.friendIds, id]});
+      }}/>}
     {!inChat && dialog?.type === 'invite' && <InviteDialog invites={invites} onClose={close}
       onInvite={email => setPreview(current => current.invites.includes(email) ? current :
         {...current, invites: [...current.invites, email]})}/>}
