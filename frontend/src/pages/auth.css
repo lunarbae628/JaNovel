@@ -3,7 +3,6 @@
   display: grid;
   grid-template-columns: 40.5% minmax(0,1fr);
   color: #202735;
-  font-family: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
 }
 .auth-brand {
   background: #eef2fa;

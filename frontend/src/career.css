@@ -1,3 +1,5 @@
+html:has(.career-layout) { scrollbar-gutter: stable; }
+
 .career-layout {
   --career-ink: #202735;
   --career-muted: #586274;
@@ -10,7 +12,6 @@
   grid-template-columns: 208px minmax(0, 1fr);
   min-height: 100dvh;
   color: var(--career-ink);
-  font-family: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
 }
 .career-sidebar {
   position: sticky;
@@ -80,6 +81,7 @@
 .career-inbox-link[aria-expanded=true] small { background: #fff; }
 .career-main { display: flex; flex-direction: column; min-width: 0; background: var(--career-canvas); }
 .career-content { padding: 20px 28px 24px; }
+.career-main > .career-content { width: 100%; max-width: var(--career-content-max, 1440px); margin-inline: auto; }
 .career-content h2 { margin: 0; font-size: 16px; line-height: 26px; font-weight: 600; }
 .career-button {
   display: inline-flex;
@@ -107,7 +109,7 @@
   align-items: start;
   gap: 20px;
 }
-.career-sheet { min-width: 0; border: 1px solid var(--career-border); border-radius: 12px; background: #fff; }
+.career-sheet { min-width: 0; border: 1px solid var(--career-border); border-radius: 10px; background: #fff; }
 .dashboard-heading, .dashboard-agenda-header {
   display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 17px 20px 13px;
 }
@@ -340,10 +342,9 @@
   padding: 0 2px; border: 0; background: transparent; color: var(--career-muted);
   font-size: 14px; text-decoration: none; white-space: nowrap;
 }
-.career-tabs :is(a,button):hover, .career-tabs [aria-current=page] { color: var(--primary); }
-.career-tabs [aria-current=page] { font-weight: 700; }
+.career-tabs :is(a,button):hover, .career-tabs :is([aria-current=page], [aria-pressed=true]) { color: var(--primary); }
+.career-tabs :is([aria-current=page], [aria-pressed=true]) { font-weight: 700; }
 .career-tabs span { font-variant-numeric: tabular-nums; }
-.interview-list { padding-top: 16px; }
 .interview-list-toolbar {
   display: flex; align-items: center; flex-wrap: wrap; column-gap: 18px; row-gap: 4px;
   border-bottom: 1px solid var(--border);
@@ -562,7 +563,6 @@
 .essay-document {
   width: 448px; min-height: 634px; padding: 38px 35px 35px;
   border: 1px solid #e4e4e7; background: #fff; color: #302b27;
-  font-family: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
   font-size: 12px; line-height: 20px; text-align: left;
 }
 .essay-document h3 { margin: 0 0 52px; font-size: 15px; line-height: 20px; font-weight: 700; }

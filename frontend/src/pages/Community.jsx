@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ArrowLeft, MessageCircle, PenLine, Search} from 'lucide-react';
-import {Field} from '../components/UI.jsx';
+import {MessageCircle, PenLine, Search} from 'lucide-react';
+import {BackLink, Field} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import {uid} from '../model.js';
 import {addDays, todayKey} from '../schedule.js';
@@ -95,7 +95,7 @@ function BoardList({posts, comments, category, keyword, setKeyword}) {
   return <section className="career-sheet community-board" aria-label="게시글 목록">
     <h1 className="visually-hidden">커뮤니티</h1>
     <div className="board-toolbar">
-      <nav className="community-tabs" aria-label="게시판 말머리">
+      <nav className="career-tabs" aria-label="게시판 말머리">
         {[['', '전체'], ...categories].map(([id, label]) => <a key={id} href={'#' + boardPath(id)}
           aria-current={category === id ? 'page' : undefined}>{label}</a>)}
       </nav>
@@ -192,10 +192,10 @@ export default function Community({query, writing, navigate}) {
   const selected = allPosts.find(post => post.id === query.get('post'));
 
   return <>
-    <div className={'career-content community-content ' + (writing || selected ? 'board-reading-content' : 'board-list-content')}>
-      {(writing || selected) && <a className="board-back board-list-back" href={'#' + boardPath(category)}>
-        <ArrowLeft size={17} aria-hidden="true"/>목록으로
-      </a>}
+    <div className={'career-content community-content' + (writing || selected ? ' board-reading-content' : '')}>
+      {(writing || selected) && <BackLink className="page-back board-list-back" to={boardPath(category)}>
+        목록으로
+      </BackLink>}
       {writing ? <PostEditor key={category} category={category} onCreate={post => {
         setPreview(current => ({...current, posts: [post, ...current.posts]}));
         setKeyword('');

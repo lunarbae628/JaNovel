@@ -51,7 +51,7 @@ function FriendSearchDialog({friends, onAdd, onInvite, onClose}) {
       })}</ul> : <p className="community-empty">일치하는 이름이나 아이디가 없어요.</p>}
     </div>
     <div className="friend-search-footer"><p role="status">{status}</p>
-      <button className="board-back" type="button" onClick={onInvite}>이메일로 초대</button>
+      <button className="text-button" type="button" onClick={onInvite}>이메일로 초대</button>
     </div>
   </Modal>;
 }
@@ -71,11 +71,11 @@ function Composer({label, action, onSend}) {
     setText('');
   }}>
     <input aria-label={label} placeholder={label} value={text} maxLength={600} onChange={event => setText(event.target.value)}/>
-    <button className="button primary" disabled={!text.trim()}><Send size={14} aria-hidden="true"/>{action}</button>
+    <button className="career-button primary" disabled={!text.trim()}><Send size={14} aria-hidden="true"/>{action}</button>
   </form>;
 }
 
-function FriendSchedule({person, today, startDate, comments, onOpen}) {
+function FriendSchedule({person, today, startDate, comments, onOpen, hidden}) {
   const [selected, setSelected] = useState(startDate);
   const [month, setMonth] = useState(startDate.slice(0, 7) + '-01');
   const weeks = calendarWeeks(month);
@@ -93,14 +93,13 @@ function FriendSchedule({person, today, startDate, comments, onOpen}) {
     jump(date.toISOString().slice(0, 10));
   }
 
-  return <aside id="friend-schedule" className="career-sheet friend-schedule" aria-label={person.name + '의 일정'}>
+  return <aside id="friend-schedule" className="friend-schedule" hidden={hidden} aria-label={person.name + '의 일정'}>
     <section className="community-month" aria-label={person.name + '의 캘린더'}>
-      <div className="community-section-head">
-        <div><h2>{person.name}의 캘린더</h2>
-          <p>{month.slice(0, 4)}년 {Number(month.slice(5, 7))}월</p></div>
+      <div className="schedule-month-heading">
+        <h3>{month.slice(0, 4)}년 {Number(month.slice(5, 7))}월</h3>
         <div className="community-month-nav">
-          <button className="career-button" aria-label="이전 달" onClick={() => move(-1)}><ChevronLeft size={17}/></button>
           <button className="career-button" onClick={() => jump(today)}>오늘</button>
+          <button className="career-button" aria-label="이전 달" onClick={() => move(-1)}><ChevronLeft size={17}/></button>
           <button className="career-button" aria-label="다음 달" onClick={() => move(1)}><ChevronRight size={17}/></button>
         </div>
       </div>
@@ -168,23 +167,21 @@ function Chat({selected, messages, panel, onSend}) {
     if (thread.current) thread.current.scrollTop = thread.current.scrollHeight;
   }, [messages, selected.id, panel]);
 
-  return <section id="friend-chat" className="career-sheet community-chat" aria-label={selected.name + ' 채팅'}>
-    <div className="community-thread">
-      <header><Avatar person={selected}/><div><h2>{selected.name}</h2><p>{selected.group ? '스터디 채팅' : '1:1 채팅'}</p></div></header>
-      {messages.length ? <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
-        {messages.map(item => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
-          <small>{item.from}</small><p>{item.text}</p>
-        </li>)}
-      </ol> : <p className="community-thread-empty">아직 메시지가 없어요.</p>}
-      <Composer key={selected.id} label="메시지 입력" action="보내기" onSend={onSend}/>
-    </div>
+  return <section id="friend-chat" className="community-chat" hidden={panel !== 'chat'} aria-label={selected.name + ' 채팅'}>
+    {messages.length ? <ol ref={thread} className="community-messages" aria-label="메시지" aria-live="polite">
+      {messages.map(item => <li key={item.id} className={item.from === '나' ? 'mine' : undefined}>
+        <small>{item.from}</small><p>{item.text}</p>
+      </li>)}
+    </ol> : <p className="community-thread-empty">아직 메시지가 없어요.</p>}
+    <Composer key={selected.id} label="메시지 입력" action="보내기" onSend={onSend}/>
   </section>;
 }
 
-function FriendList({friends, selected, chat, pending, onAdd}) {
+function FriendList({friends, selected, chat, panel, pending, onAdd}) {
   function contactLink(person) {
     const last = chat[person.id]?.at(-1);
-    const href = person.group ? '#/friends?conversation=' + person.id : '#/friends?friend=' + person.id;
+    const href = person.group ? '#/friends?conversation=' + person.id :
+      '#/friends?friend=' + person.id + (panel === 'schedule' ? '&tab=calendar' : '');
     return <li key={person.id}><a className="friend-contact-link" href={href}
       aria-current={person.id === selected.id ? 'page' : undefined}>
       <Avatar person={person}/>
@@ -194,9 +191,9 @@ function FriendList({friends, selected, chat, pending, onAdd}) {
     </a></li>;
   }
 
-  return <nav className="career-sheet friend-list" aria-label="친구 및 대화 목록">
+  return <nav className="friend-list" aria-label="친구 및 대화 목록">
     <div className="community-section-head">
-      <h1>친구 <small>{friends.length}명</small></h1>
+      <h1>친구 목록 <small>{friends.length}명</small></h1>
       <button className="career-button primary near-action" onClick={onAdd}>
         <UserPlus size={15} aria-hidden="true"/>친구 추가
       </button>
@@ -220,7 +217,8 @@ export default function Social({query, preview, setPreview}) {
   const target = query.get('conversation') || query.get('friend');
   const channel = channels.find(item => item.id === target) || channels[0];
   const linkedEvent = !channel.group && exampleEvents(today).find(item => item.owner === channel.id && item.id === query.get('event'));
-  const [panel, setPanel] = useState(() => linkedEvent ? 'schedule' : 'chat');
+  const showCalendar = !channel.group && (linkedEvent || query.get('tab') === 'calendar');
+  const [panel, setPanel] = useState(() => showCalendar ? 'schedule' : 'chat');
   const [dialog, setDialog] = useState(() => linkedEvent ? {
     event: linkedEvent, key: linkedEvent.owner + '/' + linkedEvent.id, day: linkedEvent.start,
   } : null);
@@ -237,21 +235,26 @@ export default function Social({query, preview, setPreview}) {
 
   return <>
     <div className="career-content friends-content">
-      <div className="friends-layout" data-panel={panel} data-group={Boolean(channel.group)}>
-        <FriendList friends={friends} selected={channel} chat={chat} pending={invites.length}
+      <div className="career-sheet friends-layout">
+        <FriendList friends={friends} selected={channel} chat={chat} panel={panel} pending={invites.length}
           onAdd={() => setDialog({type: 'search'})}/>
-        {!channel.group && <div className="friends-panel-switch" role="group" aria-label="친구 화면 보기">
-          <button type="button" aria-pressed={panel === 'chat'} aria-controls="friend-chat" onClick={() => setPanel('chat')}>
-            <MessageCircle size={16} aria-hidden="true"/>채팅
-          </button>
-          <button type="button" aria-pressed={panel === 'schedule'} aria-controls="friend-schedule" onClick={() => setPanel('schedule')}>
-            <CalendarDays size={16} aria-hidden="true"/>일정
-          </button>
-        </div>}
-        <Chat selected={channel} messages={chat[channel.id] || []} panel={panel}
-          onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/>
-        {!channel.group && <FriendSchedule person={channel} today={today} startDate={linkedEvent?.start || today} comments={comments}
-          onOpen={(item, key, day) => setDialog({event: item, key, day})}/>}
+        <div className="friend-workspace">
+          <header className="friend-workspace-header">
+            <div className="friend-name"><Avatar person={channel}/><h2>{channel.name}</h2></div>
+            {!channel.group && <div className="career-tabs friends-panel-switch" role="group" aria-label="친구 화면 보기">
+              <button type="button" aria-pressed={panel === 'chat'} aria-controls="friend-chat" onClick={() => setPanel('chat')}>
+                <MessageCircle size={16} aria-hidden="true"/>채팅
+              </button>
+              <button type="button" aria-pressed={panel === 'schedule'} aria-controls="friend-schedule" onClick={() => setPanel('schedule')}>
+                <CalendarDays size={16} aria-hidden="true"/>캘린더
+              </button>
+            </div>}
+          </header>
+          <Chat selected={channel} messages={chat[channel.id] || []} panel={panel}
+            onSend={text => setPreview(current => ({...current, chat: appendMessage(current.chat, channel.id, text)}))}/>
+          {!channel.group && <FriendSchedule person={channel} today={today} startDate={linkedEvent?.start || today} comments={comments}
+            hidden={panel !== 'schedule'} onOpen={(item, key, day) => setDialog({event: item, key, day})}/>}
+        </div>
       </div>
       <p className="community-preview-note">미리보기 · 입력한 내용은 이 브라우저에만 저장돼요.</p>
     </div>
