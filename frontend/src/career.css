@@ -555,23 +555,13 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
   .practice-question .practice-controls > .primary:last-child { grid-column: 1 / -1; }
 }
 
-.modal.essay-pdf-modal { display: flex; flex-direction: column; width: 640px; min-height: min(580px, 86dvh); }
+.modal.essay-pdf-modal { display: flex; flex-direction: column; width: 640px; }
 .modal.essay-pdf-modal.is-preview { width: 760px; max-height: min(840px, calc(100dvh - 32px)); background: #f7f7f8; }
 .essay-pdf-modal .modal-heading { margin-bottom: 24px; }
 .essay-pdf-modal .modal-heading h2 { font-size: 20px; line-height: 33px; }
 .essay-pdf-modal > .field { margin-bottom: 26px; }
 .essay-scope { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
 .essay-scope .button { min-width: 132px; }
-.essay-versions { display: grid; gap: 16px; margin-bottom: 22px; }
-.essay-version {
-  display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 76px;
-  border-radius: 6px; background: #f7f7f8; padding: 12px 16px; font-size: 14px;
-}
-.essay-version select { width: min(220px, 42%); min-height: 38px; background: #fff; }
-.essay-pdf-modal .form-actions { margin-top: auto; padding-top: 8px; }
-.essay-pdf-modal .form-actions .button { min-width: 104px; }
-.essay-pdf-modal .form-actions .primary { min-width: 148px; }
-.essay-return { margin-right: auto; }
 .essay-preview { display: grid; justify-content: safe center; margin: 6px 0 12px; overflow: auto; }
 .essay-document {
   width: 448px; min-height: 634px; padding: 38px 35px 35px;
@@ -586,8 +576,6 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
 .essay-page-count { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 30px; margin-bottom: 14px; color: #666b73; font-size: 12px; }
 .essay-print { display: none; }
 @media (max-width: 530px) {
-  .essay-version { align-items: stretch; flex-direction: column; gap: 8px; }
-  .essay-version select { width: 100%; }
   .essay-preview .essay-document { zoom: .65; }
   .essay-pdf-modal .form-actions .button { min-width: 0; }
 }

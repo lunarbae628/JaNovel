@@ -40,10 +40,19 @@ export function freezeSubmission(application, selections, name = '제출본') {
  return {id: uid('submission'), name: name.trim() || '제출본', createdAt: now(), submitted: false,
   answers: application.questions.map(question => freezeSubmissionAnswer(question, selections[question.id]))};
 }
-export function designateQuestionSubmission(question, key) {
- const answer = freezeSubmissionAnswer(question, key, '초안');
+function appendQuestionSubmission(question, answer) {
  return {...question, submissionHistory: [...(question.submissionHistory || []),
   {...answer, id: uid('submission-answer'), createdAt: now()}]};
+}
+export function designateQuestionSubmission(question, key) {
+ return appendQuestionSubmission(question, freezeSubmissionAnswer(question, key, '초안'));
+}
+export function reviseQuestionSubmission(question, text) {
+ if (!text.trim()) fail('EMPTY_TEXT');
+ const previous = question.submissionHistory?.at(-1);
+ if (!previous) fail('SELECTION_REQUIRED');
+ if (previous.text === text) return question;
+ return appendQuestionSubmission(question, {...previous, text, label: '직접 수정'});
 }
 export function designatedSubmissionAnswers(application) {
  return application.questions.flatMap((question, index) => {

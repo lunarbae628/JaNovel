@@ -31,24 +31,35 @@
 .editor-page .writing-content:not(.is-comparing) > * { width: 100%; max-width: 820px; margin-inline: auto; }
 .editor-page .question-heading { justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
 .essay-question-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; min-width: 0; }
-.essay-question-actions { display: flex; flex: none; flex-wrap: wrap; gap: 6px; }
-.essay-question-actions .button { min-height: 35px; padding-inline: 9px; color: var(--primary); font-size: 12px; }
-.essay-submission-button { background: #f2f5fa; }
+.essay-context-actions .essay-submission-button { background: #f2f5fa; color: var(--primary); font-weight: 650; }
 .editor-page .question-heading h1 {
   font-size: 18px; line-height: 1.45; letter-spacing: -.02em; word-break: keep-all; overflow-wrap: anywhere;
 }
 .essay-question-title > span { color: #586274; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .essay-question-title > .over-limit { color: #97451e; }
+.modal.essay-submissions-modal { width: 760px; }
+.essay-submission-section { padding-block: 14px; border-top: 1px solid var(--border); }
+.essay-submission-heading {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px;
+  margin-bottom: 8px;
+}
+.essay-submission-heading h3 {
+  flex: 1 1 240px; min-width: 0; font-size: 15px; line-height: 1.55; overflow-wrap: anywhere;
+}
+.essay-submission-heading h3 small { color: var(--primary); font-weight: 650; }
+.essay-submission-actions { display: flex; gap: 6px; }
 .essay-submission-meta {
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px;
-  margin-bottom: 8px; overflow-wrap: anywhere;
+  margin-bottom: 5px; color: #586274; font-size: 12px; overflow-wrap: anywhere;
 }
-.essay-submission-meta time { color: #586274; font-size: 12px; }
+.essay-submission-empty { color: #586274; font-size: 13px; }
+.essay-submission-section textarea { min-height: 120px; }
+.essay-submission-controls { position: sticky; bottom: -24px; padding-block: 10px; border-top: 1px solid var(--border); background: #fff; }
 .essay-submission-preview {
   max-height: 26dvh; padding: 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
   border: 1px solid var(--border); border-radius: 6px; background: #f6f8fc; font-size: 13px; line-height: 1.7;
 }
-.essay-submission-current { max-height: min(52dvh, 460px); }
+.essay-submission-current { max-height: none; }
 .essay-submission-history { margin-top: 14px; font-size: 13px; }
 .essay-submission-history summary { width: fit-content; margin-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
 .essay-submission-history details { margin-left: 10px; }
@@ -128,7 +139,6 @@
 
   .editor-page .editor-actions { flex-wrap: wrap; max-width: 100%; row-gap: 3px; }
   .editor-page .question-heading { align-items: flex-start; }
-  .essay-question-actions .button { min-height: 40px; }
   .editor-page .question-heading h1 { font-size: 17px; }
   .editor-page .body-columns.comparing { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .editor-page .body-columns.comparing .body-column + section {

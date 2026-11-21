@@ -13,7 +13,7 @@ test('그래프에는 부모가 먼저 나오고 브랜치별 작성 중이 구�
 test('손상되거나 부모가 없는 백업을 거부한다',()=>{assert.throws(()=>validateStore({version:1,applications:[{questions:[{snapshots:[{id:'s',parentIds:['missing']}],branches:[]}]}]}));});
 test('직접 입력한 공고의 실제 문항만 추출한다',()=>{const r=importPostingText('주요 업무\nAPI 개발\n자격 요건\nJava 경험\n자기소개서\n1. 지원동기를 작성해 주세요. (700자)\n2. 문제 해결 경험을 작성해 주세요. (1000자)');assert.equal(r.questions.length,2);assert.equal(r.questions[0].limit,700);assert.match(r.duties,/API/);assert.match(r.requirements,/Java/);});
 import {seedStore} from '../src/seed.js';
-import {designateQuestionSubmission, designatedSubmissionAnswers, updateQuestion} from '../src/model.js';
+import {designateQuestionSubmission, designatedSubmissionAnswers, reviseQuestionSubmission, updateQuestion} from '../src/model.js';
 test('지연된 메시지 추가는 최신 초안과 스냅샷을 유지한다',()=>{const store=seedStore(),a=store.applications[0],q=a.questions[0],bid=q.branches[0].id;const append=current=>({...current,messages:[...current.messages,{id:'reply',role:'user',text:'피드백 요청'}]});let next=updateQuestion(store,a.id,q.id,current=>snapshot(updateDraft(current,bid,'클립보드 대기 중 수정한 본문'),bid,'나중 기록'));next=updateQuestion(next,a.id,q.id,append);const result=next.applications[0].questions[0];assert.equal(result.branches[0].draft.text,'클립보드 대기 중 수정한 본문');assert.equal(result.snapshots.at(-1).title,'나중 기록');assert.equal(result.messages.length,1);});
 test('화면 필수 필드와 기록 소유권이 손상된 백업을 교체 전에 거부한다',()=>{const valid=seedStore();assert.equal(validateStore(valid),valid);for(const corrupt of [s=>s.applications[0].questions[0].limit=null,s=>s.applications[0].questions.push(s.applications[0].questions[0]),s=>s.applications[0].events.push({id:'e',title:'면접',type:'면접',date:null,time:'',note:''}),s=>s.applications[0].submissions.push({id:'s',name:'제출본',answers:null}),s=>s.applications[0].questions[0].branches[0].snapshotIds.push(s.applications[0].questions[0].snapshots.at(-1).id),s=>s.applications[0].questions[0].messages.push({id:'m',role:'assistant',text:{bad:true}})]){const data=structuredClone(valid);corrupt(data);assert.throws(()=>validateStore(data),/INVALID_BACKUP/);}});
 test('병합 스냅샷 수정 후 원문 복귀는 작성 중을 닫고 확정 기록을 유지한다',()=>{let q=saved();const b=q.branches[0].id,old=q.snapshots[0].id;q=snapshot(updateDraft(q,b,'최신 본문'),b,'최신 기록');q=mergeDraft(q,{leftId:old,rightId:old,text:'첫 본문',mode:'existing',branchId:b}).question;q=updateDraft(updateDraft(q,b,'첫 본문!'),b,'첫 본문');assert.equal(q.branches[0].draft.dirty,false);assert.equal(q.branches[0].draft.closed,true);assert.equal(q.snapshots.length,3);assert.equal(q.snapshots.at(-1).text,'첫 본문');assert.throws(()=>snapshot(q,b,'같은 본문 중복 저장'),/NO_CHANGES/);});
@@ -39,4 +39,23 @@ test('문항별 지정본은 이후 수정과 분리되며 면접 자료에는 �
   assert.deepEqual(designatedSubmissionAnswers(application).map(answer => [answer.number, answer.text]), [[1, updated]]);
   application.questions[0].submissionHistory[0].questionId = second.id;
   assert.throws(() => validateStore(store), /INVALID_BACKUP/);
+});
+
+test('제출본 직접 수정은 이전 제출본과 초안을 보존하고 최신 답변만 내보낸다', () => {
+  const store = seedStore();
+  const [application] = store.applications;
+  const [first, second] = application.questions;
+  const saved = designateQuestionSubmission(first, 'snapshot:' + first.snapshots[0].id);
+  const revised = reviseQuestionSubmission(saved, '직접 수정한 제출본');
+  assert.deepEqual(revised.snapshots, first.snapshots);
+  assert.deepEqual(revised.branches, first.branches);
+  assert.deepEqual(revised.submissionHistory[0], saved.submissionHistory[0]);
+  assert.notEqual(revised.submissionHistory[1].id, revised.submissionHistory[0].id);
+  assert.equal(reviseQuestionSubmission(revised, '직접 수정한 제출본'), revised);
+  assert.throws(() => reviseQuestionSubmission(revised, '  '), /EMPTY_TEXT/);
+  assert.throws(() => reviseQuestionSubmission(second, '아직 지정하지 않은 문항'), /SELECTION_REQUIRED/);
+
+  application.questions = [revised, second];
+  assert.equal(validateStore(structuredClone(store)).applications[0].questions[0].submissionHistory.length, 2);
+  assert.deepEqual(designatedSubmissionAnswers(application).map(answer => [answer.number, answer.text]), [[1, '직접 수정한 제출본']]);
 });

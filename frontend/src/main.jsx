@@ -118,7 +118,7 @@ function App() {
     }),
   }));
   const saveApplication = next => changeApplication(next.id, () => next);
-  const saveQuestion = next => setStore(previous => updateQuestion(previous, aid, question.id, next));
+  const saveQuestion = (next, questionId = question.id) => setStore(previous => updateQuestion(previous, aid, questionId, next));
 
   const updateInterview = (id, action) => changeApplication(id, item => ({...item, interview: action(interviewFor(item))}));
   const interviewRecord = application && kind === 'interviews' && qid && interviewFor(application).records.find(item => item.id === qid);
