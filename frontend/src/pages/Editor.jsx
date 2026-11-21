@@ -1,5 +1,5 @@
 import React,{lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
-import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic,Info} from 'lucide-react';
+import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic,Info,Star} from 'lucide-react';
 import {BackLink,ApplyLink,IconButton,PanelGlyph,Modal,RecordForm,Field,Notice,copyText} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import PanelResizer from '../components/PanelResizer.jsx';
@@ -16,7 +16,7 @@ import {canDeleteSnapshot,deleteSnapshot,deleteBranch} from '../history-actions.
 const EssayPdf = lazy(() => import('../components/EssayPdf.jsx'));
 const compactViews = [
  ['writing', '본문', FileText, 'writing-panel'],
- ['history', '작성안', History, 'history-panel'],
+ ['history', '버전', History, 'history-panel'],
  ['chat', 'AI 채팅', MessagesSquare, 'chat-panel'],
 ];
 
@@ -200,6 +200,17 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
  function compareCandidate(message){setAiReference(message);setTarget('draft:'+activeId);setMode('compare');setError('');}
  async function copyBody(){try{await copyText(mode==='write'?work.text:comparing?source.text:record.text);setCopied(true);setTimeout(()=>setCopied(false),1500)}catch{setError('복사하지 못했어요. 브라우저 권한을 확인해 주세요.')}}
  const shown=mode==='write'?work:comparing?source:record;
+ const submission=q.submissionHistory?.at(-1);
+ const isCurrentSubmission=submission?.source.kind===shown.kind&&submission.source.id===shown.id&&submission.text===shown.text;
+
+ function designateShown() {
+  if(isCurrentSubmission||!shown.text.trim())return;
+  try{
+   const answer=designateQuestionSubmission(q,recordKey(shown)).submissionHistory.at(-1);
+   onSave(current=>({...current,submissionHistory:[...(current.submissionHistory||[]),answer]}));
+   setError('');
+  }catch(problem){setError(errorMessage(problem));}
+ }
  const deletable=shown.kind==='snapshot'&&canDeleteSnapshot(q,shown.id);
  const branchToDelete=q.branches.find(b=>b.id===deletingBranch);
  function applyCleanup(next){
@@ -221,12 +232,12 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
    }}><Icon size={16} strokeWidth={1.7}/>{label}</button>)}
   </nav>
   <div className={'editor-layout '+(overviewOpen?'overview-open ':'')+(!leftOpen?'left-closed ':'')+(!rightOpen?'right-closed':'')} data-compact-view={compactView} style={{'--left-width':(overviewOpen?overviewWidth:lw)+'px','--overview-width':overviewWidth+'px','--right-width':rw+'px'}}>
-   <aside className="history-panel" id="history-panel"><div className="panel-toolbar option-panel-toolbar"><div><IconButton label={overviewOpen?'작성안별 기록 보기':'전체 버전 그래프'} aria-pressed={overviewOpen} onClick={()=>{setOverviewOpen(!overviewOpen);setLeftOpen(true)}}><PanelGlyph kind={overviewOpen?'shrink':'expand'}/></IconButton><IconButton label={leftOpen?'왼쪽 패널 접기':'왼쪽 패널 펼치기'} onClick={()=>setLeftOpen(!leftOpen)}><PanelGlyph kind={leftOpen?'left':'right'}/></IconButton></div></div>{leftOpen&&(overviewOpen?<VersionGraph question={q} selected={selected} onSelect={key=>{selectOverview(key);setCompactView('writing')}} onPreview={setSourcePreview} expanded/>:<OptionHistory question={q} activeId={activeId} selected={selected} onChoose={id=>{chooseBranch(id);setCompactView('writing')}} onSelect={key=>{select(key);setCompactView('writing')}} onAdd={()=>setModal('option')} onRename={id=>{setRenamingId(id);setModal('rename-option')}}/>)}</aside>
+   <aside className="history-panel" id="history-panel"><div className="panel-toolbar option-panel-toolbar"><div><IconButton label={overviewOpen?'버전별 기록 보기':'전체 버전 그래프'} aria-pressed={overviewOpen} onClick={()=>{setOverviewOpen(!overviewOpen);setLeftOpen(true)}}><PanelGlyph kind={overviewOpen?'shrink':'expand'}/></IconButton><IconButton label={leftOpen?'왼쪽 패널 접기':'왼쪽 패널 펼치기'} onClick={()=>setLeftOpen(!leftOpen)}><PanelGlyph kind={leftOpen?'left':'right'}/></IconButton></div></div>{leftOpen&&(overviewOpen?<VersionGraph question={q} selected={selected} onSelect={key=>{selectOverview(key);setCompactView('writing')}} onPreview={setSourcePreview} expanded/>:<OptionHistory question={q} activeId={activeId} selected={selected} onChoose={id=>{chooseBranch(id);setCompactView('writing')}} onSelect={key=>{select(key);setCompactView('writing')}} onAdd={()=>setModal('option')} onRename={id=>{setRenamingId(id);setModal('rename-option')}}/>)}</aside>
    {leftOpen&&<PanelResizer side="left" value={overviewOpen?overviewWidth:lw} min={200} max={620} controls="history-panel" onChange={v=>overviewOpen?setOverviewWidth(v):onPreferences({...preferences,leftWidth:v})}/>}
 
    <main className="writing-panel" id="writing-panel"><div className="editor-toolbar"><nav className="question-tabs" aria-label="자소서 문항">{a.questions.map((n,i)=><button key={n.id} className={n.id===q.id?'active':''} aria-current={n.id===q.id?'page':undefined} onClick={()=>navigate('/write/'+a.id+'/'+n.id)}>Q{i+1}</button>)}<IconButton label="문항 추가·수정" onClick={()=>navigate('/posting/'+a.id)}><Plus size={16}/></IconButton></nav>
-    <div className="editor-actions">{(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>{mode==='read'?'작성 중과 비교':'다른 안과 비교'}</button>}
-     <IconButton label="새 작성안" onClick={()=>{setError('');setModal('option')}}><Plus size={18}/></IconButton><IconButton label="합쳐서 새 작성안 만들기" disabled={!!aiReference} onClick={advancedMerge}><MergeIcon size={18} className="downward-icon flow-action-icon"/></IconButton>
+    <div className="editor-actions">{(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>{mode==='read'?'작성 중과 비교':'다른 버전과 비교'}</button>}
+     <IconButton label="새 버전" onClick={()=>{setError('');setModal('option')}}><Plus size={18}/></IconButton><IconButton label="합쳐서 새 버전 만들기" disabled={!!aiReference} onClick={advancedMerge}><MergeIcon size={18} className="downward-icon flow-action-icon"/></IconButton>
      <button className="button small primary snapshot-action" disabled={mode==='read'||(comparing&&right.kind!=='draft')||!activeBranch.draft.dirty||!work.text.trim()} onClick={()=>{setError('');setModal('snapshot')}}><Camera size={15}/>스냅샷</button>
     </div></div>
     <div className={'writing-content'+(comparing?' is-comparing':'')}>
@@ -247,19 +258,29 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
      <div className="question-heading">
      <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&<span className={shown.text.length>q.limit?'over-limit':''}>{shown.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</span>}</div>
     </div>{error&&<Notice type="error">{error}</Notice>}{comparing&&<p className="comparison-hint">{right.kind==='draft'?'바뀐 구절을 누르면 비교 대상에 반영됩니다.':'스냅샷끼리 비교 중'}</p>}
-     {!comparing&&sources.length>0&&<div className="option-sources"><span>참고한 작성안</span>{sources.map((item,i)=><button key={i} onClick={()=>setSourcePreview(item)}>{item.optionName} · {item.label}</button>)}</div>}
+     {!comparing&&sources.length>0&&<div className="option-sources"><span>참고한 버전</span>{sources.map((item,i)=><button key={i} onClick={()=>setSourcePreview(item)}>{item.optionName} · {item.label}</button>)}</div>}
      <div className={'body-columns '+(comparing?'comparing':'')}>
-      <section className="body-column"><div className="record-heading"><div>
-       {comparing?(aiReference?<strong>AI 수정안</strong>:<RecordSelect question={q} value={referenceKey} onChange={changeReference} label="참고할 기록"/>):<strong>{mode==='write'?(activeBranch.snapshotIds.length?work.label:'본문'):'스냅샷 '+record.label}</strong>}
-       {mode==='write'?<div className="record-context"><Dropdown label="작성할 작성안" value={activeId} onChange={chooseBranch}
-        options={q.branches.map(b=>({value:b.id,label:b.name+' · 작성 중'}))}/></div>:null}
-      </div>{mode==='read'&&<button type="button" className="text-button snapshot-details-button" aria-label="스냅샷 정보" onClick={()=>setModal('snapshot-details')}>
+      <section className="body-column"><div className="record-heading">
+       {(comparing||mode==='write')&&<div>
+        {comparing?(aiReference?<strong>AI 수정안</strong>:<RecordSelect question={q} value={referenceKey}
+         onChange={changeReference} label="참고할 기록"/>):<>
+         <strong>{activeBranch.snapshotIds.length?work.label:'본문'}</strong>
+         <div className="record-context"><Dropdown label="작성할 버전" value={activeId} onChange={chooseBranch}
+          options={q.branches.map(b=>({value:b.id,label:b.name+' · 작성 중'}))}/></div>
+        </>}
+       </div>}
+       {!comparing&&<button type="button" className="text-button submission-star" disabled={!shown.text.trim()}
+        aria-disabled={isCurrentSubmission||undefined} data-designated={isCurrentSubmission} onClick={designateShown}>
+        <Star size={15} fill={isCurrentSubmission?'currentColor':'none'} aria-hidden="true"/>
+        {isCurrentSubmission?'현재 제출본':'제출본 지정'}
+       </button>}
+       {mode==='read'&&<button type="button" className="text-button snapshot-details-button" aria-label="스냅샷 정보" onClick={()=>setModal('snapshot-details')}>
        <Info size={14} aria-hidden="true"/>정보
       </button>}{comparing&&<small>{source.text.length.toLocaleString()}자</small>}<IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>{shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}</div>
        {copied&&<small className="copy-notice" role="status">복사했어요</small>}
        {comparing?<><ComparisonSource segments={parts} onTake={right.kind==='draft'?take:undefined}/></>:mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
       </section>
-      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{right.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</small></div>{right.kind==='draft'?<ComparisonDraft text={right.text} onChange={writeDraft}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 작성안 편집</button><textarea className="body-editor" aria-label="비교 대상 본문" value={right.text} readOnly/></>}</section>}
+      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{right.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</small></div>{right.kind==='draft'?<ComparisonDraft text={right.text} onChange={writeDraft}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><textarea className="body-editor" aria-label="비교 대상 본문" value={right.text} readOnly/></>}</section>}
 
      </div>
     </div>
@@ -272,21 +293,21 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
   {modal==='submission'&&<QuestionSubmissionDialog application={a} currentQuestion={q}
    initialKey={mode==='write'?'draft:'+activeId:comparing?target:recordKey(record)}
    onSave={onSave} onExport={()=>setModal('pdf')} onClose={()=>setModal('')}/>}
-  {modal==='snapshot-details'&&<Modal title={'스냅샷 '+record.label+' 정보'} onClose={()=>setModal('')}>
+  {modal==='snapshot-details'&&<Modal title="스냅샷 정보" onClose={()=>setModal('')}>
    <dl className="snapshot-details">
-    <dt>작성안</dt><dd>{q.branches.find(b=>b.id===record.branchId)?.name}</dd>
+    <dt>버전</dt><dd>{q.branches.find(b=>b.id===record.branchId)?.name}</dd>
     <dt>이름</dt><dd>{record.title}</dd>
     {record.description&&<><dt>설명</dt><dd>{record.description}</dd></>}
    </dl>
   </Modal>}
   {modal==='snapshot'&&<Modal title="스냅샷" onClose={()=>setModal('')}><p className="snapshot-context">{activeBranch.name} · 현재 초안 {work.text.length.toLocaleString()}자</p><RecordForm title="스냅샷 이름" submitLabel="스냅샷 만들기" onCancel={()=>setModal('')} onSubmit={(name,desc)=>{try{applyCleanup(snapshot(q,activeId,name,desc));}catch(e){setError(errorMessage(e));setModal('')}}}/></Modal>}
-  {modal==='option'&&<Modal title="새 작성안" onClose={()=>setModal('')}><RecordForm title="예: 데이터 정합성 경험" onCancel={()=>setModal('')} onSubmit={addOption}/></Modal>}
-  {modal==='rename-option'&&renaming&&<Modal title="작성안 수정" onClose={()=>setModal('')}><RecordForm title="작성안 이름" defaultName={renaming.name} defaultDescription={renaming.description} submitLabel="수정" onCancel={()=>setModal('')} onSubmit={(name,description)=>{onSave(renameWritingOption(q,renaming.id,name,description));setModal('')}}/><button className="text-button option-delete" disabled={q.branches.length===1} onClick={()=>{setDeletingBranch(renaming.id);setModal('delete-branch')}}>작성안 삭제</button></Modal>}
+  {modal==='option'&&<Modal title="새 버전" onClose={()=>setModal('')}><RecordForm title="예: 데이터 정합성 경험" onCancel={()=>setModal('')} onSubmit={addOption}/></Modal>}
+  {modal==='rename-option'&&renaming&&<Modal title="버전 수정" onClose={()=>setModal('')}><RecordForm title="버전 이름" defaultName={renaming.name} defaultDescription={renaming.description} submitLabel="수정" onCancel={()=>setModal('')} onSubmit={(name,description)=>{onSave(renameWritingOption(q,renaming.id,name,description));setModal('')}}/><button className="text-button option-delete" disabled={q.branches.length===1} onClick={()=>{setDeletingBranch(renaming.id);setModal('delete-branch')}}>버전 삭제</button></Modal>}
 
   {sourcePreview&&<Modal title={sourcePreview.optionName+' · '+sourcePreview.label} onClose={()=>setSourcePreview(null)}><small className="muted">조합할 때 참고한 본문</small><p className="document-body source-preview">{sourcePreview.text}</p></Modal>}
 
-  {modal==='conflict'&&<Modal title="작성 중인 초안이 있어요" onClose={()=>setModal('')}><p>기존 초안을 이어 쓰거나, 방금 수정한 내용을 새 안으로 남길 수 있어요.</p><div className="form-actions"><button className="button" onClick={()=>{setModal('');chooseBranch(record.branchId)}}>기존 초안 열기</button><button className="button primary" onClick={()=>{editRecord(pending,true);setModal('')}}>새 안으로 이어 쓰기</button></div></Modal>}
+  {modal==='conflict'&&<Modal title="작성 중인 초안이 있어요" onClose={()=>setModal('')}><p>기존 초안을 이어 쓰거나, 방금 수정한 내용을 새 버전으로 남길 수 있어요.</p><div className="form-actions"><button className="button" onClick={()=>{setModal('');chooseBranch(record.branchId)}}>기존 초안 열기</button><button className="button primary" onClick={()=>{editRecord(pending,true);setModal('')}}>새 버전으로 이어 쓰기</button></div></Modal>}
   {modal==='delete-snapshot'&&<Modal title="스냅샷 삭제" onClose={()=>setModal('')}><p>{shown.label} · {shown.title}</p><Notice>이 스냅샷을 삭제합니다. 현재 초안 본문은 남으며 삭제한 스냅샷은 복구할 수 없습니다.</Notice><div className="form-actions"><button className="button" onClick={()=>setModal('')}>취소</button><button className="button danger" onClick={removeSnapshot}>스냅샷 삭제</button></div></Modal>}
-  {modal==='delete-branch'&&branchToDelete&&<Modal title="작성안 삭제" onClose={()=>setModal('rename-option')}><p><strong>{branchToDelete.name}</strong> 작성안의 스냅샷 {branchToDelete.snapshotIds.length}개와 {branchToDelete.draft.closed?'보관된 마지막 본문':'작성 중인 초안'}을 삭제합니다.</p><Notice>복구할 수 없습니다. 다른 작성안의 본문과 제출본은 유지됩니다. 합칠 때 보관한 참고 본문도 남습니다.</Notice><div className="form-actions"><button className="button" onClick={()=>setModal('rename-option')}>취소</button><button className="button danger" onClick={removeBranch}>작성안 삭제</button></div></Modal>}
+  {modal==='delete-branch'&&branchToDelete&&<Modal title="버전 삭제" onClose={()=>setModal('rename-option')}><p><strong>{branchToDelete.name}</strong> 버전의 스냅샷 {branchToDelete.snapshotIds.length}개와 {branchToDelete.draft.closed?'보관된 마지막 본문':'작성 중인 초안'}을 삭제합니다.</p><Notice>복구할 수 없습니다. 다른 버전의 본문과 제출본은 유지됩니다. 합칠 때 보관한 참고 본문도 남습니다.</Notice><div className="form-actions"><button className="button" onClick={()=>setModal('rename-option')}>취소</button><button className="button danger" onClick={removeBranch}>버전 삭제</button></div></Modal>}
  </div>;
 }

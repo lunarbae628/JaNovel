@@ -64,6 +64,10 @@
 .essay-submission-history summary { width: fit-content; margin-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
 .essay-submission-history details { margin-left: 10px; }
 .editor-page .record-heading { border-bottom: 1px solid #e5e9f1; padding-bottom: 9px; }
+.submission-star {
+  flex: none; margin-inline-start: auto; min-height: 32px; gap: 5px; color: #586274; white-space: nowrap;
+}
+.submission-star[data-designated=true] { color: var(--primary); cursor: default; }
 .snapshot-details-button { flex: none; min-height: 32px; white-space: nowrap; }
 .snapshot-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 12px; margin: 0; }
 .snapshot-details dt { color: #586274; }

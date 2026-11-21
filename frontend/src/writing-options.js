@@ -2,7 +2,7 @@ import {uid,colors,uniqueBranchName,resolveRecord,updateDraft,snapshot} from './
 
 export function createWritingOption(question,name='',description=''){
  const q=structuredClone(question),order=Math.max(-1,...q.branches.map(b=>b.order))+1,id=uid('branch'),time=new Date().toISOString();
- q.branches.push({id,name:uniqueBranchName(q,name||'새 작성안'),description:description.trim(),color:colors[order%colors.length],order,createdAt:time,snapshotIds:[],fromIds:[],draft:{text:'',baseIds:[],dirty:false,closed:true,updatedAt:time}});
+ q.branches.push({id,name:uniqueBranchName(q,name||'새 버전'),description:description.trim(),color:colors[order%colors.length],order,createdAt:time,snapshotIds:[],fromIds:[],draft:{text:'',baseIds:[],dirty:false,closed:true,updatedAt:time}});
  q.activeBranchId=id;return q;
 }
 export function renameWritingOption(question,id,name,description=''){
@@ -15,7 +15,7 @@ export function editOptionSnapshot(question,id,text){
  if(b.draft.dirty&&b.draft.text!==text)throw Error('DRAFT_CONFLICT');
  return updateDraft(question,b.id,text);
 }
-export function combineWritingOptions(question,{leftId,rightId,text,name='합친 작성안',description=''}){
+export function combineWritingOptions(question,{leftId,rightId,text,name='합친 버전',description=''}){
  if(!text.trim())throw Error('EMPTY_TEXT');
  const sources=[leftId,rightId].map(key=>{const r=resolveRecord(question,key),b=question.branches.find(b=>b.id===r.branchId);return {optionId:b.id,optionName:b.name,recordKey:r.kind+':'+r.id,label:r.label,title:r.title,text:r.text};});
  let q=createWritingOption(question,name,description);const id=q.activeBranchId;
