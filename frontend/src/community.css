@@ -150,14 +150,13 @@
 .community-content { --career-content-max: 744px; }
 .board-list-back { margin-bottom: 4px; }
 .board-toolbar {
-  display: grid; grid-template-columns: minmax(0, 1fr) 168px; grid-template-areas: "heading heading" "tabs search";
+  display: grid; grid-template-columns: max-content auto minmax(0, 1fr); grid-template-areas: "tabs write search";
   align-items: center; gap: 8px 16px; padding-bottom: 9px; border-bottom: 1px solid var(--career-border);
 }
-.board-heading { grid-area: heading; display: flex; align-items: center; gap: 16px; margin-bottom: 7px; }
-.board-heading h1 { font-size: clamp(24px, 3vw, 28px); letter-spacing: -.04em; }
 .board-toolbar .career-tabs { grid-area: tabs; gap: clamp(10px, 2vw, 23px); border: 0; }
 .board-toolbar .career-tabs a { min-height: 42px; }
-.board-search { grid-area: search; position: relative; display: flex; align-items: center; }
+.board-write { grid-area: write; }
+.board-search { grid-area: search; position: relative; display: flex; align-items: center; justify-self: end; width: min(100%, 168px); }
 .board-search svg { position: absolute; left: 11px; pointer-events: none; color: var(--career-muted); }
 .board-search input {
   min-height: 40px; padding-left: 35px; border-color: transparent; border-radius: 8px;
@@ -176,10 +175,6 @@
   display: block; padding-block: 24px; color: var(--career-ink); text-decoration: none;
 }
 .board-title-link:focus-visible { outline-offset: 2px; }
-.board-post-byline { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.board-post-byline .board-post-meta { align-items: center; gap: 5px 8px; }
-.board-post-byline strong { color: var(--career-ink); font-weight: 600; overflow-wrap: anywhere; }
-.board-post-byline time { font-size: 12px; }
 .board-post-title {
   display: block; color: var(--career-ink); font-size: 17px; font-weight: 700; line-height: 1.5;
   word-break: keep-all; overflow-wrap: anywhere; letter-spacing: -.025em;
@@ -189,8 +184,16 @@
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
   margin-top: 4px; color: var(--career-muted); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere;
 }
+.board-post-footer, .board-post-labels, .board-post-byline { display: flex; align-items: center; flex-wrap: wrap; }
+.board-post-footer { gap: 5px 12px; margin-top: 12px; }
+.board-post-labels { gap: 10px; }
+.board-post-byline {
+  justify-content: flex-end; gap: 5px; margin-inline-start: auto;
+  color: var(--career-muted); font-size: 12px; overflow-wrap: anywhere;
+}
+.board-post-byline time { white-space: nowrap; }
 .board-comment-count {
-  display: inline-flex; align-items: center; gap: 5px; margin-top: 12px;
+  display: inline-flex; align-items: center; gap: 5px;
   color: var(--career-muted); font-size: 12px; font-variant-numeric: tabular-nums;
 }
 .board-empty { padding: 32px 16px; text-align: center; color: var(--career-muted); }
@@ -337,8 +340,11 @@
   .community-day { padding-inline: 4px; }
   .community-weekday { padding-inline: 4px; }
 }
+@media (max-width: 840px) {
+  .board-toolbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "tabs tabs" "search write"; gap: 6px 10px; }
+  .board-search { width: 100%; }
+}
 @media (max-width: 690px) {
-  .board-toolbar { grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "tabs" "search"; gap: 6px; }
   .board-toolbar .career-tabs { justify-content: space-between; gap: 4px; }
   .board-toolbar .career-tabs a { min-height: 44px; font-size: 13px; }
   .board-search input { min-height: 44px; }
