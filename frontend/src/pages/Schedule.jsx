@@ -6,7 +6,7 @@ import {allEvents} from './Applications.jsx';
 import {uid} from '../model.js';
 import {
   applicationEventTypes, calendarWeeks, completeOccurrence, isDateKey, packWeek, projectSchedule, replaceOccurrence,
-  removeApplicationEvent, saveApplicationEvent, scheduleColors, scheduleLegend, scheduleTone, todayKey, validateScheduleItem,
+  removeApplicationEvent, saveApplicationEvent, scheduleColors, scheduleTone, todayKey, validateScheduleItem,
 } from '../schedule.js';
 
 const colors = ['기본', '파랑', '보라', '초록', '황토', '분홍'];
@@ -198,8 +198,6 @@ export default function Schedule({store, initialDate, navigate, onItemsChange, o
             <button className="career-button schedule-arrow" aria-label="다음 달" onClick={() => moveMonth(1)}><ChevronRight size={15}/></button>
           </div>
         </div>
-        <div className="schedule-legend">{scheduleLegend.map(([label, tone]) =>
-          <span className={'schedule-tone ' + tone} key={label}>{label}</span>)}</div>
         <div className="schedule-weekdays" aria-hidden="true">{weekdays.map(day => <span key={day}>{day}</span>)}</div>
         <div className="schedule-calendar" onPointerUp={finishRange} onPointerCancel={() => {anchor.current = ''; setDrag(null);}}
           onPointerLeave={() => {anchor.current = ''; setDrag(null);}}>

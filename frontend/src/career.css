@@ -253,9 +253,6 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
 .schedule-month-heading > div { display: flex; gap: 6px; }
 .schedule-undated span { font-variant-numeric: tabular-nums; color: var(--primary); }
 .schedule-arrow { width: 38px; padding: 0; }
-.schedule-legend { display: flex; flex-wrap: wrap; gap: 5px 16px; margin: 15px 0 7px; font-size: 12px; }
-.schedule-legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--schedule-ink); }
-.schedule-legend span::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--schedule-accent); }
 .schedule-tone, .schedule-swatch { --schedule-bg: #e7ecf3; --schedule-ink: #37465e; --schedule-accent: #637491; }
 .schedule-tone.deadline { --schedule-bg: #ffe0dd; --schedule-ink: #822f27; --schedule-accent: #c14e42; }
 .schedule-tone.blue, .schedule-swatch.blue { --schedule-bg: #dce9ff; --schedule-ink: #244982; --schedule-accent: #3a72ca; }
@@ -267,6 +264,7 @@ html:has(.career-layout) { scrollbar-gutter: stable; }
 .schedule-tone.ochre { --schedule-bg: #ffedc7; --schedule-ink: #66430e; --schedule-accent: #a8731b; }
 .schedule-tone.pink, .schedule-swatch.pink { --schedule-bg: #f9e0ee; --schedule-ink: #743757; --schedule-accent: #ae537e; }
 .schedule-weekdays, .schedule-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.schedule-weekdays { margin-top: 12px; }
 .schedule-weekdays span { padding: 3px 12px 11px; color: var(--career-muted); font-size: 12px; }
 .schedule-calendar {
   display: grid; border-block-start: 1px solid var(--career-border); background: #fff; user-select: none;
