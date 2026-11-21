@@ -1,5 +1,5 @@
 import React,{lazy,Suspense,useMemo,useState} from 'react';
-import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic} from 'lucide-react';
+import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic,Info} from 'lucide-react';
 import {BackLink,ApplyLink,IconButton,PanelGlyph,Modal,RecordForm,Notice,copyText} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import PanelResizer from '../components/PanelResizer.jsx';
@@ -34,11 +34,32 @@ export function RecordSelect({question, value, onChange, label = '비교할 버�
 }
 
 function QuestionSubmissionDialog({question, number, initialKey, onSave, onClose}) {
+ const history=question.submissionHistory||[];
+ const recent=history.at(-1);
+ const [choosing,setChoosing]=useState(!recent);
  const [key,setKey]=useState(initialKey);
  const [error,setError]=useState('');
- const recent=question.submissionHistory?.at(-1);
+ const title='Q'+number+' 제출본';
+
+ if(!choosing) return <Modal key="read-submission" title={title} onClose={onClose}>
+  <div className="essay-submission-meta"><strong>{recent.label}</strong><time dateTime={recent.createdAt}>
+   {new Date(recent.createdAt).toLocaleDateString('ko-KR')}
+  </time></div>
+  <p className="essay-submission-preview essay-submission-current">{recent.text}</p>
+  {history.length>1&&<details className="essay-submission-history"><summary>이전 제출본 {history.length-1}개</summary>
+   {history.slice(0,-1).reverse().map(answer=><details key={answer.id}>
+    <summary>{answer.label} · {new Date(answer.createdAt).toLocaleDateString('ko-KR')}</summary>
+    <p className="essay-submission-preview">{answer.text}</p>
+   </details>)}
+  </details>}
+  <div className="form-actions">
+   <button type="button" className="button" onClick={onClose}>닫기</button>
+   <button type="button" className="button primary" onClick={()=>setChoosing(true)}>제출본 변경</button>
+  </div>
+ </Modal>;
+
  const preview=resolveRecord(question,key);
- return <Modal title={'Q'+number+' 제출본 지정'} onClose={onClose}>
+ return <Modal key="choose-submission" title={title+' 지정'} onClose={onClose}>
   <form onSubmit={event=>{
    event.preventDefault();
    try {
@@ -52,15 +73,11 @@ function QuestionSubmissionDialog({question, number, initialKey, onSave, onClose
     onChange={value=>{setKey(value);setError('');}}/>
    <p className="muted">지정한 본문은 이 문항의 제출본으로 보관되며, 자료 기반 면접 연습에 사용돼요.</p>
    <p className="essay-submission-preview">{preview.text || '선택한 버전의 본문이 비어 있어요.'}</p>
-   {recent&&<details className="essay-submission-history"><summary>지정 이력 {question.submissionHistory.length}개</summary>
-    {[...question.submissionHistory].reverse().map(answer=><details key={answer.id}>
-     <summary>{answer.label} · {new Date(answer.createdAt).toLocaleDateString('ko-KR')}</summary>
-     <p className="essay-submission-preview">{answer.text}</p>
-    </details>)}
-   </details>}
    {error&&<Notice type="error">{error}</Notice>}
    <div className="form-actions">
-    <button type="button" className="button" onClick={onClose}>취소</button>
+    <button type="button" className="button" onClick={()=>{
+     if(recent){setChoosing(false);setError('');setKey(initialKey);}else onClose();
+    }}>취소</button>
     <button className="button primary" disabled={!preview.text.trim()}>제출본으로 지정</button>
    </div>
   </form>
@@ -184,20 +201,22 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
      </div>
      <div className="question-heading">
      <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&<span className={shown.text.length>q.limit?'over-limit':''}>{shown.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</span>}</div>
-     <button type="button" className="button essay-export-button" onClick={()=>setModal('pdf')}><Download size={15} strokeWidth={1.7}/>내보내기</button>
-    </div><div className="essay-submission">
-     <span><strong>문항 제출본</strong><span role="status">{designated?.label || '미지정'}</span></span>
-     <button type="button" className="button essay-submission-button" onClick={()=>setModal('submission')}>
-      <FileText size={14} aria-hidden="true"/>{designated?'제출본 변경':'제출본 지정'}
-     </button>
+     <div className="essay-question-actions">
+      <button type="button" className="button essay-submission-button" onClick={()=>setModal('submission')}>
+       <FileText size={14} aria-hidden="true"/>{designated?'제출본 보기':'제출본 지정'}
+      </button>
+      <button type="button" className="button essay-export-button" onClick={()=>setModal('pdf')}><Download size={15} strokeWidth={1.7}/>내보내기</button>
+     </div>
     </div>{error&&<Notice type="error">{error}</Notice>}{comparing&&<p className="comparison-hint">{right.kind==='draft'?'바뀐 구절을 누르면 비교 대상에 반영됩니다.':'스냅샷끼리 비교 중'}</p>}
      {!comparing&&sources.length>0&&<div className="option-sources"><span>참고한 작성안</span>{sources.map((item,i)=><button key={i} onClick={()=>setSourcePreview(item)}>{item.optionName} · {item.label}</button>)}</div>}
      <div className={'body-columns '+(comparing?'comparing':'')}>
       <section className="body-column"><div className="record-heading"><div>
-       {comparing?(aiReference?<strong>AI 수정안</strong>:<RecordSelect question={q} value={referenceKey} onChange={changeReference} label="참고할 기록"/>):<strong>{mode==='write'?(activeBranch.snapshotIds.length?work.label:'본문'):record.label+' · '+record.title}</strong>}
+       {comparing?(aiReference?<strong>AI 수정안</strong>:<RecordSelect question={q} value={referenceKey} onChange={changeReference} label="참고할 기록"/>):<strong>{mode==='write'?(activeBranch.snapshotIds.length?work.label:'본문'):'스냅샷 '+record.label}</strong>}
        {mode==='write'?<div className="record-context"><Dropdown label="작성할 작성안" value={activeId} onChange={chooseBranch}
-        options={q.branches.map(b=>({value:b.id,label:b.name+' · 작성 중'}))}/></div>:!comparing&&<small title={record.description}>{q.branches.find(b=>b.id===record.branchId)?.name}{record.description?' · '+record.description:''}</small>}
-      </div>{comparing&&<small>{source.text.length.toLocaleString()}자</small>}<IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>{shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}</div>
+        options={q.branches.map(b=>({value:b.id,label:b.name+' · 작성 중'}))}/></div>:null}
+      </div>{mode==='read'&&<button type="button" className="text-button snapshot-details-button" aria-label="스냅샷 정보" onClick={()=>setModal('snapshot-details')}>
+       <Info size={14} aria-hidden="true"/>정보
+      </button>}{comparing&&<small>{source.text.length.toLocaleString()}자</small>}<IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>{shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}</div>
        {copied&&<small className="copy-notice" role="status">복사했어요</small>}
        {comparing?<><ComparisonSource segments={parts} onTake={right.kind==='draft'?take:undefined}/></>:mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
       </section>
@@ -214,6 +233,13 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
   {modal==='submission'&&<QuestionSubmissionDialog question={q} number={qi+1}
    initialKey={mode==='write'?'draft:'+activeId:comparing?target:recordKey(record)}
    onSave={onSave} onClose={()=>setModal('')}/>}
+  {modal==='snapshot-details'&&<Modal title={'스냅샷 '+record.label+' 정보'} onClose={()=>setModal('')}>
+   <dl className="snapshot-details">
+    <dt>작성안</dt><dd>{q.branches.find(b=>b.id===record.branchId)?.name}</dd>
+    <dt>이름</dt><dd>{record.title}</dd>
+    {record.description&&<><dt>설명</dt><dd>{record.description}</dd></>}
+   </dl>
+  </Modal>}
   {modal==='snapshot'&&<Modal title="스냅샷" onClose={()=>setModal('')}><p className="snapshot-context">{activeBranch.name} · 현재 초안 {work.text.length.toLocaleString()}자</p><RecordForm title="스냅샷 이름" submitLabel="스냅샷 만들기" onCancel={()=>setModal('')} onSubmit={(name,desc)=>{try{applyCleanup(snapshot(q,activeId,name,desc));}catch(e){setError(errorMessage(e));setModal('')}}}/></Modal>}
   {modal==='option'&&<Modal title="새 작성안" onClose={()=>setModal('')}><RecordForm title="예: 데이터 정합성 경험" onCancel={()=>setModal('')} onSubmit={addOption}/></Modal>}
   {modal==='rename-option'&&renaming&&<Modal title="작성안 수정" onClose={()=>setModal('')}><RecordForm title="작성안 이름" defaultName={renaming.name} defaultDescription={renaming.description} submitLabel="수정" onCancel={()=>setModal('')} onSubmit={(name,description)=>{onSave(renameWritingOption(q,renaming.id,name,description));setModal('')}}/><button className="text-button option-delete" disabled={q.branches.length===1} onClick={()=>{setDeletingBranch(renaming.id);setModal('delete-branch')}}>작성안 삭제</button></Modal>}
