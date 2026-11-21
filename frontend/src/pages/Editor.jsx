@@ -33,32 +33,49 @@ export function RecordSelect({question, value, onChange, label = '비교할 버�
  return <Dropdown className="record-select" label={label} value={value} options={options} onChange={onChange} field={field}/>;
 }
 
+export function QuestionSubmissions({application, currentQuestion, initialKey, onSave, onClose}) {
+ const [exporting,setExporting]=useState(false);
+ if(exporting)return <Suspense fallback={null}><EssayPdf application={application}
+  currentQuestionId={currentQuestion.id} onClose={()=>setExporting(false)}/></Suspense>;
+ return <QuestionSubmissionDialog application={application} currentQuestion={currentQuestion}
+  initialKey={initialKey} onSave={onSave} onClose={onClose} onExport={()=>setExporting(true)}/>;
+}
+
 function QuestionSubmissionDialog({application, currentQuestion, initialKey, onSave, onExport, onClose}) {
  const [editing,setEditing]=useState(null);
  const form=useRef(null);
  const closeButton=useRef(null);
  const editingId=editing?.questionId;
+ const editingMode=editing?.mode;
+ const confirming=editing?.confirming;
  const hasSubmissions=application.questions.some(question=>question.submissionHistory?.length);
 
  useEffect(()=>{
-  if(editingId) form.current?.querySelector('textarea, .dropdown-trigger')?.focus();
- },[editingId]);
+  if(editingId){
+   const selector=confirming?'[data-cancel-replacement]':editingMode==='write'?'textarea':'.dropdown-trigger';
+   form.current?.querySelector(selector)?.focus();
+  }
+ },[editingId,editingMode,confirming]);
 
  function stopEditing() {
   setEditing(null);
   closeButton.current?.focus();
  }
 
- function start(question, mode) {
+ function start(question, recent) {
   setEditing({
-   questionId:question.id, mode, error:'',
-   key:question.id===currentQuestion.id?initialKey:defaultRecordKey(question,question.activeBranchId||question.branches[0].id),
-   text:question.submissionHistory?.at(-1)?.text||'',
+   questionId:question.id, mode:recent?'write':'choose', error:'', confirming:false,
+   key:question.id===currentQuestion.id&&initialKey?initialKey:defaultRecordKey(question,question.activeBranchId||question.branches[0].id),
+   text:recent?.text||'',
   });
  }
 
- function save(event,question) {
+ function save(event,question,recent,preview) {
   event.preventDefault();
+  if(preview&&recent&&!editing.confirming){
+   setEditing({...editing,confirming:true});
+   return;
+  }
   try {
    const next=editing.mode==='write'
     ? reviseQuestionSubmission(question,editing.text)
@@ -74,23 +91,20 @@ function QuestionSubmissionDialog({application, currentQuestion, initialKey, onS
  return <Modal title="자소서 제출본" className="essay-submissions-modal" onClose={onClose}>
   <div className="essay-submission-list">
    {application.questions.map((question,index)=>{
-    const history=question.submissionHistory||[];
-    const recent=history.at(-1);
+    const recent=question.submissionHistory?.at(-1);
     const active=editingId===question.id;
-    const writing=active&&editing.mode==='write';
+    const writing=active&&editingMode==='write';
     const preview=active&&!writing?resolveRecord(question,editing.key):null;
-    const updateEditing=patch=>setEditing({...editing,...patch,error:''});
+    const sameVersion=preview&&recent?.source.kind===preview.kind&&recent.source.id===preview.id&&recent.text===preview.text;
+    const updateEditing=patch=>setEditing({...editing,confirming:false,error:'',...patch});
     return <section className="essay-submission-section" key={question.id}>
      <div className="essay-submission-heading">
       <h3><small>Q{index+1}</small> {recent?.prompt||question.prompt}</h3>
-      {!active&&<div className="essay-submission-actions">
-       {recent&&<button type="button" className="button small" disabled={!!editing} onClick={()=>start(question,'write')}>수정</button>}
-       <button type="button" className="button small" disabled={!!editing} onClick={()=>start(question,'choose')}>
-        {recent?'버전 변경':'제출본 지정'}
-       </button>
-      </div>}
+      {!active&&<button type="button" className="button small" disabled={!!editing} onClick={()=>start(question,recent)}>
+       {recent?'제출본 수정':'제출본 지정'}
+      </button>}
      </div>
-     {active?<form ref={form} onSubmit={event=>save(event,question)}>
+     {active?<form ref={form} onSubmit={event=>save(event,question,recent,preview)}>
       {writing?<Field label={'Q'+(index+1)+' 제출본 본문'}>
        <textarea value={editing.text} rows={7} onChange={event=>updateEditing({text:event.target.value})}/>
       </Field>:<>
@@ -98,22 +112,23 @@ function QuestionSubmissionDialog({application, currentQuestion, initialKey, onS
         onChange={key=>updateEditing({key})}/>
        <p className="essay-submission-preview">{preview.text||'선택한 버전의 본문이 비어 있어요.'}</p>
       </>}
+      {confirming&&<Notice>이 문항의 현재 제출본을 선택한 버전의 본문으로 교체할까요?</Notice>}
       {editing.error&&<Notice type="error">{editing.error}</Notice>}
       <div className="form-actions">
-       <button type="button" className="button" onClick={stopEditing}>취소</button>
-       <button className="button primary" disabled={writing?(!editing.text.trim()||editing.text===recent.text):!preview.text.trim()}>
-        {writing?'수정 저장':'제출본으로 지정'}
+       {recent&&!confirming&&<button type="button" className="text-button" onClick={()=>updateEditing({mode:writing?'choose':'write'})}>
+        {writing?'버전 선택':'본문 수정'}
+       </button>}
+       {confirming
+        ? <button type="button" className="button" data-cancel-replacement onClick={()=>updateEditing({})}>교체 취소</button>
+        : <button type="button" className="button" onClick={stopEditing}>취소</button>}
+       <button key={String(confirming)} className="button primary"
+        disabled={writing?(!editing.text.trim()||editing.text===recent.text):(!preview.text.trim()||sameVersion)}>
+        {writing?'수정 저장':confirming?'제출본 교체':'제출본으로 지정'}
        </button>
       </div>
      </form>:recent?<>
-      <div className="essay-submission-meta"><span>{recent.label}</span><span>{recent.text.length.toLocaleString()} / {recent.limit.toLocaleString()}자</span></div>
+      <div className="essay-submission-meta">{recent.text.length.toLocaleString()} / {recent.limit.toLocaleString()}자</div>
       <p className="essay-submission-preview essay-submission-current">{recent.text}</p>
-      {history.length>1&&<details className="essay-submission-history"><summary>이전 제출본 {history.length-1}개</summary>
-       {history.slice(0,-1).reverse().map(answer=><details key={answer.id}>
-        <summary>{answer.label} · {new Date(answer.createdAt).toLocaleDateString('ko-KR')}</summary>
-        <p className="essay-submission-preview">{answer.text}</p>
-       </details>)}
-      </details>}
      </>:<p className="essay-submission-empty">지정된 제출본이 없어요.</p>}
     </section>;
    })}
@@ -203,13 +218,18 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
  const submission=q.submissionHistory?.at(-1);
  const isCurrentSubmission=submission?.source.kind===shown.kind&&submission.source.id===shown.id&&submission.text===shown.text;
 
- function designateShown() {
+ function designateShown(confirmed=false) {
   if(isCurrentSubmission||!shown.text.trim())return;
+  if(submission&&!confirmed){
+   setModal('replace-submission');
+   return;
+  }
   try{
    const answer=designateQuestionSubmission(q,recordKey(shown)).submissionHistory.at(-1);
    onSave(current=>({...current,submissionHistory:[...(current.submissionHistory||[]),answer]}));
    setError('');
-  }catch(problem){setError(errorMessage(problem));}
+   setModal('');
+  }catch(problem){setError(errorMessage(problem));setModal('');}
  }
  const deletable=shown.kind==='snapshot'&&canDeleteSnapshot(q,shown.id);
  const branchToDelete=q.branches.find(b=>b.id===deletingBranch);
@@ -270,7 +290,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
         </>}
        </div>}
        {!comparing&&<button type="button" className="text-button submission-star" disabled={!shown.text.trim()}
-        aria-disabled={isCurrentSubmission||undefined} data-designated={isCurrentSubmission} onClick={designateShown}>
+        aria-disabled={isCurrentSubmission||undefined} data-designated={isCurrentSubmission} onClick={()=>designateShown()}>
         <Star size={15} fill={isCurrentSubmission?'currentColor':'none'} aria-hidden="true"/>
         {isCurrentSubmission?'현재 제출본':'제출본 지정'}
        </button>}
@@ -288,11 +308,16 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
    {rightOpen&&<PanelResizer side="right" value={rw} min={260} max={500} controls="chat-panel" onChange={v=>onPreferences({...preferences,rightWidth:v})}/>}
    <aside className="chat-panel" id="chat-panel"><div className="panel-toolbar"><IconButton label={rightOpen?'AI 채팅 접기':'AI 채팅 펼치기'} onClick={()=>setRightOpen(!rightOpen)}><PanelGlyph kind={rightOpen?'right':'left'}/></IconButton>{rightOpen&&<><strong>AI 채팅</strong><small>Q{qi+1}</small></>}</div>{rightOpen&&<AIChat key={q.id} question={q} application={a} record={mode==='read'?record:work} onSave={onSave} onCandidate={candidate=>{compareCandidate(candidate);setCompactView('writing')}}/>}</aside>
   </div>
-  {modal==='pdf'&&<Suspense fallback={null}><EssayPdf application={a} currentQuestionId={q.id}
-    onClose={()=>setModal('submission')}/></Suspense>}
-  {modal==='submission'&&<QuestionSubmissionDialog application={a} currentQuestion={q}
+  {modal==='submission'&&<QuestionSubmissions application={a} currentQuestion={q}
    initialKey={mode==='write'?'draft:'+activeId:comparing?target:recordKey(record)}
-   onSave={onSave} onExport={()=>setModal('pdf')} onClose={()=>setModal('')}/>}
+   onSave={onSave} onClose={()=>setModal('')}/>}
+  {modal==='replace-submission'&&<Modal title="제출본 교체" onClose={()=>setModal('')}>
+   <p>이 문항의 현재 제출본을 지금 보고 있는 본문으로 교체할까요?</p>
+   <div className="form-actions">
+    <button type="button" className="button" onClick={()=>setModal('')}>취소</button>
+    <button type="button" className="button primary" onClick={()=>designateShown(true)}>제출본 교체</button>
+   </div>
+  </Modal>}
   {modal==='snapshot-details'&&<Modal title="스냅샷 정보" onClose={()=>setModal('')}>
    <dl className="snapshot-details">
     <dt>버전</dt><dd>{q.branches.find(b=>b.id===record.branchId)?.name}</dd>

@@ -28,7 +28,7 @@ const pageTitles = {
   applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '커뮤니티', friends: '친구',
   posting: '공고 등록', write: '작성', merge: '병합', submissions: '제출본',
   login: '로그인', signup: '회원가입', 'signup-details': '계정 정보',
-  reset: '비밀번호 재설정', application: '지원 상세',
+  reset: '비밀번호 재설정', application: '공고 정보',
 };
 const authPages = ['login', 'signup', 'signup-details', 'reset'];
 
@@ -167,7 +167,7 @@ function App() {
     if (kind === 'application') {
       content = <Detail key={aid} application={application} navigate={navigate} onSave={saveApplication}
         onDelete={id => setStore(previous => ({...previous, applications: previous.applications.filter(item => item.id !== id)}))}
-        onSubmission={() => navigate('/submissions/' + aid)}/>;
+        onSaveQuestion={saveQuestion}/>;
     } else if (kind === 'submissions') {
       content = <Submissions key={aid} application={application} onSave={saveApplication}/>;
     } else if (question && kind === 'write') {

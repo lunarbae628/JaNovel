@@ -47,10 +47,8 @@
   flex: 1 1 240px; min-width: 0; font-size: 15px; line-height: 1.55; overflow-wrap: anywhere;
 }
 .essay-submission-heading h3 small { color: var(--primary); font-weight: 650; }
-.essay-submission-actions { display: flex; gap: 6px; }
 .essay-submission-meta {
-  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px;
-  margin-bottom: 5px; color: #586274; font-size: 12px; overflow-wrap: anywhere;
+  margin-bottom: 5px; color: #586274; font-size: 12px; text-align: right; font-variant-numeric: tabular-nums;
 }
 .essay-submission-empty { color: #586274; font-size: 13px; }
 .essay-submission-section textarea { min-height: 120px; }
@@ -60,9 +58,6 @@
   border: 1px solid var(--border); border-radius: 6px; background: #f6f8fc; font-size: 13px; line-height: 1.7;
 }
 .essay-submission-current { max-height: none; }
-.essay-submission-history { margin-top: 14px; font-size: 13px; }
-.essay-submission-history summary { width: fit-content; margin-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
-.essay-submission-history details { margin-left: 10px; }
 .editor-page .record-heading { border-bottom: 1px solid #e5e9f1; padding-bottom: 9px; }
 .submission-star {
   flex: none; margin-inline-start: auto; min-height: 32px; gap: 5px; color: #586274; white-space: nowrap;
