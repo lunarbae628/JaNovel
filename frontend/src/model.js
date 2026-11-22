@@ -81,6 +81,9 @@ export function validateStore(data){
  if(data.scheduleItems!==undefined)check(list(data.scheduleItems)&&data.scheduleItems.every(isScheduleItem)&&unique(data.scheduleItems.map(item=>item.id)));
  for(const a of data.applications){
   check(object(a)&&str(a.id)&&a.id&&str(a.company)&&str(a.role)&&str(a.url)&&str(a.duties)&&str(a.requirements)&&str(a.status)&&date(a.deadline)&&time(a.deadlineTime)&&list(a.questions)&&a.questions.length>0&&list(a.events)&&list(a.stages)&&a.stages.every(str)&&list(a.submissions));
+  if(a.sections!==undefined)check(list(a.sections)&&unique(a.sections.map(section=>section?.id))&&
+   a.sections.every(section=>object(section)&&str(section.id)&&section.id&&str(section.title)&&section.title.trim()&&
+    section.title.length<=100&&str(section.body)));
   if(a.interview!==undefined)check(isInterview(a.interview));
   check(unique(a.questions.map(q=>q?.id))&&unique(a.events.map(e=>e?.id))&&unique(a.submissions.map(s=>s?.id)));
   if(a.deadlineDetails!==undefined){
@@ -117,7 +120,91 @@ export function validateStore(data){
  }
  return data;
 }
-export function importPostingText(text){const result={company:'',role:'',duties:'',requirements:'',deadline:'',stages:[],questions:[]};let section='',question=null;for(const raw of text.split('\n')){const line=raw.trim();if(!line)continue;const header=line.replace(/[\s:：]/g,'');if(/^(주요업무|담당업무|업무내용)$/.test(header)){section='duties';continue;}if(/^(자격요건|지원자격|필수요건)$/.test(header)){section='requirements';continue;}if(/^(자기소개서|자소서문항|자기소개서문항)$/.test(header)){section='questions';continue;}if(/^(채용절차|전형절차)$/.test(header)){section='stages';continue;}if(/^(우대사항|복리후생|지원방법|접수기간)/.test(header)){section='';}if(section==='questions'&&/^(?:Q?\d+[.)\s]|문항\s*\d)/i.test(line)){const limit=line.match(/([\d,]+)\s*자/);question={prompt:line.replace(/^Q?\d+[.)\s]+/i,'').replace(/\s*\([^)]*\d[\d,]*\s*자[^)]*\)/,'').trim(),limit:limit?Number(limit[1].replaceAll(',','')):1000};result.questions.push(question);}else if(section==='questions'&&question){question.prompt+=' '+line;}else if(section==='duties'||section==='requirements'){result[section]+=(result[section]?'\n':'')+line;}else if(section==='stages'){result.stages.push(...line.split(/\s*(?:→|>|›)\s*/).filter(Boolean));}const company=line.match(/^(?:회사명|기업명)\s*[:：]\s*(.+)/);if(company)result.company=company[1];const role=line.match(/^(?:직무|모집직무)\s*[:：]\s*(.+)/);if(role)result.role=role[1];const date=line.match(/(20\d{2})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})/);if(date)result.deadline=[date[1],date[2].padStart(2,'0'),date[3].padStart(2,'0')].join('-');}return result;}
+export function postingSections(application){
+ if(application.sections!==undefined)return application.sections;
+ return [
+  {id:'legacy-duties',title:'주요 업무',body:application.duties||''},
+  {id:'legacy-requirements',title:'지원 요건',body:application.requirements||''},
+ ].filter(section=>section.body.trim());
+}
+
+const postingHeadings = [
+ [/^(주요업무|담당업무|업무내용|직무내용)$/, '주요 업무'],
+ [/^(자격요건|지원요건|지원자격|필수요건)$/, '지원 요건'],
+ [/^우대(사항|요건)$/, '우대 사항'],
+ [/^복리후생$/, '복리후생'],
+ [/^근무(조건|형태|장소|지역)$/, null],
+ [/^(지원방법|접수기간|제출서류)$/, null],
+];
+
+export function importPostingText(text){
+ const result={company:'',role:'',duties:'',requirements:'',deadline:'',stages:[],questions:[],sections:[]};
+ let group='',section=null,question=null;
+
+ for(const raw of text.split('\n')){
+  const line=raw.trim();
+  if(!line)continue;
+
+  const heading=line.match(/^#{1,6}\s+(.+)$/)?.[1]||line.match(/^\[([^\]]+)\]$/)?.[1];
+  const divider=(heading||line).search(/[:：]/);
+  const title=divider<0?(heading||line):(heading||line).slice(0,divider).trim();
+  const body=divider<0?'':(heading||line).slice(divider+1).trim();
+  const key=title.replace(/\s/g,'');
+
+  if(divider>=0&&/^(회사명|기업명|회사|직무|모집직무)$/.test(key)){
+   result[/^(회사명|기업명|회사)$/.test(key)?'company':'role']=body;
+   continue;
+  }
+  const deadlineHeading=/^(지원마감일?|마감일?|접수마감일?|접수기간)$/.test(key);
+  if(deadlineHeading||group==='deadline'||(group==='section'&&section.title.replace(/\s/g,'')==='접수기간')){
+   const date=[...(deadlineHeading?body:line).matchAll(/(20\d{2})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})/g)].at(-1);
+   if(date){
+    const [,year,month,day]=date;
+    const iso=[year,month.padStart(2,'0'),day.padStart(2,'0')].join('-');
+    const parsed=new Date(iso);
+    if(!Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===iso)result.deadline=iso;
+   }
+   if(deadlineHeading&&key!=='접수기간'){group=body?'':'deadline';section=null;continue;}
+  }
+
+  if(/^(자기소개서|자소서문항|자기소개서문항|채용절차|전형절차)$/.test(key)){
+   group=/절차$/.test(key)?'stages':'questions';
+   question=null;
+   section=null;
+   if(group==='stages'&&body)result.stages.push(...body.split(/\s*(?:→|>|›)\s*/).filter(Boolean));
+   continue;
+  }
+
+  const standard=postingHeadings.find(([pattern])=>pattern.test(key));
+  if(title&&title.length<=100&&(standard||heading||(divider>=0&&!body))){
+   section={title:standard?.[1]||title,body};
+   result.sections.push(section);
+   group='section';
+   continue;
+  }
+
+  if(group==='section'){
+   section.body+=(section.body?'\n':'')+line;
+  }else if(group==='stages'){
+   result.stages.push(...line.split(/\s*(?:→|>|›)\s*/).filter(Boolean));
+  }else if(group==='questions'){
+   const prefix=line.match(/^(?:Q?\d+[.)\s]+|문항\s*\d+[.)\s]*)/i);
+   if(prefix){
+    const limit=Number(line.match(/([\d,]+)\s*자/)?.[1]?.replaceAll(',',''));
+    question={prompt:line.slice(prefix[0].length).replace(/\s*\([^)]*\d[\d,]*\s*자[^)]*\)/,'').trim(),
+     limit:limit>0&&limit<=100000?limit:1000};
+    result.questions.push(question);
+   }else if(question){
+    question.prompt+=' '+line;
+   }
+  }
+ }
+
+ result.sections=result.sections.filter(item=>item.body);
+ result.duties=result.sections.filter(item=>item.title==='주요 업무').map(item=>item.body).join('\n');
+ result.requirements=result.sections.filter(item=>item.title==='지원 요건').map(item=>item.body).join('\n');
+ return result;
+}
 export function safeUrl(value){try{const u=new URL(value);return['http:','https:'].includes(u.protocol)?u.href:''}catch{return ''}}
 export function errorMessage(error){return({SNAPSHOT_IN_USE:'이 기록 뒤에 이어진 기록이나 분기가 있어요. 끝 기록부터 삭제해 주세요.',LAST_BRANCH:'마지막 분기는 삭제할 수 없어요.',DRAFT_CONFLICT:'이미 작성 중인 초안이 있어요.',EMPTY_TEXT:'본문을 입력해 주세요.',NO_CHANGES:'이전 스냅샷과 달라진 내용이 없어요.',SELECTION_REQUIRED:'문항별 버전을 선택해 주세요.',INVALID_BACKUP:'지원하는 백업 형식이 아니거나 기록 연결이 손상됐어요.',INVALID_GRAPH:'기록 연결을 확인할 수 없어요.',BRANCH_NOT_FOUND:'분기를 찾을 수 없어요.',SNAPSHOT_NOT_FOUND:'기록을 찾을 수 없어요.'})[error.message]||'처리하지 못했어요. 입력한 내용을 확인해 주세요.';}
 export function updateQuestion(store,applicationId,questionId,update){return{...store,applications:store.applications.map(a=>a.id===applicationId?{...a,questions:a.questions.map(q=>q.id===questionId?(typeof update==='function'?update(q):update):q)}:a)};}

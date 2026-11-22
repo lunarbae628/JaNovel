@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createQuestion, updateDraft, snapshot, editSnapshot, branchFrom, mergeDraft, freezeSubmission, graphRecords, validateStore, importPostingText } from '../src/model.js';
+import { createQuestion, updateDraft, snapshot, editSnapshot, branchFrom, mergeDraft, freezeSubmission, graphRecords, postingSections, validateStore, importPostingText } from '../src/model.js';
 const saved=()=>{let q=createQuestion('지원동기',700);q=updateDraft(q,q.branches[0].id,'첫 본문');q=snapshot(q,q.branches[0].id,'첫 초안','설명');return q;};
 test('최신 기록 수정은 기존 브랜치의 초안만 바꾸고 스냅샷을 보존한다',()=>{const q=saved(),old=structuredClone(q);const r=editSnapshot(q,q.snapshots[0].id,'바꾼 본문');assert.equal(r.question.branches.length,1);assert.equal(r.question.branches[0].draft.text,'바꾼 본문');assert.equal(r.question.snapshots[0].text,'첫 본문');assert.deepEqual(q,old);});
 test('중간 스냅샷 수정은 새 브랜치와 별도 초안을 만든다',()=>{let q=saved();q=updateDraft(q,q.branches[0].id,'두 번째');q=snapshot(q,q.branches[0].id,'두 번째');const r=editSnapshot(q,q.snapshots[0].id,'다른 방향');assert.equal(r.question.branches.length,2);assert.equal(r.question.branches[0].draft.text,'두 번째');assert.equal(r.question.branches[1].draft.text,'다른 방향');assert.deepEqual(r.question.branches[1].draft.baseIds,[q.snapshots[0].id]);});
@@ -58,4 +58,54 @@ test('제출본 직접 수정은 이전 제출본과 초안을 보존하고 최�
   application.questions = [revised, second];
   assert.equal(validateStore(structuredClone(store)).applications[0].questions[0].submissionHistory.length, 2);
   assert.deepEqual(designatedSubmissionAnswers(application).map(answer => [answer.number, answer.text]), [[1, '직접 수정한 제출본']]);
+});
+
+test('공고 원문에서 우대 사항과 사용자가 지정한 제목을 섹션으로 가져온다', () => {
+  const result = importPostingText([
+    '회사명: 모노랩',
+    '직무: 플랫폼 개발자',
+    '주요 업무',
+    '지원 기록 API 개발',
+    '우대 사항: PostgreSQL 경험',
+    '## 근무 형태',
+    '주 2회 재택',
+    '마감일: 2026.12.03',
+    '채용 절차',
+    '서류 → 면접',
+    '자기소개서',
+    '1. 지원 동기 (700자)',
+  ].join('\n'));
+
+  assert.equal(result.company, '모노랩');
+  assert.equal(result.role, '플랫폼 개발자');
+  assert.deepEqual(result.sections, [
+    {title: '주요 업무', body: '지원 기록 API 개발'},
+    {title: '우대 사항', body: 'PostgreSQL 경험'},
+    {title: '근무 형태', body: '주 2회 재택'},
+  ]);
+  assert.equal(result.deadline, '2026-12-03');
+  assert.deepEqual(result.stages, ['서류', '면접']);
+  assert.deepEqual(result.questions, [{prompt: '지원 동기', limit: 700}]);
+});
+
+test('기존 공고의 본문을 표시하고 편집한 섹션과 빈 목록을 그대로 읽는다', () => {
+  const store = seedStore();
+  const [application] = store.applications;
+  assert.equal(postingSections(application)[0].body, application.duties);
+  assert.equal(postingSections(application)[1].body, application.requirements);
+
+  application.sections = [{id: 'section1', title: '근무 조건', body: '주 2회 재택'}];
+  assert.deepEqual(postingSections(validateStore(store).applications[0]), application.sections);
+  application.sections.push({...application.sections[0]});
+  assert.throws(() => validateStore(store), /INVALID_BACKUP/);
+
+  application.sections = [];
+  assert.deepEqual(postingSections(validateStore(store).applications[0]), []);
+});
+
+test('공고 원문에서 접수 기간과 마감일 제목 아래의 날짜를 읽는다', () => {
+  const period = importPostingText('접수 기간\n2026.11.20 ~ 2026.12.03\n주요 업무\nAPI 개발');
+  assert.equal(period.deadline, '2026-12-03');
+  assert.equal(period.sections[0].body, '2026.11.20 ~ 2026.12.03');
+  assert.equal(importPostingText('지원 마감일\n2026-12-03\n우대 사항\nSQL 경험').deadline, '2026-12-03');
 });
