@@ -1,5 +1,5 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ExternalLink, FileText, Image, Link, Plus, Trash2, Upload} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ExternalLink, Image, Link, Plus, Trash2, Upload} from 'lucide-react';
 import {BackLink, Field, IconButton, Modal, Notice} from '../components/UI.jsx';
 import {createQuestion, importPostingText, postingSections, safeUrl, uid} from '../model.js';
 import {createApplication} from '../seed.js';
@@ -9,7 +9,6 @@ import {StageFields} from './Applications.jsx';
 const sources = [
   ['link', '링크', Link],
   ['image', '이미지', Image],
-  ['text', '텍스트', FileText],
 ];
 const defaultStages = ['서류 전형', '기술 면접', '최종 면접'];
 const imageTypes = ['image/png', 'image/jpeg', 'image/webp'];
@@ -37,30 +36,22 @@ function useImagePreview(file, attachmentId) {
   return preview;
 }
 
-function PostingSource({type, onTypeChange, url, onUrlChange, text, onTextChange, file, onFileChange, preview, error, onPrepare}) {
+function PostingSource({type, onTypeChange, url, onUrlChange, file, onFileChange, preview, error, importing, onPrepare}) {
   return <main className="page posting-page posting-source-page">
     <BackLink className="page-back" to="/applications">지원 현황</BackLink>
     <div className="posting-intro">
       <h1>공고 등록</h1>
-      <p>채용공고를 첨부하거나 필요한 정보만 직접 입력하세요.</p>
+      <p>채용공고 링크나 이미지를 추가하거나 필요한 정보만 직접 입력하세요.</p>
     </div>
-    <form className="posting-source-card" onSubmit={onPrepare}>
+    <form className="posting-source-card" onSubmit={onPrepare} aria-busy={importing}>
       <div className="posting-source-options" role="group" aria-label="공고 입력 방법">
-        {sources.map(([key, label, Icon]) => <button key={key} type="button" aria-pressed={type === key}
+        {sources.map(([key, label, Icon]) => <button key={key} type="button" aria-pressed={type === key} disabled={importing}
           onClick={() => onTypeChange(key)}><Icon size={16} aria-hidden="true"/>{label}</button>)}
       </div>
       <div className="posting-source-fields">
-        {type === 'link' && <>
-          <Field label="채용공고 링크">
-            <input type="url" inputMode="url" value={url} onChange={onUrlChange} placeholder="https://"/>
-          </Field>
-          <details className="posting-paste">
-            <summary>공고 본문도 붙여넣기</summary>
-            <Field label="공고 본문">
-              <textarea value={text} onChange={onTextChange} rows={6} placeholder="공고 내용을 붙여넣으세요."/>
-            </Field>
-          </details>
-        </>}
+        {type === 'link' && <Field label="채용공고 링크">
+          <input type="url" inputMode="url" value={url} onChange={onUrlChange} placeholder="https://" disabled={importing}/>
+        </Field>}
         {type === 'image' && <>
           <label className="posting-upload">
             <input type="file" accept={imageTypes.join(',')} onChange={onFileChange}/>
@@ -70,17 +61,16 @@ function PostingSource({type, onTypeChange, url, onUrlChange, text, onTextChange
           </label>
           {preview && <img className="posting-source-thumbnail" src={preview} alt="선택한 공고 이미지"/>}
         </>}
-        {type === 'text' && <Field label="공고 본문">
-          <textarea value={text} onChange={onTextChange} rows={8}
-            placeholder={'회사명: 회사\n직무: 백엔드 개발자\n\n지원 요건\nJava 또는 Kotlin 개발 경험'}/>
-        </Field>}
         {error && <Notice type="error">{error}</Notice>}
       </div>
       <div className="posting-source-footer">
-        {type !== 'text' && <small>{type === 'link'
-          ? '링크는 원문 확인용으로 저장돼요.'
-          : '이미지를 보면서 다음 화면에서 정보를 입력할 수 있어요.'}</small>}
-        <button className="button primary">{url.trim() || text.trim() || (type === 'image' && file) ? '공고 내용 확인' : '직접 입력'}<ArrowRight size={16} aria-hidden="true"/></button>
+        <small role="status">{type === 'link'
+          ? (importing ? '공고 내용을 불러오는 중이에요.' : '가져온 내용은 다음 화면에서 확인하고 수정할 수 있어요.')
+          : '이미지를 보면서 다음 화면에서 정보를 입력할 수 있어요.'}</small>
+        <button className="button primary" disabled={importing}>
+          {importing ? '가져오는 중…' : type === 'link' && url.trim() ? '공고 가져오기' : type === 'image' && file ? '공고 내용 확인' : '직접 입력'}
+          <ArrowRight size={16} aria-hidden="true"/>
+        </button>
       </div>
     </form>
   </main>;
@@ -141,15 +131,8 @@ function PostingSectionFields({sections, onChange}) {
   </section>;
 }
 
-export default function Posting({onAdd, navigate, existing, onSave}) {
-  const [type, setType] = useState(existing?.source || 'link');
-  const [review, setReview] = useState(Boolean(existing));
-  const [text, setText] = useState(existing?.sourceText || '');
-  const [url, setUrl] = useState(existing?.url || '');
-  const [file, setFile] = useState(null);
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [data, setData] = useState(() => ({
+function postingDraft(existing) {
+  return {
     company: existing?.company || '',
     role: existing?.role || '',
     deadline: existing?.deadline || '',
@@ -157,9 +140,29 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
     stages: existing?.stages || defaultStages,
     questions: existing?.questions.map(({id, prompt, limit}) => ({id, prompt, limit})) || [{prompt:'', limit:1000}],
     sections: existing ? postingSections(existing) : [],
-  }));
+  };
+}
+
+export default function Posting({onAdd, navigate, existing, onSave}) {
+  const [type, setType] = useState(existing?.source || 'link');
+  const [review, setReview] = useState(Boolean(existing));
+  const [url, setUrl] = useState(existing?.url || '');
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importNotice, setImportNotice] = useState('');
+  const [sourceText, setSourceText] = useState(existing?.sourceText || '');
+  const [data, setData] = useState(() => postingDraft(existing));
+  const preparedSource = useRef(null);
+  const importedLink = useRef('');
+  const importRequest = useRef(null);
+  useEffect(() => () => {
+    const request = importRequest.current;
+    importRequest.current = null;
+    request?.abort();
+  }, []);
   const preview = useImagePreview(file, existing?.attachmentId);
-  const prepared = useRef('');
   const change = (key, value) => setData(current => ({...current, [key]:value}));
 
   function selectImage(event) {
@@ -174,29 +177,68 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
     setFile(selected);
   }
 
-  function prepare(event) {
+  async function prepare(event) {
     event.preventDefault();
-    if (type === 'link' && url.trim() && !safeUrl(url.trim())) {
+    if (importRequest.current) return;
+    const link = type === 'link' ? safeUrl(url.trim()) : '';
+    if (type === 'link' && url.trim() && !link) {
       setError('http 또는 https 공고 주소를 입력해 주세요.');
       return;
     }
-    const content = type === 'image' ? '' : text.trim();
-    if (content && content !== prepared.current) {
-      const parsed = importPostingText(content);
-      const parsedSections = parsed.sections.map(section => ({...section, id:uid('section')}));
+    setError('');
+    const source = type === 'image' ? file || 'image' : link || 'manual';
+    if (preparedSource.current !== source) {
+      preparedSource.current = source;
+      importedLink.current = '';
+      setData(postingDraft());
+      setSourceText('');
+      setImportNotice('');
+    }
+    if (!link || importedLink.current === link) {
+      setReview(true);
+      return;
+    }
+
+    const request = new AbortController();
+    importRequest.current = request;
+    const timeout = setTimeout(() => request.abort(), 18_000);
+    setImporting(true);
+    setImportNotice('');
+    try {
+      const response = await fetch('/api/postings/import', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url: link}),
+        signal: request.signal,
+      });
+      if (!response.ok) throw new Error('공고를 읽을 수 없습니다.');
+      const imported = await response.json();
+      if (importRequest.current !== request) return;
+      const parsed = importPostingText(imported.sourceText);
+      const sections = parsed.sections.map(section => ({...section, id:uid('section')}));
       setData(current => ({
         ...current,
-        company: current.company || parsed.company,
-        role: current.role || parsed.role,
-        deadline: current.deadline || parsed.deadline,
-        sections: [...current.sections, ...parsedSections.filter(section => !current.sections.some(item => item.title === section.title))],
+        company: current.company || (imported.company || parsed.company).slice(0, 100),
+        role: current.role || (imported.role || parsed.role).slice(0, 150),
+        deadline: current.deadline || imported.deadline || parsed.deadline,
+        sections: current.sections.length ? current.sections : sections,
         stages: current.stages === defaultStages && parsed.stages.length ? parsed.stages : current.stages,
         questions: parsed.questions.length && !current.questions.some(question => question.prompt.trim()) ? parsed.questions : current.questions,
       }));
-      prepared.current = content;
+      importedLink.current = link;
+      setSourceText(imported.sourceText);
+      setReview(true);
+    } catch {
+      if (importRequest.current !== request) return;
+      setImportNotice('링크의 공고 내용을 가져오지 못했어요. 원문을 열어서 직접 입력할 수 있어요.');
+      setReview(true);
+    } finally {
+      clearTimeout(timeout);
+      if (importRequest.current === request) {
+        importRequest.current = null;
+        setImporting(false);
+      }
     }
-    setError('');
-    setReview(true);
   }
 
   function closeReview() {
@@ -232,7 +274,7 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
       }
       const values = {
         ...data, company, role, questions, url:link, source:type,
-        sourceText: existing || type !== 'image' ? text : '',
+        sourceText,
         attachmentId, deadlineTime:data.deadline ? data.deadlineTime : '',
         sections:data.sections.map(section => ({...section, title:section.title.trim(), body:section.body.trim()})),
         stages:data.stages.map(stage => stage.trim()).filter(Boolean),
@@ -257,17 +299,17 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
   }
 
   const referenceImage = (type === 'image' || existing) && preview;
-  const referenceText = type !== 'image' || existing ? text.trim() : '';
+  const referenceText = sourceText.trim();
   const referenceLink = safeUrl(url.trim());
 
   return <>
     {!existing && <PostingSource type={type} onTypeChange={value => {setType(value);setError('');}}
       url={url} onUrlChange={event => {setUrl(event.target.value);setError('');}}
-      text={text} onTextChange={event => setText(event.target.value)}
-      file={file} onFileChange={selectImage} preview={preview} error={review ? '' : error} onPrepare={prepare}/>}
+      file={file} onFileChange={selectImage} preview={preview} error={review ? '' : error} importing={importing} onPrepare={prepare}/>}
     {review && <Modal title={existing ? '공고 정보 수정' : '공고 내용 확인'} className="posting-review-modal" onClose={closeReview}>
       <form className="posting-review-form" onSubmit={submit}>
         <div className="posting-review-scroll">
+          {importNotice && <Notice>{importNotice}</Notice>}
           {(referenceImage || referenceText || referenceLink) && <div className="posting-review-source">
             {referenceLink && <a className="button small" href={referenceLink} target="_blank" rel="noopener noreferrer">
               <ExternalLink size={14} aria-hidden="true"/>공고 원문 링크

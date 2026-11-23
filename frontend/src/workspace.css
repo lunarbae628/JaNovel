@@ -92,7 +92,7 @@
   border: 1px solid var(--border); border-radius: 9px; background: #fff; padding: clamp(16px,3vw,26px);
 }
 .posting-source-options {
-  display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; padding: 4px;
+  display: grid; grid-template-columns: repeat(2,1fr); gap: 4px; padding: 4px;
   border-radius: 7px; background: #eef2f7; margin-bottom: 22px;
 }
 .posting-source-options button {
@@ -106,9 +106,8 @@
 .posting-source-fields .field { margin: 0; }
 .posting-source-fields .field > input { min-height: 45px; }
 .posting-source-fields .notice { margin-top: 12px; }
-.posting-paste { margin-top: 12px; }
-.posting-paste summary, .posting-original summary { width: fit-content; cursor: pointer; color: var(--primary); }
-.posting-paste .field, .posting-original > :not(summary) { margin-top: 12px; }
+.posting-original summary { width: fit-content; cursor: pointer; color: var(--primary); }
+.posting-original > :not(summary) { margin-top: 12px; }
 .posting-source-footer {
   display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
   gap: 12px; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;
