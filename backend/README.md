@@ -1,6 +1,16 @@
 # JaNovel 백엔드
 
-Kotlin·Spring Boot 프로젝트의 기본 구성이다. 현재 PostgreSQL 개발 환경, JPA·Flyway 의존성, 테스트용 PostgreSQL 컨테이너 설정이 있다. 제품 API와 도메인 마이그레이션은 설계 단계다. [제품 기획과 저장 설계](../docs/planning/01-product-plan.md)
+Kotlin·Spring Boot 백엔드다. PostgreSQL 스키마와 JPA 엔티티가 구현되어 있으며, 제품 API와 서버 인증은 다음 단계다. [제품 기획과 저장 설계](../docs/planning/01-product-plan.md)
+
+## 스키마와 패키지
+
+Flyway가 `src/main/resources/db/migration`의 마이그레이션을 순서대로 적용한다. 이미 적용한 스키마를 바꿀 때는 새 마이그레이션을 추가한다.
+
+- [V1 초기 스키마](src/main/resources/db/migration/V1__initial_schema.sql)는 사용자, 지원 건, 자소서 이력 등 테이블 11개를 만든다.
+- [V2 사용자 이름 필수화](src/main/resources/db/migration/V2__require_user_name.sql)는 기존 `NULL` 이름을 보정하고 `NOT NULL`을 적용한다.
+- [V3 결과 옵션 정리](src/main/resources/db/migration/V3__remove_application_outcome_kind.sql)는 결과 분류 컬럼을 제거한다. 지원 건은 사용자가 선택한 결과 옵션의 ID를 저장한다.
+
+엔티티는 `com.janovel.domain` 아래에서 [사용자·OAuth 계정](src/main/kotlin/com/janovel/domain/user/entity), [지원 건·공고 항목·전형·결과 옵션](src/main/kotlin/com/janovel/domain/application/entity), [자소서 문항·버전·스냅샷·제출본](src/main/kotlin/com/janovel/domain/writing/entity)으로 나눈다.
 
 ## 실행과 테스트
 
@@ -18,4 +28,4 @@ cd backend
 ./gradlew test
 ```
 
-현재 테스트는 Testcontainers로 별도 PostgreSQL을 시작해 Spring 애플리케이션 컨텍스트가 뜨는지 확인한다. [테스트 코드](src/test/kotlin/com/janovel/JanovelApplicationTests.kt) · [컨테이너 설정](src/test/kotlin/com/janovel/TestcontainersConfiguration.kt)
+테스트는 Testcontainers로 별도 PostgreSQL을 시작해 마이그레이션, 전형 순서·삭제, 결과 옵션 보관, 자소서 이력의 키 매핑을 확인한다. [스키마 테스트](src/test/kotlin/com/janovel/InitialSchemaTests.kt) · [자소서 이력 매핑 테스트](src/test/kotlin/com/janovel/AdditionalEntityMappingsTests.kt) · [컨테이너 설정](src/test/kotlin/com/janovel/TestcontainersConfiguration.kt)

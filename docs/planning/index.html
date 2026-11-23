@@ -13,18 +13,18 @@
 </head>
 <body id="top">
 <div class="reading-line" aria-hidden="true"></div>
-<header><span class="brand">JANOVEL</span><span class="meta">제품 기획과 확장 계획 · 2026.11.23 · v1.20</span></header>
+<header><span class="brand">JANOVEL</span><span class="meta">제품 기획과 확장 계획 · 2026.11.24 · v1.21</span></header>
 <div class="layout"><aside aria-label="문서 목차"><div class="nav-label">CONTENTS</div><div class="toc-group"><a class="chapter-link" href="#plan">제품 기획</a><div class="sub-links"><a href="#plan-1">현재 구현</a><a href="#plan-2">확정한 제품 계획</a><a href="#plan-3">설계 선택과 미결 항목</a><a href="#plan-4">개발 순서와 완료 확인</a></div></div><div class="toc-group"><a class="chapter-link" href="#review">제품 검증 계획</a><div class="sub-links"><a href="#review-1">핵심 흐름 검증</a><a href="#review-2">개인 실사용</a><a href="#review-3">다른 사용자와 AI 평가</a><a href="#review-4">후속 추천 검증</a></div></div><div class="toc-group"><a class="chapter-link" href="#sources">조사 근거와 한계</a><div class="sub-links"></div></div><div class="note">기능별 요구와 현재 브라우저 구현을 확인할 수 있습니다.</div></aside>
-<main><section class="hero"><div class="eyebrow">자소서 버전관리를 중심으로</div><h1>어떻게 고쳤고,<br>무엇을 제출했는지.</h1><p>공고에서 자소서, 제출본과 면접 준비까지.<br>JaNovel 제품 기획과 기능 확장 계획.</p><div class="status"><span>제품 기획 v1.20</span><span class="pending">경쟁력·유료 수요 미검증</span></div></section>
+<main><section class="hero"><div class="eyebrow">자소서 버전관리를 중심으로</div><h1>어떻게 고쳤고,<br>무엇을 제출했는지.</h1><p>공고에서 자소서, 제출본과 면접 준비까지.<br>JaNovel 제품 기획과 기능 확장 계획.</p><div class="status"><span>제품 기획 v1.21</span><span class="pending">경쟁력·유료 수요 미검증</span></div></section>
 <article id="plan"><div class="chapter-kicker">01 / PRODUCT PLAN<a href="01-product-plan.md" download>Markdown 원문 ↗</a></div><h1>JaNovel 제품 기획</h1>
-<p>작성일 2026-10-15 · 수정일 2026-11-23 · v1.20 · 구현 현황과 제품 계획 점검</p>
+<p>작성일 2026-10-15 · 수정일 2026-11-24 · v1.21 · 백엔드 스키마와 엔티티 반영</p>
 <p>JaNovel은 공고, 자소서 수정 이력, 제출본, 일정과 면접 준비를 지원 건별로 관리한다. 핵심은 <strong>자소서에서 무엇이 바뀌었는지 빠르게 확인하고, 제출할 답변을 면접에 다시 쓰는 것</strong>이다. 첫 사용자는 여러 공고에 지원하며 자소서를 반복해서 수정하는 본인이다. <a href="../../frontend/README.md">프론트 실행</a> · <a href="../../backend/README.md">백엔드 실행</a> · <a href="../design/27-frontend-handoff-review.md">Figma 참고 화면</a></p>
 <h2 id="plan-1">현재 구현</h2>
-<p>React 미리보기가 동작하며 데이터는 현재 브라우저에 저장된다. 백엔드는 Kotlin·Spring Boot 기본 프로젝트, PostgreSQL 개발 설정과 Testcontainers 환경까지 구성되어 있다. 제품 API, 도메인 마이그레이션과 서버 인증은 구현 전이다. 아래 기능은 프론트 화면과 모델 코드를 대조한 결과다.</p>
+<p>React 미리보기가 동작하며 데이터는 브라우저에 저장된다. 백엔드는 PostgreSQL에 Flyway V1~V3를 적용하고, 테이블 11개를 Kotlin JPA 엔티티에 매핑했다. 제품 API와 서버 인증은 다음 단계다. 아래 화면 기능은 프론트 코드에서 확인한 동작이다. <a href="../../backend/README.md">백엔드 가이드</a></p>
 <h3>공고와 지원 현황</h3>
 <ul>
 <li>링크, 이미지, 텍스트를 받거나 직접 입력한다. 붙여넣은 텍스트에서 규칙으로 일부 정보를 채우고, 링크와 이미지는 원문 확인용으로 사용한다. 확인 화면에서 회사·직무·마감일과 선택 시각, 공고 항목, 채용 단계와 문항별 글자 수를 수정한다. 주요 업무·지원 요건·우대 사항 같은 공고 항목은 제목과 본문을 자유롭게 정해 추가·수정·삭제·재정렬한다.</li>
-<li>목록에서 공고별 단계와 최종 합격·불합격·지원 취소를 선택하고 현황을 필터링한다. 사용자 정의 결과 옵션과 종료 당시 전형 단계 저장은 설계 범위다. <a href="../../frontend/src/pages/Posting.jsx">공고 등록</a> · <a href="../../frontend/src/pages/Applications.jsx">지원 현황</a></li>
+<li>목록에서 공고별 단계와 최종 합격·불합격·지원 취소를 선택하고 현황을 필터링한다. 사용자 정의 결과 옵션과 종료 당시 전형 단계는 DB 스키마에 반영했다. 화면과 서버 연동은 다음 단계다. <a href="../../frontend/src/pages/Posting.jsx">공고 등록</a> · <a href="../../frontend/src/pages/Applications.jsx">지원 현황</a></li>
 </ul>
 <h3>자소서·버전·제출본</h3>
 <ul>
@@ -57,11 +57,11 @@
 <ul>
 <li>공고의 URL·이미지·텍스트 원문과 사용자가 확인한 입력값을 함께 보관한다. URL 자동 수집과 이미지 OCR을 붙일 때는 불확실한 항목을 사용자가 확인·수정하게 한다. 대표 마감 방식은 날짜 지정·수시채용·채용 시 마감·상시 접수 중 하나로 관리한다. 미입력은 <code>NULL</code>로 저장한다. 수시채용도 공고에 명시된 마감일·시각을 함께 저장할 수 있으며, 공고에 없는 마감 시각이나 전형은 비워 둔다.</li>
 <li>공통 진행 상태는 관심·작성 중·제출·전형 진행·종료로 관리한다. 현재 전형은 해당 지원 건의 채용 단계에서 고르고, 전형 순서나 일정만으로 통과·제출을 확정하지 않는다. 종료 당시 결과 옵션과 단계 이름을 남긴다.</li>
-<li>기본 결과는 최종 합격·불합격·지원 취소다. 사용자가 결과를 추가·수정·삭제하고 이름·색·순서를 정할 수 있게 한다. 사용 중인 옵션을 지운 뒤에도 과거 지원 결과를 볼 수 있어야 한다. 상태 옵션의 적용 범위는 아래 설계 후보에서 결정한다.</li>
+<li>기본 결과는 최종 합격·불합격·지원 취소다. 사용자가 결과를 추가·수정·삭제하고 이름·색·순서를 정할 수 있게 한다. 결과 옵션은 사용자 단위로 관리해 여러 지원 건에서 재사용한다. 옵션을 비활성화해도 과거 지원 결과에 표시한다.</li>
 </ul>
 <h3>자소서와 제출본</h3>
 <ul>
-<li>지원 건과 문항 단위로 작성 공간을 분리한다. 자동 저장은 버전의 현재 초안을 갱신하고, 스냅샷에는 그 시점의 답변 전문을 고정한다. 복원·편집에서도 저장된 원본을 보존한다. 비교·조합은 구절 단위로 진행하며 결과는 새 버전의 첫 기록으로 남긴다.</li>
+<li>지원 건과 문항 단위로 작성 공간을 분리한다. 기존 문항은 등록 순서를 유지한다. 자동 저장은 버전의 현재 초안을 갱신하고, 스냅샷에는 그 시점의 답변 전문을 고정한다. 복원·편집에서도 저장된 원본을 보존한다. 비교·조합은 구절 단위로 진행하며 결과는 새 버전의 첫 기록으로 남긴다.</li>
 <li>서버의 조합 출처는 실제 입력 스냅샷을 식별한다. 작성 중 본문을 입력으로 쓸 때는 그 시점의 전문을 먼저 고정한다. 조합 결과와 부모 링크는 한 번에 저장한다. 부모 버전이 삭제되면 관련 링크를 정리하고 자식 버전 본문과 다른 부모 연결을 보존한다. 모든 부모가 사라진 자식은 독립적으로 남을 수 있다.</li>
 <li>문항당 현재 제출본 하나를 둔다. 지정할 때 답변을 복사하고, 그 본문을 따로 수정하거나 다른 버전으로 교체할 수 있게 한다. PDF와 자료 기반 면접은 같은 데이터를 읽는다. PDF에는 회사·직무·문항·답변을 출력하고 한글과 긴 답변의 페이지 분할을 검증한다. 실제 지원 사이트 접수는 사용자가 진행한다.</li>
 </ul>
@@ -101,11 +101,12 @@
 </ul>
 <h2 id="plan-3">설계 선택과 미결 항목</h2>
 <h3>백엔드와 데이터 모델</h3>
-<p>첫 버전은 <strong>Kotlin·Spring Boot 모듈러 모놀리스와 PostgreSQL 단일 DB</strong>로 시작하며 JaNovel 백엔드를 독립 구현한다. 공고 항목·채용 단계·자소서 문항은 지원 건 안에서 정렬되는 행이다. 스냅샷은 문항 답변 전문을 저장한다. 확정된 계약은 아래 설계를 거쳐 ERD와 마이그레이션에 옮긴다.</p>
+<p>첫 버전은 <strong>Kotlin·Spring Boot 모듈러 모놀리스와 PostgreSQL 단일 DB</strong>로 시작한다. 공고 항목·채용 단계·자소서 문항은 지원 건 안에서 순번을 가진다. 초안은 버전에, 답변 전문은 스냅샷에 저장한다. <a href="../../backend/src/main/resources/db/migration/V1__initial_schema.sql">초기 마이그레이션</a></p>
 <ul>
-<li><strong>현재 전형과 순서.</strong> 같은 지원 건의 순번에 지연 가능한 유니크 제약을 두면 단계 순번 2와 3을 교환하고 커밋 때 최종 중복을 검사할 수 있다. MySQL에서도 임시 순번을 거쳐 구현할 수 있다. 복합 외래 키 <code>(id, current_stage_id) → (application_id, id)</code>로 지원 건이 자기 전형만 참조하도록 하며, 단계 삭제 시 현재 선택만 비우는 <code>ON DELETE SET NULL (current_stage_id)</code>를 설계 후보로 둔다. 두 동작이 PostgreSQL 선택의 근거다. <a href="https://www.postgresql.org/docs/18/sql-set-constraints.html">PostgreSQL 제약 검사 시점</a> · <a href="https://www.postgresql.org/docs/18/ddl-constraints.html#DDL-CONSTRAINTS-FK">PostgreSQL 외래 키</a> · <a href="https://dev.mysql.com/doc/refman/8.4/en/update.html">MySQL 갱신 예제</a></li>
-<li><strong>이력과 결과.</strong> 조합의 부모·자식 스냅샷 관계는 조인 테이블 후보로 둔다. 한 결과 옵션을 사용자별로 재사용할지 공고마다 기본값을 만들지는 미결이다. 이전 결과 기록 보존, 지원 건 소유권, 문항 단위의 관계와 순서, 첨부 원문 보관을 ERD에서 검증한다.</li>
-<li><strong>인증과 운영.</strong> 이메일·Google 로그인은 현재 화면의 후보 경로다. 인증·계정 연결과 비밀번호 재설정 정책을 구현 시 정한다. 실제 공개 전에는 사용자의 데이터 내보내기·삭제, 계정 간 권한 분리, HTTPS, 백업·복구를 확인한다.</li>
+<li><strong>현재 전형과 순서.</strong> 채용 단계 순번은 유니크 제약 검사를 트랜잭션 끝까지 미뤄 서로 교환할 수 있다. 복합 외래 키 <code>(id, current_stage_id) → (application_id, id)</code>는 지원 건이 자기 전형만 참조하게 한다. 현재 전형을 삭제하면 <code>ON DELETE SET NULL (current_stage_id)</code>로 선택만 비운다. <a href="https://www.postgresql.org/docs/18/sql-set-constraints.html">PostgreSQL 제약 검사 시점</a> · <a href="https://www.postgresql.org/docs/18/ddl-constraints.html#DDL-CONSTRAINTS-FK">PostgreSQL 외래 키</a></li>
+<li><strong>결과 옵션.</strong> 종료한 지원 건은 선택한 옵션 ID를 저장한다. 결과별 필터는 옵션 ID를 기준으로 한다. 비활성화할 때는 <code>archived_at</code>을 채우고 기존 참조를 보존한다. <a href="../../backend/src/main/resources/db/migration/V3__remove_application_outcome_kind.sql">V3 마이그레이션</a></li>
+<li><strong>자소서 이력.</strong> <code>snapshot_parents</code>는 같은 문항 안에서 부모와 자식 스냅샷을 연결한다. <code>submission_answers</code>는 문항 ID를 기본 키로 사용해 문항당 현재 제출본 하나를 저장한다.</li>
+<li><strong>인증과 운영.</strong> 사용자 이름은 필수다. 이메일·Google 로그인은 현재 화면의 후보 경로다. 인증·계정 연결과 비밀번호 재설정 정책을 구현 시 정한다. 실제 공개 전에는 사용자의 데이터 내보내기·삭제, 계정 간 권한 분리, HTTPS, 백업·복구를 확인한다.</li>
 </ul>
 <h3>먼저 검증할 후보와 보류 항목</h3>
 <ul>
@@ -116,7 +117,7 @@
 </ul>
 <h2 id="plan-4">개발 순서와 완료 확인</h2>
 <ol>
-<li><strong>ERD와 API.</strong> 지원 건·공고 항목·전형·문항·버전·스냅샷·현재 제출본의 관계를 정하고 순번 교환, 삭제 및 소유권 경계를 검증한다.</li>
+<li><strong>스키마와 지원 현황 API.</strong> 초기 스키마와 JPA 매핑을 적용했다. 첫 API에서 내 지원 건을 등록하고 다시 조회하는 흐름과 사용자별 접근 권한을 검증한다.</li>
 <li><strong>개인 기능.</strong> 인증, 공고 원문·확인본, 문항 작성·비교·조합, 제출본, 기본 일정과 예상 질문 화면을 연결한다. 저장 실패에서 입력을 유지하고 사용자가 수정·재시도할 수 있는지 확인한다.</li>
 <li><strong>AI와 개인 실사용.</strong> 웹 내부 AI의 실제 요청·응답과 후보 저장·채택을 한 경로에서 검증하고, 실제 지원 3건에서 변경점 확인·원문 보존·제출본 찾기 시간을 측정한다. <a href="#review">제품 검증 계획</a></li>
 <li><strong>보조 기능.</strong> 공고 자동 추출, 1인 AI 음성 모의면접과 친구·채팅·수신함·커뮤니티의 서버 기능을 순서대로 검증한다. 여러 사용자가 들어오기 전에 데이터 권한과 공유 철회를 시험한다.</li>
