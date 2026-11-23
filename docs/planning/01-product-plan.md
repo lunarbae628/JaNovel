@@ -1,16 +1,16 @@
 # JaNovel 제품 기획
 
-작성일 2026-10-15 · 수정일 2026-11-24 · v1.21 · 백엔드 스키마와 엔티티 반영
+작성일 2026-10-15 · 수정일 2026-11-24 · v1.22 · Java 백엔드·Gradle Groovy 전환과 공고 가져오기 반영
 
 JaNovel은 공고, 자소서 수정 이력, 제출본, 일정과 면접 준비를 지원 건별로 관리한다. 핵심은 **자소서에서 무엇이 바뀌었는지 빠르게 확인하고, 제출할 답변을 면접에 다시 쓰는 것**이다. 첫 사용자는 여러 공고에 지원하며 자소서를 반복해서 수정하는 본인이다. [프론트 실행](../../frontend/README.md) · [백엔드 실행](../../backend/README.md) · [Figma 참고 화면](../design/27-frontend-handoff-review.md)
 
 ## 현재 구현
 
-React 미리보기가 동작하며 데이터는 브라우저에 저장된다. 백엔드는 PostgreSQL에 Flyway V1~V3를 적용하고, 테이블 11개를 Kotlin JPA 엔티티에 매핑했다. 제품 API와 서버 인증은 다음 단계다. 아래 화면 기능은 프론트 코드에서 확인한 동작이다. [백엔드 가이드](../../backend/README.md)
+React 미리보기가 동작하며 지원 건은 브라우저에 저장된다. 백엔드는 PostgreSQL에 Flyway V1~V3를 적용하고, 테이블 11개를 Java JPA 엔티티에 매핑했다. 공개 공고 링크 가져오기를 연결했다. 지원 건 저장 API와 서버 인증은 다음 단계다. [백엔드 가이드](../../backend/README.md)
 
 ### 공고와 지원 현황
 
-- 링크, 이미지, 텍스트를 받거나 직접 입력한다. 붙여넣은 텍스트에서 규칙으로 일부 정보를 채우고, 링크와 이미지는 원문 확인용으로 사용한다. 확인 화면에서 회사·직무·마감일과 선택 시각, 공고 항목, 채용 단계와 문항별 글자 수를 수정한다. 주요 업무·지원 요건·우대 사항 같은 공고 항목은 제목과 본문을 자유롭게 정해 추가·수정·삭제·재정렬한다.
+- 공개 공고 링크를 가져오면 읽을 수 있는 회사·직무·마감일과 공고 항목을 확인 화면에 채운다. 페이지를 읽기 어려우면 원문 링크를 유지한 채 직접 입력할 수 있다. 이미지 첨부는 원문 확인용이다. 확인 화면에서 회사·직무·마감일과 선택 시각, 공고 항목, 채용 단계와 문항별 글자 수를 수정한다. 주요 업무·지원 요건·우대 사항 같은 공고 항목은 제목과 본문을 자유롭게 정해 추가·수정·삭제·재정렬한다.
 - 목록에서 공고별 단계와 최종 합격·불합격·지원 취소를 선택하고 현황을 필터링한다. 사용자 정의 결과 옵션과 종료 당시 전형 단계는 DB 스키마에 반영했다. 화면과 서버 연동은 다음 단계다. [공고 등록](../../frontend/src/pages/Posting.jsx) · [지원 현황](../../frontend/src/pages/Applications.jsx)
 
 ### 자소서·버전·제출본
@@ -92,7 +92,7 @@ React 미리보기가 동작하며 데이터는 브라우저에 저장된다. �
 
 ### 백엔드와 데이터 모델
 
-첫 버전은 **Kotlin·Spring Boot 모듈러 모놀리스와 PostgreSQL 단일 DB**로 시작한다. 공고 항목·채용 단계·자소서 문항은 지원 건 안에서 순번을 가진다. 초안은 버전에, 답변 전문은 스냅샷에 저장한다. [초기 마이그레이션](../../backend/src/main/resources/db/migration/V1__initial_schema.sql)
+첫 버전은 **Java 21·Spring Boot 모듈러 모놀리스와 PostgreSQL 단일 DB**로 시작한다. 공고 항목·채용 단계·자소서 문항은 지원 건 안에서 순번을 가진다. 초안은 버전에, 답변 전문은 스냅샷에 저장한다. [초기 마이그레이션](../../backend/src/main/resources/db/migration/V1__initial_schema.sql)
 
 - **현재 전형과 순서.** 채용 단계 순번은 유니크 제약 검사를 트랜잭션 끝까지 미뤄 서로 교환할 수 있다. 복합 외래 키 `(id, current_stage_id) → (application_id, id)`는 지원 건이 자기 전형만 참조하게 한다. 현재 전형을 삭제하면 `ON DELETE SET NULL (current_stage_id)`로 선택만 비운다. [PostgreSQL 제약 검사 시점](https://www.postgresql.org/docs/18/sql-set-constraints.html) · [PostgreSQL 외래 키](https://www.postgresql.org/docs/18/ddl-constraints.html#DDL-CONSTRAINTS-FK)
 - **결과 옵션.** 종료한 지원 건은 선택한 옵션 ID를 저장한다. 결과별 필터는 옵션 ID를 기준으로 한다. 비활성화할 때는 `archived_at`을 채우고 기존 참조를 보존한다. [V3 마이그레이션](../../backend/src/main/resources/db/migration/V3__remove_application_outcome_kind.sql)
