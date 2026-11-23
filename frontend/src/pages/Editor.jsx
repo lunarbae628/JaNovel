@@ -252,7 +252,13 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
    }}><Icon size={16} strokeWidth={1.7}/>{label}</button>)}
   </nav>
   <div className={'editor-layout '+(overviewOpen?'overview-open ':'')+(!leftOpen?'left-closed ':'')+(!rightOpen?'right-closed':'')} data-compact-view={compactView} style={{'--left-width':(overviewOpen?overviewWidth:lw)+'px','--overview-width':overviewWidth+'px','--right-width':rw+'px'}}>
-   <aside className="history-panel" id="history-panel"><div className="panel-toolbar option-panel-toolbar"><div><IconButton label={overviewOpen?'버전별 기록 보기':'전체 버전 그래프'} aria-pressed={overviewOpen} onClick={()=>{setOverviewOpen(!overviewOpen);setLeftOpen(true)}}><PanelGlyph kind={overviewOpen?'shrink':'expand'}/></IconButton><IconButton label={leftOpen?'왼쪽 패널 접기':'왼쪽 패널 펼치기'} onClick={()=>setLeftOpen(!leftOpen)}><PanelGlyph kind={leftOpen?'left':'right'}/></IconButton></div></div>{leftOpen&&(overviewOpen?<VersionGraph question={q} selected={selected} onSelect={key=>{selectOverview(key);setCompactView('writing')}} onPreview={setSourcePreview} expanded/>:<OptionHistory question={q} activeId={activeId} selected={selected} onChoose={id=>{chooseBranch(id);setCompactView('writing')}} onSelect={key=>{select(key);setCompactView('writing')}} onAdd={()=>setModal('option')} onRename={id=>{setRenamingId(id);setModal('rename-option')}}/>)}</aside>
+   <aside className="history-panel" id="history-panel">
+    <div className="panel-toolbar option-panel-toolbar">
+     <BackLink className="editor-applications-link" to="/applications"><span className={leftOpen?undefined:'visually-hidden'}>지원 현황</span></BackLink>
+     <div><IconButton label={overviewOpen?'버전별 기록 보기':'전체 버전 그래프'} aria-pressed={overviewOpen} onClick={()=>{setOverviewOpen(!overviewOpen);setLeftOpen(true)}}><PanelGlyph kind={overviewOpen?'shrink':'expand'}/></IconButton><IconButton label={leftOpen?'왼쪽 패널 접기':'왼쪽 패널 펼치기'} onClick={()=>setLeftOpen(!leftOpen)}><PanelGlyph kind={leftOpen?'left':'right'}/></IconButton></div>
+    </div>
+    {leftOpen&&(overviewOpen?<VersionGraph question={q} selected={selected} onSelect={key=>{selectOverview(key);setCompactView('writing')}} onPreview={setSourcePreview} expanded/>:<OptionHistory question={q} activeId={activeId} selected={selected} onChoose={id=>{chooseBranch(id);setCompactView('writing')}} onSelect={key=>{select(key);setCompactView('writing')}} onAdd={()=>setModal('option')} onRename={id=>{setRenamingId(id);setModal('rename-option')}}/>)}
+   </aside>
    {leftOpen&&<PanelResizer side="left" value={overviewOpen?overviewWidth:lw} min={200} max={620} controls="history-panel" onChange={v=>overviewOpen?setOverviewWidth(v):onPreferences({...preferences,leftWidth:v})}/>}
 
    <main className="writing-panel" id="writing-panel"><div className="editor-toolbar"><nav className="question-tabs" aria-label="자소서 문항">{a.questions.map((n,i)=><button key={n.id} className={n.id===q.id?'active':''} aria-current={n.id===q.id?'page':undefined} onClick={()=>navigate('/write/'+a.id+'/'+n.id)}>Q{i+1}</button>)}<IconButton label="문항 추가·수정" onClick={()=>navigate('/posting/'+a.id)}><Plus size={16}/></IconButton></nav>
@@ -262,10 +268,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
     </div></div>
     <div className={'writing-content'+(comparing?' is-comparing':'')}>
      <div className="essay-context">
-      <div className="essay-context-origin">
-       <BackLink className="essay-context-back" to="/applications">지원 현황</BackLink>
-       <div className="essay-company"><strong>{a.company}</strong><span>{a.role}</span></div>
-      </div>
+      <div className="essay-company"><strong>{a.company}</strong><span>{a.role}</span></div>
       <div className="essay-context-actions">
        <button type="button" className="button essay-submission-button" onClick={()=>setModal('submission')}>
         <FileText size={15} aria-hidden="true"/>제출본
