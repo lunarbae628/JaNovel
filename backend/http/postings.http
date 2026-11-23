@@ -1,0 +1,27 @@
+@baseUrl = http://127.0.0.1:8080
+@postingUrl = https://recruit.wanted.co.kr/wd/391542
+
+### 공개 공고 가져오기 (200)
+POST {{baseUrl}}/api/postings/import
+Content-Type: application/json
+Accept: application/json
+
+{
+  "url": "{{postingUrl}}"
+}
+
+### URL 누락 (400 INVALID_REQUEST)
+POST {{baseUrl}}/api/postings/import
+Content-Type: application/json
+Accept: application/json
+
+{}
+
+### 서버 내부 주소 (400 INVALID_POSTING_URL)
+POST {{baseUrl}}/api/postings/import
+Content-Type: application/json
+Accept: application/json
+
+{
+  "url": "http://127.0.0.1/posting"
+}
