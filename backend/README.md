@@ -4,13 +4,19 @@ Java 21·Spring Boot 백엔드다. PostgreSQL 스키마와 JPA 엔티티, 공고
 
 ## 공고 링크 가져오기
 
-공개 공고 링크는 HTTP·Jsoup으로 먼저 읽고, 상세 본문이 부족하면 로컬 Chromium을 재사용해 렌더링된 텍스트를 읽는다. 확인 화면에서 **이미지로 다시 가져오기**를 누르거나 이미지 파일을 첨부하면 로컬 OCR을 호출한다. 화면에서 등록한 지원 건은 현재 브라우저에 저장된다. [API 명세와 실행 예제](../docs/api/README.md)
+공개 공고 링크는 HTTP·Jsoup으로 먼저 읽고, 상세 본문이 부족하면 Chromium으로 렌더링해서 읽는다. Java가 수집한 본문을 OpenAI Responses API로 전달한다. **정확하게 가져오기**나 **다시 시도하기**는 공고 영역을 캡처해 모델에 보내고, 사용자 첨부 이미지도 바로 모델에 보낸다. 화면에서 등록한 지원 건은 현재 브라우저에 저장된다. [API 명세와 실행 예제](../docs/api/README.md)
 
-브라우저 경로를 쓰려면 `backend/`에서 `./gradlew installPostingBrowser`를 한 번 실행한다. 이미 설치된 Chrome을 사용할 때는 `JANOVEL_POSTINGS_BROWSER_CHANNEL=chrome`으로 백엔드를 실행한다. OCR을 쓸 때는 다른 터미널에서 Python 서비스를 켠다. 기본 주소는 `http://127.0.0.1:8091`이며, 다른 주소를 쓰면 `JANOVEL_POSTINGS_OCR_URL`로 지정한다. [OCR 설치와 실행](ocr/README.md)
+`backend/.env`의 `OPENAI_API_KEY=` 뒤에 키를 넣고 `backend/`에서 백엔드를 실행한다. 배포 환경에서는 같은 이름의 환경 변수를 지정할 수 있다. 키가 비어 있으면 서버는 시작되고 공고 가져오기 요청에 `503 POSTING_MODEL_UNAVAILABLE`을 반환한다. [OpenAI API 키 가이드](https://developers.openai.com/api/docs/quickstart)
 
-브라우저 워커는 기본 두 개다. 첫 번째 워커가 사용 중일 때 두 번째 워커를 사용한다. 브라우저 메모리가 제한된 환경에서는 `JANOVEL_POSTINGS_BROWSER_WORKERS=1`로 실행한다. [동시 처리 검증](../docs/planning/07-posting-concurrency.md)
+공고 모델의 기본값은 `gpt-6-luna`다. 다른 모델을 쓰려면 같은 파일이나 배포 환경에 `OPENAI_POSTING_MODEL`을 지정하고 백엔드를 다시 실행한다. 모델은 Responses API의 이미지 입력과 Structured Outputs를 지원해야 한다.
 
-OCR은 Java에서 작업을 접수하고 프론트가 완료 상태를 조회한다. 작업은 단일 Java 인스턴스의 메모리에 저장하고, 실행 슬롯 외에는 최대 세 건까지 대기시킨다. 실행 슬롯은 기본 한 개다. Python을 `--workers 2` 또는 `--workers 3`으로 실행하면 Java도 `JANOVEL_POSTINGS_OCR_WORKERS`에 같은 수를 지정한다. [OCR 작업 API](../docs/api/README.md#공고-이미지-가져오기)
+```dotenv
+OPENAI_POSTING_MODEL=gpt-5.4-mini-2026-03-17
+```
+
+브라우저 경로를 쓰려면 `backend/`에서 `./gradlew installPostingBrowser`를 한 번 실행한다. 이미 설치된 Chrome을 사용할 때는 `JANOVEL_POSTINGS_BROWSER_CHANNEL=chrome`으로 백엔드를 실행한다. 브라우저 워커는 기본 두 개이며 `JANOVEL_POSTINGS_BROWSER_WORKERS=1`로 줄일 수 있다.
+
+이미지 요청은 작업을 접수하고 프론트가 완료 상태를 조회한다. 대기열은 최대 세 건, 실행 슬롯은 기본 한 개다. 링크에 쓰는 요청과 이미지에 쓰는 요청을 합쳐 한 인스턴스에서 OpenAI 호출을 최대 네 건 처리한다. [구조화 계획과 검증](../docs/planning/08-posting-structured-import.md)
 
 ## 스키마와 패키지
 

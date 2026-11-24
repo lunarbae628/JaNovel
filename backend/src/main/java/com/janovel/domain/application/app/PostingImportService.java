@@ -1,7 +1,7 @@
 package com.janovel.domain.application.app;
 
 import com.janovel.domain.application.client.PostingBrowserClient;
-import com.janovel.domain.application.client.PostingOcrClient;
+import com.janovel.domain.application.client.PostingModelClient;
 import com.janovel.domain.application.client.PostingPageClient;
 import com.janovel.domain.application.dto.ImportedPosting;
 import com.janovel.domain.application.exception.PostingErrorCode;
@@ -35,21 +35,28 @@ public class PostingImportService {
 
     private final PostingPageClient pageClient;
     private final PostingBrowserClient browserClient;
-    private final PostingOcrClient ocrClient;
+    private final PostingModelClient modelClient;
     private final JsonMapper jsonMapper;
     private final Semaphore availableHttpRequests = new Semaphore(8);
 
     public PostingImportService(PostingPageClient pageClient, PostingBrowserClient browserClient,
-                                PostingOcrClient ocrClient, JsonMapper jsonMapper) {
+                                PostingModelClient modelClient, JsonMapper jsonMapper) {
         this.pageClient = pageClient;
         this.browserClient = browserClient;
-        this.ocrClient = ocrClient;
+        this.modelClient = modelClient;
         this.jsonMapper = jsonMapper;
     }
 
     public ImportedPosting importPosting(String url) {
+        validateUrl(url);
+        requireModel();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(27);
+        return modelClient.classifyText(collectText(url), deadline);
+    }
+
+    private String collectText(String url) {
         try {
-            ImportedPosting initial = extract(fetchPage(url));
+            String initial = extract(fetchPage(url));
             if (initial != null) {
                 return initial;
             }
@@ -59,7 +66,7 @@ public class PostingImportService {
                 throw exception;
             }
         }
-        ImportedPosting rendered = extract(browserClient.render(url));
+        String rendered = extract(browserClient.render(url));
         if (rendered == null) {
             throw new CustomException(PostingErrorCode.POSTING_UNREADABLE);
         }
@@ -71,14 +78,22 @@ public class PostingImportService {
     }
 
     public ImportedPosting importImage(byte[] image, String contentType, long deadline) {
-        String text = ocrClient.read(image, contentType, deadline).strip();
-        if (text.isBlank()) {
-            throw new CustomException(PostingErrorCode.POSTING_TEXT_NOT_FOUND);
-        }
-        return new ImportedPosting("", "", "", limit(text, 30_000));
+        return modelClient.classifyImage(image, contentType, deadline);
     }
 
-    private ImportedPosting extract(Document page) {
+    void requireModel() {
+        modelClient.requireConfigured();
+    }
+
+    static void validateUrl(String url) {
+        try {
+            PostingPageClient.validate(URI.create(url.strip()));
+        } catch (IllegalArgumentException exception) {
+            throw new CustomException(PostingErrorCode.INVALID_POSTING_URL, exception);
+        }
+    }
+
+    private String extract(Document page) {
         JsonNode job = readJobPosting(page);
 
         String role = job.path("title").asString("");
@@ -125,12 +140,10 @@ public class PostingImportService {
             return null;
         }
 
-        return new ImportedPosting(
-                limit(company.strip(), 100),
-                limit(role.strip(), 150),
-                deadline,
-                limit(sourceText, 30_000)
-        );
+        String metadata = (company.isBlank() ? "" : "회사명: " + limit(company.strip(), 100) + "\n")
+                + (role.isBlank() ? "" : "공고 제목: " + limit(role.strip(), 150) + "\n")
+                + (deadline.isBlank() ? "" : "마감일: " + deadline + "\n");
+        return limit(metadata + sourceText, 30_000);
     }
 
     private Document fetchPage(String url) {
@@ -218,6 +231,7 @@ public class PostingImportService {
     private String postingText(Element element) {
         Element content = element.clone();
         content.select("script,style,noscript,template,[hidden]").remove();
+        content.select("th,td").forEach(cell -> cell.after(new TextNode(" ")));
         content.select("h1,h2,h3,h4,h5,h6,p,li,tr,div,section,blockquote")
                 .forEach(block -> block.after(new TextNode("\n")));
         return content.wholeText().lines()

@@ -1,5 +1,5 @@
 @baseUrl = http://127.0.0.1:8080
-@postingUrl = https://recruit.wanted.co.kr/wd/391542
+@postingUrl = https://kpgroup.recruiter.co.kr/career/jobs/133045
 
 ### 공개 공고 가져오기 (200)
 POST {{baseUrl}}/api/postings/import
@@ -10,12 +10,17 @@ Accept: application/json
   "url": "{{postingUrl}}"
 }
 
+?? status == 200
+
 ### URL 누락 (400 INVALID_REQUEST)
 POST {{baseUrl}}/api/postings/import
 Content-Type: application/json
 Accept: application/json
 
 {}
+
+?? status == 400
+?? body error == INVALID_REQUEST
 
 ### 서버 내부 주소 (400 INVALID_POSTING_URL)
 POST {{baseUrl}}/api/postings/import
@@ -25,3 +30,6 @@ Accept: application/json
 {
   "url": "http://127.0.0.1/posting"
 }
+
+?? status == 400
+?? body error == INVALID_POSTING_URL

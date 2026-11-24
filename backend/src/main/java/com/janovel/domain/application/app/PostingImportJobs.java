@@ -1,7 +1,6 @@
 package com.janovel.domain.application.app;
 
-import com.janovel.domain.application.client.PostingOcrClient;
-import com.janovel.domain.application.client.PostingPageClient;
+import com.janovel.domain.application.client.PostingModelClient;
 import com.janovel.domain.application.dto.ImportedPosting;
 import com.janovel.domain.application.dto.PostingImportJobStatus;
 import com.janovel.domain.application.dto.PostingImportJobStatus.Status;
@@ -9,7 +8,6 @@ import com.janovel.domain.application.exception.PostingErrorCode;
 import com.janovel.global.exception.CustomException;
 import com.janovel.global.exception.ErrorResponse;
 import jakarta.annotation.PreDestroy;
-import java.net.URI;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,27 +40,25 @@ public class PostingImportJobs {
     private final int capacity;
 
     public PostingImportJobs(PostingImportService imports,
-                             @Value("${janovel.postings.ocr-workers:1}") int capacity) {
+                             @Value("${janovel.postings.image-workers:1}") int capacity) {
         if (capacity < 1 || capacity > 3) {
-            throw new IllegalArgumentException("공고 OCR 실행 슬롯은 1개에서 3개까지 지정할 수 있습니다.");
+            throw new IllegalArgumentException("공고 이미지 실행 슬롯은 1개에서 3개까지 지정할 수 있습니다.");
         }
         this.imports = imports;
         this.capacity = capacity;
         this.executor = new ThreadPoolExecutor(capacity, capacity, 0, TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(QUEUE_CAPACITY), Thread.ofPlatform().daemon().name("posting-ocr-", 1).factory());
+                new ArrayBlockingQueue<>(QUEUE_CAPACITY), Thread.ofPlatform().daemon().name("posting-image-", 1).factory());
     }
 
     public PostingImportJobStatus submitLink(String url) {
-        try {
-            PostingPageClient.validate(URI.create(url.strip()));
-        } catch (IllegalArgumentException exception) {
-            throw new CustomException(PostingErrorCode.INVALID_POSTING_URL, exception);
-        }
+        PostingImportService.validateUrl(url);
+        imports.requireModel();
         return submit(LINK_ESTIMATE, deadline -> imports.retryWithImage(url, deadline));
     }
 
     public PostingImportJobStatus submitImage(byte[] image, String contentType) {
-        PostingOcrClient.validateImage(image, contentType);
+        PostingModelClient.validateImage(image, contentType);
+        imports.requireModel();
         return submit(IMAGE_ESTIMATE, deadline -> imports.importImage(image, contentType, deadline));
     }
 
@@ -173,8 +169,8 @@ public class PostingImportJobs {
             } catch (CustomException exception) {
                 failure = ErrorResponse.from(exception.getErrorCode());
             } catch (RuntimeException exception) {
-                LOG.warn("Posting OCR job {} failed ({})", id, exception.getClass().getSimpleName());
-                failure = ErrorResponse.from(PostingErrorCode.POSTING_OCR_FAILED);
+                LOG.warn("Posting image job {} failed ({})", id, exception.getClass().getSimpleName());
+                failure = ErrorResponse.from(PostingErrorCode.POSTING_MODEL_FAILED);
             } finally {
                 synchronized (PostingImportJobs.this) {
                     running = false;
@@ -187,7 +183,7 @@ public class PostingImportJobs {
                             result = completed;
                             status = Status.COMPLETED;
                         } else {
-                            error = failure != null ? failure : ErrorResponse.from(PostingErrorCode.POSTING_OCR_FAILED);
+                            error = failure != null ? failure : ErrorResponse.from(PostingErrorCode.POSTING_MODEL_FAILED);
                             status = Status.FAILED;
                         }
                     }

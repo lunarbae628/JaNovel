@@ -39,7 +39,7 @@ public class PostingImportController {
         return postingImportService.importPosting(request.url());
     }
 
-    @PostMapping("/import/ocr")
+    @PostMapping({"/import/retry", "/import/ocr"})
     public ResponseEntity<PostingImportJobStatus> retryWithImage(@Valid @RequestBody PostingImportRequest request) {
         return accepted(jobs.submitLink(request.url()));
     }

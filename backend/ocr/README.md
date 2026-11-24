@@ -1,5 +1,7 @@
 # JaNovel 로컬 OCR
 
+이 문서는 로컬 OCR 경로를 사용한 당시 기획과 검증 기록이다. [현재 공고 가져오기](../../docs/planning/08-posting-structured-import.md)
+
 Python 3.10 환경에서 아래 명령으로 실행한다.
 
 ```sh

@@ -1,7 +1,7 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ExternalLink, FileText, Image, Link, Plus, ScanText, Trash2, Upload} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ExternalLink, FileText, Image, Link, Plus, RotateCw, Trash2, Upload} from 'lucide-react';
 import {BackLink, Field, IconButton, Modal, Notice} from '../components/UI.jsx';
-import {createQuestion, importPostingText, postingSections, safeUrl, uid} from '../model.js';
+import {createQuestion, postingSections, safeUrl, uid} from '../model.js';
 import {createApplication} from '../seed.js';
 import {getAttachment, putAttachment} from '../storage.js';
 import {StageFields} from './Applications.jsx';
@@ -14,6 +14,7 @@ const defaultStages = ['서류 전형', '기술 면접', '최종 면접'];
 const imageTypes = ['image/png', 'image/jpeg', 'image/webp'];
 const suggestedSections = ['주요 업무', '지원 요건', '우대 사항'];
 const importFailure = '공고 내용을 가져오지 못했어요. 직접 입력할 수 있어요.';
+const retryFailure = '공고를 다시 가져오지 못했어요. 원문을 보면서 직접 수정할 수 있어요.';
 
 function waitBeforePolling(response, signal) {
   const retryAfter = response.headers.get('Retry-After');
@@ -261,15 +262,16 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
   async function loadPosting(path, input) {
     if (importRequest.current || saving) return;
     const isUpload = path === 'import-image';
-    const isRetry = path === 'import/ocr';
-    const isOcr = isUpload || isRetry;
+    const isRetry = path === 'import/retry';
+    const isImageJob = isUpload || isRetry;
     const body = isUpload ? new FormData() : JSON.stringify({url:input});
     if (isUpload) body.set('image', input);
 
     const request = new AbortController();
     importRequest.current = request;
-    const timeout = setTimeout(() => request.abort(), isOcr ? 25_000 : 30_000);
-    setImportProgress(isOcr ? '이미지를 읽을 준비 중이에요.' : '링크에서 공고 내용을 읽고 있어요.');
+    const timeout = setTimeout(() => request.abort(), isImageJob ? 25_000 : 30_000);
+    setImportProgress(isRetry ? '공고를 다시 가져오는 중이에요.'
+      : isUpload ? '이미지를 읽을 준비 중이에요.' : '링크에서 공고 내용을 읽고 있어요.');
     setImportNotice('');
     try {
       let response = await fetch('/api/postings/' + path, {
@@ -279,40 +281,46 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
         signal: request.signal,
       });
       let payload = await response.json();
-      if (isOcr && response.status === 202) {
+      if (isImageJob && response.status === 202) {
         if (payload?.status !== 'QUEUED' || typeof payload.jobId !== 'string' || !payload.jobId) {
-          throw new Error('Invalid OCR job');
+          throw new Error('Invalid posting job');
         }
         const jobUrl = '/api/postings/import-jobs/' + encodeURIComponent(payload.jobId);
         while (response.ok && (payload?.status === 'QUEUED' || payload?.status === 'PROCESSING')) {
           if (importRequest.current !== request) return;
-          setImportProgress(payload.status === 'QUEUED' ? '이미지 읽기를 기다리는 중이에요.' : '이미지에서 공고 내용을 읽는 중이에요.');
+          if (isRetry) {
+            setImportProgress(payload.status === 'QUEUED' ? '공고를 다시 읽을 차례를 기다리고 있어요.' : '공고를 다시 읽고 있어요.');
+          } else {
+            setImportProgress(payload.status === 'QUEUED' ? '이미지 읽기를 기다리는 중이에요.' : '이미지에서 공고 내용을 읽는 중이에요.');
+          }
           await waitBeforePolling(response, request.signal);
           response = await fetch(jobUrl, {signal:request.signal, cache:'no-store'});
           payload = await response.json();
         }
       }
       if (importRequest.current !== request) return;
-      if (response.ok && (!isOcr || payload?.status === 'COMPLETED')) {
-        const imported = isOcr ? payload.result : payload;
-        const parsed = importPostingText(imported.sourceText);
+      if (response.ok && (!isImageJob || payload?.status === 'COMPLETED')) {
+        const imported = isImageJob ? payload.result : payload;
         const extracted = {
-          company: (imported.company || parsed.company).slice(0, 100),
-          role: (imported.role || parsed.role).slice(0, 150),
-          deadline: imported.deadline || parsed.deadline,
-          sections: parsed.sections.map(section => ({...section, id:uid('section')})),
-          stages: parsed.stages,
-          questions: parsed.questions,
+          company: imported.company,
+          role: imported.role,
+          deadline: imported.deadline,
+          deadlineTime: imported.deadlineTime,
+          sections: imported.sections.map(section => ({...section, id:uid('section')})),
+          stages: imported.stages,
+          questions: imported.questions.map(question => ({...question, limit:question.limit ?? 1000})),
         };
+        const firstImport = !importedSource.current;
         const updates = Object.fromEntries(Object.entries(extracted).filter(([key, value]) =>
-          value.length && !editedFields.current.has(key)));
+          !editedFields.current.has(key) && (value.length || key === 'stages' && firstImport)));
         setData(current => ({...current, ...updates}));
         importedSource.current = input;
-        setSourceText(imported.sourceText);
-        if (isRetry) setImportNotice('이미지에서 읽은 내용을 확인해 주세요.');
+        if (imported.sourceText) setSourceText(imported.sourceText);
+        if (isRetry) setImportNotice('다시 가져온 내용을 확인해 주세요.');
       } else {
-        const problem = response.ok && isOcr ? payload?.error : payload;
-        setImportNotice(typeof problem?.message === 'string' && problem.message ? problem.message : importFailure);
+        const problem = response.ok && isImageJob ? payload?.error : payload;
+        const message = typeof problem?.message === 'string' && problem.message ? problem.message : importFailure;
+        setImportNotice(isRetry ? retryFailure : message);
       }
       setReview(true);
     } catch {
@@ -406,7 +414,7 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
       : review && <Modal title={existing ? '공고 정보 수정' : '공고 내용 확인'} className="posting-review-modal" onClose={closeReview}>
       <form className="posting-review-form" onSubmit={submit}>
         <div className="posting-review-scroll">
-          {!existing && <p className="posting-review-intro">{referenceText
+          {!existing && <p className="posting-review-intro">{importedSource.current
             ? '가져온 내용을 확인하고 필요한 부분을 수정하세요.'
             : '회사와 직무를 입력하고 작성할 자소서 문항을 추가하세요.'}</p>}
           {importNotice && <Notice>{importNotice}</Notice>}
@@ -416,8 +424,8 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
                 <ExternalLink size={15} aria-hidden="true"/>공고 원문 열기
               </a>
               {canRetryLink && <button className="button small posting-retry-button" type="button" disabled={saving}
-                onClick={() => {preparedSource.current = referenceLink;loadPosting('import/ocr', referenceLink);}}>
-                <ScanText size={16} aria-hidden="true"/>이미지로 다시 가져오기
+                onClick={() => {preparedSource.current = referenceLink;loadPosting('import/retry', referenceLink);}}>
+                <RotateCw size={16} aria-hidden="true"/>{importedSource.current ? '정확하게 가져오기' : '다시 시도하기'}
               </button>}
             </div>}
             {(referenceImage || referenceText) && <details className="posting-original">
