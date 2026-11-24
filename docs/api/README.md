@@ -32,7 +32,7 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
 
 상태 `구현됨`
 
-`POST /api/postings/import`는 공개 공고 HTML에서 지원 건 등록에 필요한 값을 읽어 반환한다. 인증 없이 호출할 수 있으며, 가져온 값은 확인 화면에서 수정한 후 등록한다. [컨트롤러](../../backend/src/main/java/com/janovel/domain/application/api/PostingImportController.java)
+`POST /api/postings/import`는 공개 공고 HTML에서 지원 건 등록에 필요한 값을 읽어 반환한다. 본문이 부족하면 브라우저를 렌더링해서 읽는다. 인증 없이 호출할 수 있으며, 가져온 값은 확인 화면에서 수정한 후 등록한다. [컨트롤러](../../backend/src/main/java/com/janovel/domain/application/api/PostingImportController.java)
 
 ### 요청
 
@@ -74,8 +74,11 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
 | --- | --- | --- |
 | `400` | `INVALID_REQUEST` | JSON 형식이 잘못되었거나 본문 또는 `url`이 비어 있거나 `url` 길이 제한을 넘었다. |
 | `400` | `INVALID_POSTING_URL` | URL 형식이 잘못되었거나 내부 주소 등 허용하지 않는 주소다. |
-| `502` | `POSTING_UNREADABLE` | 공고 페이지가 오류를 반환했거나 읽을 수 있는 HTML 본문을 가져오지 못했다. |
-| `504` | `POSTING_TIMEOUT` | 공고 페이지를 읽는 중 응답 제한 시간을 넘겼다. |
+| `502` | `POSTING_UNREADABLE` | 공고 페이지 응답 오류, 접근 제한 또는 상세 본문 미확인이다. |
+| `503` | `POSTING_IMPORT_BUSY` | 공고를 가져오는 작업이 처리 한도에 도달했다. |
+| `504` | `POSTING_TIMEOUT` | 공고를 읽는 중 제한 시간을 넘겼다. |
+
+브라우저와 OCR의 동시 요청 한도와 실측 결과는 [동시 처리 검증](../planning/07-posting-concurrency.md)에서 확인할 수 있다.
 
 ```json
 {
@@ -84,3 +87,20 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
   "error": "INVALID_POSTING_URL"
 }
 ```
+
+## 공고 이미지 가져오기
+
+상태 `구현됨`
+
+- `POST /api/postings/import/ocr`는 기존 `{"url":"https://…"}`를 받아 공고 본문을 캡처해 OCR로 읽는다. 확인 화면에서 사용자가 재시도를 선택할 때 호출한다.
+- `POST /api/postings/import-image`는 `multipart/form-data`의 `image` 파일 한 개를 받아 OCR로 읽는다. PNG·JPEG·WebP를 지원하며 파일은 최대 10 MiB다.
+
+두 OCR 요청은 작업을 접수하면 `202 Accepted`와 `Location`을 반환한다. `Location`에서 상태를 조회할 수 있다. 접수 한도를 넘으면 `503 POSTING_IMPORT_BUSY`를 반환한다.
+
+```json
+{"jobId":"3e0f7de1-970c-44b3-8231-a5a0ffdf93d3","status":"QUEUED"}
+```
+
+`GET /api/postings/import-jobs/{jobId}`는 `200`과 현재 작업 상태를 반환한다. `QUEUED`, `PROCESSING`이면 `Retry-After: 1`에 따라 잠시 뒤 조회한다. `COMPLETED`면 `result`에 기존 공고 가져오기 응답이 있고, 이미지에서 읽은 본문은 `sourceText`에 들어간다. `FAILED`면 `error`에 `status`, `message`, `error`가 있다. 완료·실패 결과는 최대 2분간 조회할 수 있으며, 작업이 없거나 조회 기간이 지나면 `404 POSTING_IMPORT_JOB_NOT_FOUND`를 반환한다.
+
+사용자는 OCR 완료까지 로딩 화면에서 기다린다. 결과가 도착하면 확인 화면에 채우고, 실패하면 원문을 보면서 재시도하거나 직접 입력할 수 있다. [실행 예제](../../backend/http/posting-ocr.http) · [OCR 내부 계약과 오류 응답](../planning/06-posting-ocr-plan.md#api-명세)
