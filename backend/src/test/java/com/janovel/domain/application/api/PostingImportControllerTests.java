@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.janovel.domain.application.app.PostingImportService;
+import com.janovel.domain.application.app.PostingImportJobs;
+import com.janovel.domain.application.client.PostingBrowserClient;
+import com.janovel.domain.application.client.PostingOcrClient;
 import com.janovel.domain.application.client.PostingPageClient;
 import com.janovel.global.exception.GlobalExceptionHandler;
 import org.jsoup.Jsoup;
@@ -56,7 +59,9 @@ class PostingImportControllerTests {
 
     private MockMvc mvc(PostingPageClient client) {
         return MockMvcBuilders
-                .standaloneSetup(new PostingImportController(new PostingImportService(client, JsonMapper.builder().build())))
+                .standaloneSetup(new PostingImportController(new PostingImportService(client,
+                        mock(PostingBrowserClient.class), mock(PostingOcrClient.class), JsonMapper.builder().build()),
+                        mock(PostingImportJobs.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

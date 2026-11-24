@@ -26,6 +26,7 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.apache.httpcomponents.client5:httpclient5'
 	implementation 'org.jsoup:jsoup:1.24.1'
+	implementation 'com.microsoft.playwright:playwright:1.65.1'
 	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
@@ -41,4 +42,10 @@ dependencies {
 
 tasks.withType(Test).configureEach {
 	useJUnitPlatform()
+}
+
+tasks.register('installPostingBrowser', JavaExec) {
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'com.microsoft.playwright.CLI'
+	args 'install', 'chromium'
 }

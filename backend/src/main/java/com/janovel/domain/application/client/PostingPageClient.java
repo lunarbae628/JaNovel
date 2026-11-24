@@ -14,12 +14,14 @@ import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.io.CloseMode;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
@@ -31,7 +33,10 @@ public class PostingPageClient implements AutoCloseable {
     private static final Set<String> HTML_TYPES = Set.of("text/html", "application/xhtml+xml");
     private static final Set<Integer> REDIRECT_CODES = Set.of(301, 302, 303, 307, 308);
 
-    private final CloseableHttpClient client = HttpClients.custom()
+    private final CloseableHttpClient client;
+
+    public PostingPageClient() {
+        this(HttpClients.custom()
             .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                     .setDnsResolver(new PublicPostingDnsResolver())
                     .setDefaultConnectionConfig(ConnectionConfig.custom()
@@ -46,7 +51,12 @@ public class PostingPageClient implements AutoCloseable {
             .disableRedirectHandling()
             .disableAutomaticRetries()
             .disableCookieManagement()
-            .build();
+            .build());
+    }
+
+    PostingPageClient(CloseableHttpClient client) {
+        this.client = client;
+    }
 
     public Document fetch(String url) throws IOException {
         URI uri = URI.create(url.strip());
@@ -56,24 +66,23 @@ public class PostingPageClient implements AutoCloseable {
             checkTime(deadline);
             HttpGet request = new HttpGet(uri);
             request.setHeader("Accept", "text/html, application/xhtml+xml");
-            try (var response = client.executeOpen(null, request, null)) {
-                try {
-                    if (REDIRECT_CODES.contains(response.getCode())) {
-                        Header location = response.getFirstHeader("Location");
-                        if (location == null) {
-                            throw new IOException("공고 이동 주소가 없습니다.");
-                        }
-                        uri = uri.resolve(location.getValue());
-                        continue;
+            var response = (CloseableHttpResponse) client.executeOpen(null, request, null);
+            try {
+                if (REDIRECT_CODES.contains(response.getCode())) {
+                    Header location = response.getFirstHeader("Location");
+                    if (location == null) {
+                        throw new IOException("공고 이동 주소가 없습니다.");
                     }
-                    if (response.getCode() < 200 || response.getCode() > 299) {
-                        throw new IOException("공고 페이지가 오류를 반환했습니다.");
-                    }
-                    return readPage(response.getEntity(), uri, deadline);
-                } finally {
-                    // Discard unread redirect or error bodies instead of draining them on close.
-                    request.cancel();
+                    uri = uri.resolve(location.getValue());
+                    continue;
                 }
+                if (response.getCode() < 200 || response.getCode() > 299) {
+                    throw new IOException("공고 페이지가 오류를 반환했습니다.");
+                }
+                return readPage(response.getEntity(), uri, deadline);
+            } finally {
+                // Discard remaining response bytes without waiting for more chunks.
+                response.close(CloseMode.IMMEDIATE);
             }
         }
         throw new IOException("공고 페이지의 이동 횟수가 너무 많습니다.");
@@ -96,7 +105,7 @@ public class PostingPageClient implements AutoCloseable {
         return Jsoup.parse(new ByteArrayInputStream(bytes), charset, uri.toString());
     }
 
-    private void validate(URI uri) {
+    public static void validate(URI uri) {
         String scheme = uri.getScheme() != null ? uri.getScheme().toLowerCase(Locale.ROOT) : "";
         if (uri.toString().length() > 2048 || (!scheme.equals("http") && !scheme.equals("https"))
                 || uri.getUserInfo() != null) {

@@ -1,0 +1,61 @@
+@baseUrl = http://127.0.0.1:8080
+@ocrUrl = http://127.0.0.1:8091
+@postingUrl = https://careers.nhn.com/recruits/4188040849792836347
+
+# 이미지 접수 예제를 실행하려면 이 파일 옆에 posting.png를 둔다.
+# 상태가 QUEUED나 PROCESSING이면 Retry-After 뒤 같은 Location을 다시 GET한다.
+# curl -i "http://127.0.0.1:8080/api/postings/import-jobs/JOB_ID"
+
+### 렌더링 후 공고 텍스트 가져오기
+POST {{baseUrl}}/api/postings/import
+Content-Type: application/json
+
+{"url":"{{postingUrl}}"}
+
+?? status == 200
+
+### OCR 준비 상태
+GET {{ocrUrl}}/readyz
+
+### 공고 링크 캡처 OCR 접수
+# @name enqueueLinkOcr
+POST {{baseUrl}}/api/postings/import/ocr
+Content-Type: application/json
+
+{"url":"{{postingUrl}}"}
+
+?? status == 202
+?? header location startsWith /api/postings/import-jobs/
+?? body status == QUEUED
+
+### 공고 링크 OCR 상태 조회
+# @name getLinkOcrJob
+# @ref enqueueLinkOcr
+GET {{baseUrl}}/api/postings/import-jobs/{{enqueueLinkOcr.jobId}}
+
+?? status == 200
+?? body status matches ^(QUEUED|PROCESSING|COMPLETED|FAILED)$
+
+### 첨부 공고 이미지 OCR 접수
+# @name enqueueImageOcr
+POST {{baseUrl}}/api/postings/import-image
+Content-Type: multipart/form-data; boundary=janovel-posting-image
+
+--janovel-posting-image
+Content-Disposition: form-data; name="image"; filename="posting.png"
+Content-Type: image/png
+
+< ./posting.png
+--janovel-posting-image--
+
+?? status == 202
+?? header location startsWith /api/postings/import-jobs/
+?? body status == QUEUED
+
+### 첨부 이미지 OCR 상태 조회
+# @name getImageOcrJob
+# @ref enqueueImageOcr
+GET {{baseUrl}}/api/postings/import-jobs/{{enqueueImageOcr.jobId}}
+
+?? status == 200
+?? body status matches ^(QUEUED|PROCESSING|COMPLETED|FAILED)$
