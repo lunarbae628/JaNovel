@@ -135,6 +135,7 @@
   min-height: 0; display: grid; grid-template-rows: minmax(0,1fr) auto;
 }
 .posting-review-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 23px 8px; }
+.posting-review-fields { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
 .posting-review-group + .posting-review-group {
   margin-top: 19px; padding-top: 16px; border-top: 1px solid var(--border);
 }
