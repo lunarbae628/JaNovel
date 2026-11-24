@@ -1,5 +1,5 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ExternalLink, Image, Link, Plus, Trash2, Upload} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ExternalLink, FileText, Image, Link, Plus, ScanText, Trash2, Upload} from 'lucide-react';
 import {BackLink, Field, IconButton, Modal, Notice} from '../components/UI.jsx';
 import {createQuestion, importPostingText, postingSections, safeUrl, uid} from '../model.js';
 import {createApplication} from '../seed.js';
@@ -56,8 +56,7 @@ function useImagePreview(file, attachmentId) {
   return preview;
 }
 
-function PostingSource({type, onTypeChange, url, onUrlChange, file, onFileChange, preview, error, importProgress, onPrepare}) {
-  const importing = Boolean(importProgress);
+function PostingSource({type, onTypeChange, url, onUrlChange, file, onFileChange, preview, error, importing, onPrepare}) {
   return <main className="page posting-page posting-source-page">
     <BackLink className="page-back" to="/applications">지원 현황</BackLink>
     <div className="posting-intro">
@@ -85,7 +84,7 @@ function PostingSource({type, onTypeChange, url, onUrlChange, file, onFileChange
         {error && <Notice type="error">{error}</Notice>}
       </div>
       <div className="posting-source-footer">
-        <small role="status">{importProgress || '가져온 내용은 다음 화면에서 확인하고 수정할 수 있어요.'}</small>
+        <small>가져온 내용은 다음 화면에서 확인하고 수정할 수 있어요.</small>
         <button className="button primary" disabled={importing}>
           {importing ? '가져오는 중…' : (type === 'link' ? url.trim() : file) ? '공고 가져오기' : '직접 입력'}
           <ArrowRight size={16} aria-hidden="true"/>
@@ -93,6 +92,23 @@ function PostingSource({type, onTypeChange, url, onUrlChange, file, onFileChange
       </div>
     </form>
   </main>;
+}
+
+function PostingImportWaiting({progress, onClose, onManualEntry}) {
+  return <Modal title="공고 가져오는 중" className="posting-import-modal" onClose={onClose}>
+    <div className="posting-import-progress">
+      <div className="posting-import-icon"><FileText size={28} strokeWidth={1.6} aria-hidden="true"/></div>
+      <div className="posting-import-status">
+        <p role="status">{progress}</p>
+        <div className="posting-import-track" aria-hidden="true"/>
+      </div>
+    </div>
+    <div className="posting-import-actions">
+      <button type="button" className="button" onClick={onManualEntry}>
+        직접 입력하기 <ArrowRight size={16} aria-hidden="true"/>
+      </button>
+    </div>
+  </Modal>;
 }
 
 function PostingSectionFields({sections, onChange}) {
@@ -253,7 +269,7 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
     const request = new AbortController();
     importRequest.current = request;
     const timeout = setTimeout(() => request.abort(), isOcr ? 25_000 : 30_000);
-    setImportProgress(isOcr ? '이미지를 읽을 준비 중이에요.' : '공고 내용을 불러오는 중이에요.');
+    setImportProgress(isOcr ? '이미지를 읽을 준비 중이에요.' : '링크에서 공고 내용을 읽고 있어요.');
     setImportNotice('');
     try {
       let response = await fetch('/api/postings/' + path, {
@@ -322,6 +338,13 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
     }
   }
 
+  function enterManually() {
+    cancelImport();
+    setImportNotice('');
+    setError('');
+    setReview(true);
+  }
+
   async function submit(event) {
     event.preventDefault();
     if (saving || importRequest.current) return;
@@ -378,32 +401,44 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
   return <>
     {!existing && <PostingSource type={type} onTypeChange={value => {setType(value);setError('');}}
       url={url} onUrlChange={event => updateUrl(event.target.value)}
-      file={file} onFileChange={selectImage} preview={preview} error={review ? '' : error} importProgress={importProgress} onPrepare={prepare}/>}
-    {review && <Modal title={existing ? '공고 정보 수정' : '공고 내용 확인'} className="posting-review-modal" onClose={closeReview}>
+      file={file} onFileChange={selectImage} preview={preview} error={review ? '' : error} importing={importing} onPrepare={prepare}/>}
+    {importing ? <PostingImportWaiting progress={importProgress} onClose={closeReview} onManualEntry={enterManually}/>
+      : review && <Modal title={existing ? '공고 정보 수정' : '공고 내용 확인'} className="posting-review-modal" onClose={closeReview}>
       <form className="posting-review-form" onSubmit={submit}>
         <div className="posting-review-scroll">
-          {importProgress && <Notice>{importProgress}</Notice>}
+          {!existing && <p className="posting-review-intro">{referenceText
+            ? '가져온 내용을 확인하고 필요한 부분을 수정하세요.'
+            : '회사와 직무를 입력하고 작성할 자소서 문항을 추가하세요.'}</p>}
           {importNotice && <Notice>{importNotice}</Notice>}
           {(referenceImage || referenceText || referenceLink) && <div className="posting-review-source">
-            {referenceLink && <a className="button small" href={referenceLink} target="_blank" rel="noopener noreferrer">
-              <ExternalLink size={14} aria-hidden="true"/>공고 원문 링크
-            </a>}
-            {canRetryLink && <button className="button small" type="button" disabled={importing || saving}
-              onClick={() => {preparedSource.current = referenceLink;loadPosting('import/ocr', referenceLink);}}>
-              <Image size={14} aria-hidden="true"/>{importing ? '이미지에서 읽는 중…' : '이미지로 다시 가져오기'}
-            </button>}
+            {referenceLink && <div className="posting-source-actions">
+              <a className="button small" href={referenceLink} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={15} aria-hidden="true"/>공고 원문 열기
+              </a>
+              {canRetryLink && <button className="button small posting-retry-button" type="button" disabled={saving}
+                onClick={() => {preparedSource.current = referenceLink;loadPosting('import/ocr', referenceLink);}}>
+                <ScanText size={16} aria-hidden="true"/>이미지로 다시 가져오기
+              </button>}
+            </div>}
             {(referenceImage || referenceText) && <details className="posting-original">
-              <summary>공고 원문 보기</summary>
+              <summary>{referenceImage && referenceText ? '첨부 이미지와 원문 보기'
+                : referenceImage ? '첨부 이미지 보기' : '가져온 원문 보기'}</summary>
               {referenceImage && <img className="posting-image" src={referenceImage} alt="첨부한 공고 이미지"/>}
               {referenceText && <p>{referenceText}</p>}
             </details>}
           </div>}
-          <fieldset className="posting-review-fields" disabled={importing}>
+          <fieldset className="posting-review-fields" disabled={saving}>
             <section className="posting-review-group" aria-labelledby="posting-basics-title">
               <div className="posting-group-heading"><h3 id="posting-basics-title">기본 정보</h3></div>
-              <div className="form-grid">
-                <Field label="회사"><input value={data.company} onChange={event => change('company', event.target.value)} maxLength={100} required/></Field>
-                <Field label="직무"><input value={data.role} onChange={event => change('role', event.target.value)} maxLength={150} required/></Field>
+              <div className="posting-basics-grid">
+                <Field label={<>회사 <span className="posting-required" aria-hidden="true">*</span></>}>
+                  <input value={data.company} onChange={event => change('company', event.target.value)} maxLength={100} required/>
+                </Field>
+                <Field label={<>직무 <span className="posting-required" aria-hidden="true">*</span></>}>
+                  <input value={data.role} onChange={event => change('role', event.target.value)} maxLength={150} required/>
+                </Field>
+              </div>
+              <div className="posting-deadline-grid">
                 <Field label="지원 마감일"><input type="date" value={data.deadline} onChange={event => change('deadline', event.target.value)}/></Field>
                 <Field label="마감 시간"><input type="time" value={data.deadlineTime} onChange={event => change('deadlineTime', event.target.value)}/></Field>
               </div>
@@ -440,7 +475,7 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
             <button type="button" className="button" disabled={saving} onClick={closeReview}>
               {!existing && <ArrowLeft size={15} aria-hidden="true"/>}{existing ? '취소' : '이전'}
             </button>
-            <button type="submit" className="button primary" disabled={saving || importing}>{saving ? '저장 중…' : existing ? '변경 저장' : '등록하고 작성'}</button>
+            <button type="submit" className="button primary" disabled={saving}>{saving ? '저장 중…' : existing ? '변경 저장' : '등록하고 작성'}</button>
           </div>
         </div>
       </form>
