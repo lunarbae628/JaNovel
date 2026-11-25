@@ -1,0 +1,257 @@
+Project janovel {
+  database_type: 'PostgreSQL'
+  Note: '통합 Flyway V1 기반 ERD. 전형 삭제 시 current_stage_id만 비우는 동작과 기존 지연 제약은 V1 SQL이 기준이다.'
+}
+
+Enum "application_status" {
+  "interested"
+  "writing"
+  "submitted"
+  "in_progress"
+  "closed"
+}
+
+Enum "deadline_kind" {
+  "fixed"
+  "rolling"
+  "until_filled"
+  "always_open"
+}
+
+Table "users" {
+  "id" BIGINT [pk, increment]
+  "email" varchar [unique, not null]
+  "password_hash" varchar
+  "name" varchar [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+  "timezone" varchar [not null, default: 'Asia/Seoul']
+}
+
+Table "oauth_accounts" {
+  "id" BIGINT [pk, increment]
+  "user_id" bigint [not null]
+  "provider" varchar [not null]
+  "provider_user_id" varchar [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    user_id
+    (provider, provider_user_id) [unique]
+  }
+}
+
+Table "applications" {
+  "id" BIGINT [pk, increment]
+  "user_id" bigint [not null]
+  "company" text [not null]
+  "role" text [not null]
+  "deadline_kind" deadline_kind
+  "deadline_date" date
+  "deadline_time" time
+  "deadline_timezone" varchar [not null, default: 'Asia/Seoul']
+  "source_url" text
+  "source_text" text
+  "source_image_key" text
+  "posting_position_id" bigint [note: '공개 공고를 식별할 수 없는 지원 건은 NULL.']
+  "status" application_status [not null, default: 'interested']
+  "current_stage_id" bigint
+  "outcome_option_id" bigint
+  "outcome_stage_name" text
+
+  Indexes {
+    user_id
+    posting_position_id [name: "applications_posting_position_idx"]
+  }
+}
+
+Table "application_sections" {
+  "id" BIGINT [pk, increment]
+  "application_id" bigint [not null]
+  "title" text [not null]
+  "body" text [not null]
+  "position" integer [not null]
+
+  Indexes {
+    (application_id, position) [unique]
+  }
+}
+
+Table "application_stages" {
+  "id" BIGINT [pk, increment]
+  "application_id" bigint [not null]
+  "name" text [not null]
+  "position" integer [not null]
+
+  Indexes {
+    (application_id, position) [unique, name: "application_stages_application_id_position_key"]
+    (application_id, id) [unique]
+  }
+}
+
+Table "application_outcome_options" {
+  "id" BIGINT [pk, increment]
+  "user_id" bigint [not null]
+  "name" varchar [not null]
+  "color" varchar
+  "position" integer [not null]
+  "archived_at" timestamptz
+
+  Indexes {
+    (user_id, id) [unique]
+    (user_id, position)
+  }
+}
+
+Table "essay_questions" {
+  "id" BIGINT [pk, increment]
+  "application_id" bigint [not null]
+  "prompt" text [not null]
+  "char_limit" integer [not null]
+  "position" integer [not null]
+
+  Indexes {
+    (application_id, position) [unique]
+  }
+}
+
+Table "writing_versions" {
+  "id" BIGINT [pk, increment]
+  "question_id" bigint [not null]
+  "name" varchar [not null]
+  "draft_body" text [not null, default: '']
+
+  Indexes {
+    (question_id, id) [unique]
+  }
+}
+
+Table "snapshots" {
+  "id" BIGINT [pk, increment]
+  "question_id" bigint [not null]
+  "version_id" bigint [not null]
+  "title" text
+  "description" text
+  "body" text [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    (question_id, id) [unique]
+  }
+}
+
+Table "submission_answers" {
+  "question_id" bigint [pk]
+  "body" text [not null]
+  "updated_at" timestamptz [not null, default: `now()`]
+}
+
+Table "snapshot_parents" {
+  "question_id" bigint [not null]
+  "child_snapshot_id" bigint [not null]
+  "parent_snapshot_id" bigint [not null]
+
+  Indexes {
+    (child_snapshot_id, parent_snapshot_id) [pk]
+    parent_snapshot_id
+  }
+}
+
+Table "shared_posting_question_sets" {
+  "id" uuid [pk]
+  "posting_key" char(64) [not null]
+  "posting_url" text [not null]
+  "role_key" text [not null]
+  "questions" jsonb [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    (posting_key, role_key) [unique]
+  }
+}
+
+Table "shared_posting_question_reports" {
+  "id" bigint [pk, increment]
+  "question_set_id" uuid [not null]
+  "proposed_questions" jsonb [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    question_set_id [name: "shared_posting_question_reports_set_idx"]
+  }
+}
+
+Table "postings" {
+  "id" bigint [pk, increment]
+  "source_key" char(64) [unique, not null]
+  "canonical_url" text [not null]
+  "canonical_url_key" char(64) [not null]
+  "company" text [not null]
+  "source_text" text
+  "common_payload" jsonb [not null, check: `jsonb_typeof(common_payload) = 'object'`]
+  "input_hash" char(64) [not null]
+  "extractor_version" text [not null]
+  "last_checked_at" timestamptz [not null]
+  "refresh_after" timestamptz
+
+  Indexes {
+    canonical_url_key
+  }
+}
+
+Table "posting_positions" {
+  "id" bigint [pk, increment]
+  "posting_id" bigint [not null]
+  "position_key" text [not null]
+  "role" text [not null]
+  "position_payload" jsonb [not null, check: `jsonb_typeof(position_payload) = 'object'`]
+
+  Indexes {
+    (posting_id, position_key) [unique]
+  }
+}
+
+Table "user_essay_template_items" {
+  "user_id" bigint [not null]
+  "position" integer [not null, check: `position BETWEEN 1 AND 30`]
+  "prompt" text [not null, check: `char_length(btrim(prompt)) BETWEEN 1 AND 2000`]
+  "draft_body" text [not null, check: `char_length(draft_body) <= 20000`]
+  "char_limit" integer [check: `char_limit BETWEEN 1 AND 100000`]
+
+  Indexes {
+    (user_id, position) [pk]
+  }
+}
+
+Ref: "users"."id" < "oauth_accounts"."user_id" [delete: cascade]
+
+Ref: "users"."id" < "applications"."user_id" [delete: cascade]
+
+Ref: "users"."id" < "application_outcome_options"."user_id" [delete: cascade]
+
+Ref: "applications"."id" < "application_sections"."application_id" [delete: cascade]
+
+Ref: "applications"."id" < "application_stages"."application_id" [delete: cascade]
+
+Ref: "applications"."id" < "essay_questions"."application_id" [delete: cascade]
+
+Ref: "application_stages".("application_id", "id") < "applications".("id", "current_stage_id") [delete: no action]
+
+Ref: "application_outcome_options".("user_id", "id") < "applications".("user_id", "outcome_option_id") [delete: no action]
+
+Ref: "essay_questions"."id" < "writing_versions"."question_id" [delete: cascade]
+
+Ref: "writing_versions".("question_id", "id") < "snapshots".("question_id", "version_id") [delete: cascade]
+
+Ref: "essay_questions"."id" < "submission_answers"."question_id" [delete: cascade]
+
+Ref: "snapshots".("question_id", "id") < "snapshot_parents".("question_id", "child_snapshot_id") [delete: cascade]
+
+Ref: "snapshots".("question_id", "id") < "snapshot_parents".("question_id", "parent_snapshot_id") [delete: cascade]
+
+Ref: "shared_posting_question_sets"."id" < "shared_posting_question_reports"."question_set_id"
+
+Ref: "postings"."id" < "posting_positions"."posting_id" [delete: restrict]
+
+Ref "applications_posting_position_fk":"posting_positions"."id" < "applications"."posting_position_id" [delete: restrict]
+
+Ref: "users"."id" < "user_essay_template_items"."user_id" [delete: cascade]
