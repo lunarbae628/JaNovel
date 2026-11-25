@@ -122,7 +122,11 @@
 }
 .posting-upload:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
 .posting-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.posting-upload small { color: #586274; max-width: 100%; overflow-wrap: anywhere; }
+.posting-upload small { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 4px; color: #586274; max-width: 100%; overflow-wrap: anywhere; }
+.posting-upload kbd {
+  display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 6px; border: 1px solid #cfd8e6;
+  border-radius: 5px; background: #fff; box-shadow: 0 1px 0 #cfd8e6; color: #33415c; font: 600 12px/1 inherit;
+}
 .posting-source-thumbnail { display: block; max-width: 100%; max-height: 200px; object-fit: contain; margin: 12px auto 0; }
 .modal.posting-import-modal {
   width: 460px; max-height: calc(100dvh - 48px); padding: 20px 24px; border-radius: 14px;

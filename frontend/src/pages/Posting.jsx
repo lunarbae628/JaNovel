@@ -11,6 +11,7 @@ const sources = [
   ['image', '이미지', Image],
 ];
 const defaultStages = ['서류 전형', '기술 면접', '최종 면접'];
+const pasteKey = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '') ? '⌘' : 'Ctrl';
 const imageTypes = ['image/png', 'image/jpeg', 'image/webp'];
 const suggestedSections = ['주요 업무', '지원 요건', '우대 사항'];
 const importFailure = '공고 내용을 가져오지 못했어요. 직접 입력할 수 있어요.';
@@ -78,7 +79,8 @@ function PostingSource({type, onTypeChange, url, onUrlChange, file, onFileChange
             <input type="file" accept={imageTypes.join(',')} onChange={onFileChange} disabled={importing}/>
             <Upload size={20} aria-hidden="true"/>
             <span>{file ? '이미지 바꾸기' : '공고 이미지 선택'}</span>
-            <small>{file ? file.name : 'JPG, PNG, WEBP · 최대 10MB'}</small>
+            <small>{file ? file.name : <>클릭하거나 <kbd>{pasteKey}</kbd><kbd>V</kbd>로 붙여넣기</>}</small>
+            {!file && <small>JPG, PNG, WEBP · 최대 10MB</small>}
           </label>
           {preview && <img className="posting-source-thumbnail" src={preview} alt="선택한 공고 이미지"/>}
         </>}
@@ -221,10 +223,7 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
     setImportNotice('');
   }
 
-  function selectImage(event) {
-    const selected = event.currentTarget.files[0];
-    event.currentTarget.value = '';
-    if (!selected) return;
+  function acceptImage(selected) {
     if (!imageTypes.includes(selected.type) || selected.size > 10 * 1024 * 1024) {
       setError('10MB 이하의 JPG, PNG, WEBP 이미지를 선택해 주세요.');
       return;
@@ -232,6 +231,25 @@ export default function Posting({onAdd, navigate, existing, onSave}) {
     setError('');
     setFile(selected);
   }
+
+  function selectImage(event) {
+    const selected = event.currentTarget.files[0];
+    event.currentTarget.value = '';
+    if (selected) acceptImage(selected);
+  }
+
+  useEffect(() => {
+    if (existing || review || importing) return undefined;
+    const paste = event => {
+      const image = Array.from(event.clipboardData?.files || []).find(item => item.type.startsWith('image/'));
+      if (!image) return;
+      event.preventDefault();
+      setType('image');
+      acceptImage(image);
+    };
+    document.addEventListener('paste', paste);
+    return () => document.removeEventListener('paste', paste);
+  }, [existing, review, importing]);
 
   function prepare(event) {
     event.preventDefault();
