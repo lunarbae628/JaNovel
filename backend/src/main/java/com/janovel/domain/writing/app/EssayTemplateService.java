@@ -1,11 +1,9 @@
 package com.janovel.domain.writing.app;
 
+import com.janovel.domain.user.app.PreviewUsers;
 import com.janovel.domain.writing.dto.EssayTemplate;
 import com.janovel.domain.writing.dto.EssayTemplate.Item;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Types;
-import java.util.HexFormat;
 import java.util.List;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -70,12 +68,6 @@ public class EssayTemplateService {
     }
 
     private String ownerEmail(String key) {
-        HexFormat hex = HexFormat.of();
-        try {
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(hex.parseHex(key));
-            return "essay-template+" + hex.formatHex(hash) + "@janovel.invalid";
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(exception);
-        }
+        return PreviewUsers.ownerEmail(key);
     }
 }

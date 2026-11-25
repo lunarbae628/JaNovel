@@ -1,11 +1,20 @@
 package com.janovel.domain.application.app;
 
 import com.janovel.domain.application.dao.ApplicationRepository;
+import com.janovel.domain.application.dao.ApplicationSectionRepository;
+import com.janovel.domain.application.dao.ApplicationStageRepository;
+import com.janovel.domain.application.dto.ApplicationDetail;
+import com.janovel.domain.application.dto.ApplicationRegistration;
 import com.janovel.domain.application.dto.ApplicationSummary;
 import com.janovel.domain.application.entity.Application;
+import com.janovel.domain.application.entity.ApplicationSection;
+import com.janovel.domain.application.entity.ApplicationStage;
+import com.janovel.domain.application.exception.ApplicationErrorCode;
 import com.janovel.domain.user.dao.UserRepository;
+import com.janovel.global.exception.CustomException;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,11 +22,49 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
+    private final ApplicationSectionRepository sectionRepository;
+    private final ApplicationStageRepository stageRepository;
     private final UserRepository userRepository;
 
-    public ApplicationService(ApplicationRepository applicationRepository, UserRepository userRepository) {
+    public ApplicationService(ApplicationRepository applicationRepository,
+                              ApplicationSectionRepository sectionRepository,
+                              ApplicationStageRepository stageRepository, UserRepository userRepository) {
         this.applicationRepository = applicationRepository;
+        this.sectionRepository = sectionRepository;
+        this.stageRepository = stageRepository;
         this.userRepository = userRepository;
+    }
+
+    @Transactional
+    public ApplicationDetail register(long userId, ApplicationRegistration request) {
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자를 찾을 수 없습니다."));
+        var application = new Application(user, request.company(), request.role());
+        if (request.deadline() != null) {
+            application.setDeadlineKind(request.deadline().kind());
+            application.setDeadlineDate(request.deadline().date());
+            application.setDeadlineTime(request.deadline().time());
+        }
+        application.setSourceUrl(request.sourceUrl());
+        application.setSourceText(request.sourceText());
+        applicationRepository.save(application);
+
+        var sections = sectionRepository.saveAll(IntStream.range(0, request.sections().size())
+                .mapToObj(index -> new ApplicationSection(application, request.sections().get(index).title(),
+                        request.sections().get(index).body(), index + 1))
+                .toList());
+        var stages = stageRepository.saveAll(IntStream.range(0, request.stages().size())
+                .mapToObj(index -> new ApplicationStage(application, request.stages().get(index), index + 1))
+                .toList());
+        return ApplicationDetail.of(application, sections, stages);
+    }
+
+    @Transactional(readOnly = true)
+    public ApplicationDetail find(long userId, long applicationId) {
+        var application = applicationRepository.findByIdAndUserId(applicationId, userId)
+                .orElseThrow(() -> new CustomException(ApplicationErrorCode.APPLICATION_NOT_FOUND));
+        return ApplicationDetail.of(application, sectionRepository.findAllByApplicationIdOrderByPosition(applicationId),
+                stageRepository.findAllByApplicationIdOrderByPosition(applicationId));
     }
 
     @Transactional

@@ -1,5 +1,6 @@
 package com.janovel.domain.application.model;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import jakarta.persistence.EnumeratedValue;
 
 public enum DeadlineKind {
@@ -13,5 +14,10 @@ public enum DeadlineKind {
 
     DeadlineKind(String databaseValue) {
         this.databaseValue = databaseValue;
+    }
+
+    @JsonValue
+    public String databaseValue() {
+        return databaseValue;
     }
 }

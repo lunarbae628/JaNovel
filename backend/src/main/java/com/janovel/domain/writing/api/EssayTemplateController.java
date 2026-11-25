@@ -1,10 +1,10 @@
 package com.janovel.domain.writing.api;
 
+import com.janovel.domain.user.app.PreviewUsers;
 import com.janovel.domain.writing.app.EssayTemplateService;
 import com.janovel.domain.writing.dto.EssayTemplate;
 import com.janovel.global.exception.ErrorResponse;
 import jakarta.validation.Valid;
-import java.util.regex.Pattern;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -23,12 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/me/essay-template")
 public class EssayTemplateController {
 
-    private static final Pattern BEARER_KEY = Pattern.compile("(?i:Bearer) ([0-9a-f]{64})");
-
     private final EssayTemplateService templates;
+    private final PreviewUsers previewUsers;
 
-    public EssayTemplateController(EssayTemplateService templates) {
+    public EssayTemplateController(EssayTemplateService templates, PreviewUsers previewUsers) {
         this.templates = templates;
+        this.previewUsers = previewUsers;
     }
 
     @GetMapping
@@ -55,11 +55,7 @@ public class EssayTemplateController {
     }
 
     private String accessKey(String authorization) {
-        var match = BEARER_KEY.matcher(authorization == null ? "" : authorization);
-        if (!match.matches()) {
-            throw new InvalidAccessKeyException();
-        }
-        return match.group(1);
+        return previewUsers.accessKey(authorization).orElseThrow(InvalidAccessKeyException::new);
     }
 
     private static class InvalidAccessKeyException extends RuntimeException {

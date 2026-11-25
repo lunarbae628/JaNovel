@@ -1,5 +1,6 @@
 package com.janovel.domain.application.model;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import jakarta.persistence.EnumeratedValue;
 
 public enum ApplicationStatus {
@@ -14,5 +15,10 @@ public enum ApplicationStatus {
 
     ApplicationStatus(String databaseValue) {
         this.databaseValue = databaseValue;
+    }
+
+    @JsonValue
+    public String databaseValue() {
+        return databaseValue;
     }
 }

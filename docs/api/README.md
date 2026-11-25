@@ -28,6 +28,49 @@ Postman 데스크톱 앱에서는 위 `curl` 명령 전체를 **Import**에 붙�
 
 IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 실행 버튼으로 호출할 수 있다. [실행 예제](../../backend/http/postings.http)
 
+## 지원 건
+
+상태 `구현됨` · 서버 계정 인증 연결 전에는 [내 공통 자소서](#내-공통-자소서)와 같은 미리보기 프로필 접근 키로 사용자를 구분한다.
+
+| 요청 | 요청 본문 | 성공 응답 |
+|---|---|---|
+| `POST /api/applications` | 지원 건 등록 본문 | `201`, `Location: /api/applications/{id}`, 상세 |
+| `GET /api/applications` | 없음 | `200 [{id, company, role, status, deadline}]`, 최근에 등록한 순서 |
+| `GET /api/applications/{id}` | 없음 | `200` 상세 |
+
+등록 요청 본문은 아래와 같다. `deadline`, `sourceUrl`, `sourceText`, `sections`, `stages`는 생략하거나 비울 수 있다.
+
+```json
+{
+  "company": "예시 회사",
+  "role": "백엔드 개발자",
+  "deadline": {"kind": "fixed", "date": "2026-12-16", "time": "23:59"},
+  "sourceUrl": "https://careers.example.com/jobs/1",
+  "sourceText": "공고 원문",
+  "sections": [{"title": "업무", "body": "API 개발"}],
+  "stages": ["서류전형", "1차 면접"]
+}
+```
+
+- **회사·직무:** 앞뒤 공백을 제거한 뒤 회사는 1~100자, 직무는 1~150자다.
+- **마감:** `kind`는 `fixed`, `rolling`, `until_filled`, `always_open` 중 하나다. `fixed`는 `date`(`YYYY-MM-DD`)가 필수이고 `time`(`HH:mm`)은 선택이다. 나머지 종류는 `date`와 `time`을 넣지 않는다. 마감을 모르면 `deadline`을 생략한다.
+- **원문:** `sourceUrl`은 최대 2,048자, `sourceText`는 최대 30,000자다.
+- **항목·전형:** `sections`와 `stages`는 보낸 순서대로 저장한다. 항목은 최대 30개이고 제목 1~100자, 본문 최대 20,000자다. 전형은 최대 20개이고 이름은 1~100자다.
+- **상세 응답:** `{id, company, role, status, deadline, sourceUrl, sourceText, sections: [{id, title, body}], stages: [{id, name}]}`다. 새 지원 건의 `status`는 `interested`다. 자소서 문항은 별도 API에서 다룬다.
+- **접근 키:** `Authorization: Bearer <소문자 16진수 64자>` 헤더가 필요하다. 다른 사용자의 지원 건은 없는 지원 건과 똑같이 응답한다.
+
+| 상태 | 코드 | 조건 |
+|---|---|---|
+| `400` | `INVALID_REQUEST` | 필수값 누락, 길이·형식·마감 조합 오류 |
+| `401` | `APPLICATION_UNAUTHORIZED` | 접근 키 누락 또는 형식 오류 |
+| `404` | `APPLICATION_NOT_FOUND` | 없거나 내 것이 아닌 지원 건 |
+
+[로컬 확인 요청](../../backend/http/applications.http)
+
+```sh
+npx httpyac@6.16.7 send backend/http/applications.http --all
+```
+
 ## 공고 링크 가져오기
 
 상태 `구현됨`
