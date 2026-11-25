@@ -1,6 +1,12 @@
 # JaNovel 의사결정 로그
 
 ---
+### [2026-11-26] JPA 스키마 검증과 종료·세션 설정 추가
+- **배경 및 문제점 (Problem):** 스키마는 Flyway만 관리하고 엔티티와 DB가 어긋나도 쓰는 시점에야 오류가 났다. 서버를 띄울 때 `open-in-view` 경고가 나왔고, 종료할 때 진행 중인 요청을 기다리지 않았다.
+- **고려한 대안 (Alternatives):** `ddl-auto: update`나 `create-drop`은 지연 제약, 복합 외래 키, `CHECK`, PostgreSQL ENUM 같은 V1의 무결성 규칙을 만들지 못하고 기존 컬럼의 NULL 허용도 바꾸지 못해 제외했다.
+- **해결 및 변경 사항 (Solution):** `spring.jpa.hibernate.ddl-auto: validate`, `spring.jpa.open-in-view: false`, `server.shutdown: graceful`을 추가했다. [설정](../backend/src/main/resources/application.yaml)
+- **결과 및 트레이드오프 (Result & Trade-off):** 백엔드 테스트가 통과하고 개발 DB에서 서버가 정상 기동했으며 `open-in-view` 경고가 사라졌다. 이제 엔티티와 DB 타입이 맞지 않으면 시작할 때 실패한다. 서버가 요청 밖에서 지연 로딩할 수 없으므로 연관 객체는 서비스의 트랜잭션 안에서 읽어야 한다.
+---
 ### [2026-11-26] 문항 글자 수 제한을 비울 수 있게 V1 수정
 - **배경 및 문제점 (Problem):** `essay_questions.char_limit`이 NOT NULL이라 글자 수를 모르는 문항을 저장할 수 없었다. 공통 자소서와 공유 문항, 프론트는 이미 글자 수 미확인을 `null`로 다룬다.
 - **고려한 대안 (Alternatives):** `0`을 미확인 값으로 쓰면 "0자 제한"과 구분되지 않고 모든 화면에서 예외 처리가 필요해 제외했다. 새 마이그레이션(V2)은 배포 전이고 개발자가 한 명이라 V1에 통합하기로 했다.

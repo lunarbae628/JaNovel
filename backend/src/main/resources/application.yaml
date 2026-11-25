@@ -1,6 +1,13 @@
+server:
+  shutdown: graceful
+
 spring:
   application:
     name: janovel
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
   config:
     import: "optional:file:./.env[.properties]"
   servlet:
