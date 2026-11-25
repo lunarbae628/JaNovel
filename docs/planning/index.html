@@ -13,7 +13,7 @@
 </head>
 <body id="top">
 <div class="reading-line" aria-hidden="true"></div>
-<header><span class="brand">JANOVEL</span><span class="meta">제품 기획과 확장 계획 · 2026.11.25 · v1.24</span></header>
+<header><span class="brand">JANOVEL</span><span class="meta">제품 기획과 확장 계획 · 2026.11.26 · v1.25</span></header>
 <div class="layout"><aside aria-label="문서 목차"><div class="nav-label">CONTENTS</div><div class="toc-group"><a class="chapter-link" href="#plan">제품 기획</a><div class="sub-links"><a href="#plan-1">현재 구현</a><a href="#plan-2">확정한 제품 계획</a><a href="#plan-3">설계 선택과 미결 항목</a><a href="#plan-4">개발 순서와 완료 확인</a></div></div><div class="toc-group"><a class="chapter-link" href="#review">제품 검증 계획</a><div class="sub-links"><a href="#review-1">핵심 흐름 검증</a><a href="#review-2">개인 실사용</a><a href="#review-3">다른 사용자와 AI 평가</a><a href="#review-4">후속 추천 검증</a></div></div><div class="toc-group"><a class="chapter-link" href="#sources">조사 근거와 한계</a><div class="sub-links"></div></div><div class="note">기능별 요구와 현재 브라우저 구현을 확인할 수 있습니다.</div></aside>
 <main><section class="hero"><div class="eyebrow">자소서 버전관리를 중심으로</div><h1>어떻게 고쳤고,<br>무엇을 제출했는지.</h1><p>공고에서 자소서, 제출본과 면접 준비까지.<br>JaNovel 제품 기획과 기능 확장 계획.</p><div class="status"><span>제품 기획 v1.24</span><span class="pending">경쟁력·유료 수요 미검증</span></div></section>
 <article id="plan"><div class="chapter-kicker">01 / PRODUCT PLAN<a href="01-product-plan.md" download>Markdown 원문 ↗</a></div><h1>JaNovel 제품 기획</h1>
@@ -73,7 +73,7 @@
 </ul>
 <h3>웹 내부 개인 AI 피드백</h3>
 <ul>
-<li>첫 실사용 버전의 목표에는 JaNovel 웹 내부에서 개인 AI와 대화하고, 사용자가 허용한 로컬 자료와 선택한 공고·문항·답변을 참고해 수정 후보를 받는 경험이 포함된다. 맥락 복사·붙여넣기는 현재 품질과 흐름을 확인하는 수단이다.</li>
+<li>첫 실사용 버전(1차)의 목표는 사용자가 <strong>ChatGPT 계정으로 로그인</strong>(Sign in with ChatGPT)해 JaNovel 웹 안의 채팅에서 AI와 대화하고, JaNovel에 저장된 선택한 공고·문항·답변을 참고해 수정 후보를 받는 것이다. 2차 목표는 같은 채팅에서 사용자 PC의 로컬 AI에 접근하는 것이며, 중계 서버와 기기 연결 프로그램, 제품 MCP를 둔다. 사용자가 허용한 로컬 자료는 2차에서 다룬다. 맥락 복사·붙여넣기는 현재 품질과 흐름을 확인하는 수단이다.</li>
 <li>피드백에는 원본 답변의 식별자, 평가 기준 버전, 대상 구절, 이유·근거와 제안을 기록한다. 실제 경험과 본인 기여, 문항·직무 적합성, 문장 품질의 세 기준을 평가하며 근거가 부족하면 사용자에게 확인을 요청한다. 수정 후보는 비교 후 사용자가 채택할 때 새 기록에 반영한다. 원본이 바뀌었으면 다시 비교하고, 재시도는 결과 중복을 방지한다. <a href="05-local-agent-chat-review.md">AI 연결과 MCP 설계</a></li>
 </ul>
 <h3>1인 AI 음성 모의면접</h3>
@@ -111,7 +111,7 @@
 </ul>
 <h3>먼저 검증할 후보와 보류 항목</h3>
 <ul>
-<li><strong>연결 기술.</strong> 개인 AI 실행·인증, MCP 채택 범위와 모델 이용료 경로는 <a href="05-local-agent-chat-review.md">AI 연결 문서</a>의 실험을 따른다. 음성 제공자·원음 정책과 다인 면접의 서비스명·도메인·저장·배포 분리는 미결이다.</li>
+<li><strong>연결 기술.</strong> 1차는 ChatGPT 계정 로그인, 2차는 중계 서버·기기 연결 프로그램·MCP로 연결한다. 개인 AI 실행·인증, MCP 채택 범위와 모델 이용료 경로는 <a href="05-local-agent-chat-review.md">AI 연결 문서</a>의 실험을 따른다. 음성 제공자·원음 정책과 다인 면접의 서비스명·도메인·저장·배포 분리는 미결이다.</li>
 <li><strong>비용과 배포.</strong> 추가 지출을 피하는 초기 조건을 유지한다. 홈서버와 AWS는 배포 후보이며 HTTPS, 사용 가능한 자원·백업·복구와 운영 비용을 비교한다. 서비스 비용과 공고 추출·AI 피드백·음성의 사용량과 호출 비용을 각각 추정한다.</li>
 <li><strong>주간 공고 추천.</strong> 후순위다. 기존 월요일 GPT 추천을 기준선으로 Java/Spring 적합성과 토스·네이버·카카오·LG CNS·삼성SDS의 관련 기회를 본다. 추천에 원문 링크·확인 시점·마감과 제외 조건을 표시하고 중복을 제거한다. 선택한 공고는 지원 건으로 이어지게 한다. 유료 추천과 방을 만든 사람이 회차권을 쓰고 초대받은 친구는 참가하는 과금 방식은 사용성·원가·지불 의사를 확인할 후보다. <a href="#review">추천 검증</a></li>
 <li><strong>초기 범위.</strong> 작성은 문항별 텍스트에 집중한다. 범용 이력서 편집기, 공통 경험 보관함, 자동 지원·합격 확률 점수, 전체 채용 사이트 자동 수집, 그래프 직접 편집·자동 병합, 외부 캘린더 동기화는 초기 범위 밖에 둔다. 다른 지원 건으로 답변을 복제하는 경로를 도입하면 원래 글·이력·제출본이 유지되는지 함께 검증한다.</li>
@@ -120,8 +120,9 @@
 <ol>
 <li><strong>스키마와 지원 현황 API.</strong> 초기 스키마와 JPA 매핑을 적용했다. 첫 API에서 내 지원 건을 등록하고 다시 조회하는 흐름과 사용자별 접근 권한을 검증한다.</li>
 <li><strong>개인 기능.</strong> 인증, 공고 원문·확인본, 문항 작성·비교·조합, 제출본, 기본 일정과 예상 질문 화면을 연결한다. 저장 실패에서 입력을 유지하고 사용자가 수정·재시도할 수 있는지 확인한다.</li>
-<li><strong>AI와 개인 실사용.</strong> 웹 내부 AI의 실제 요청·응답과 후보 저장·채택을 한 경로에서 검증하고, 실제 지원 3건에서 변경점 확인·원문 보존·제출본 찾기 시간을 측정한다. <a href="#review">제품 검증 계획</a></li>
+<li><strong>AI와 개인 실사용.</strong> ChatGPT 로그인 채팅(1차)의 실제 요청·응답과 후보 저장·채택을 한 경로에서 검증하고, 로컬 AI 연결(2차)은 그 결과를 본 뒤 시험하며, 실제 지원 3건에서 변경점 확인·원문 보존·제출본 찾기 시간을 측정한다. <a href="#review">제품 검증 계획</a></li>
 <li><strong>보조 기능.</strong> 공고 자동 추출, 1인 AI 음성 모의면접과 친구·채팅·수신함·커뮤니티의 서버 기능을 순서대로 검증한다. 여러 사용자가 들어오기 전에 데이터 권한과 공유 철회를 시험한다.</li>
+<li><strong>공개 전 보호 장치.</strong> 아직 배포하지 않아 로컬에서만 쓰며, 공개하기 전에 세 가지를 갖춘다. 공고 추출 등 모델 호출 API에 로그인한 사용자만 접근하게 하는 인증, 사용자별 호출 횟수 제한, 큰 이미지 처리에서 서버가 메모리 부족으로 멈추지 않게 하는 메모리 한도와 동시 처리 수다. 호출 한 번에 모델 비용과 Chrome 자원이 들므로 부하 시험으로 한도를 정한다.</li>
 <li><strong>다인 면접과 후속 제품 검증.</strong> 사람과 AI가 참여하는 방에서 설정한 역할·발언 순서와 재연결을 확인한다. 추천과 유료 모델의 착수는 사용 결과와 운영비를 보고 결정한다.</li>
 </ol>
 </article>
