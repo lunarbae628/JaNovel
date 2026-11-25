@@ -70,6 +70,16 @@ class PostingImportControllerTests {
         }
     }
 
+    @Test
+    @DisplayName("url이 없는 요청은 400 INVALID_REQUEST다")
+    void rejectsMissingUrl() throws Exception {
+        mvc(mock(PostingPageClient.class), mock(PostingModelClient.class)).perform(post("/api/postings/import")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_REQUEST"));
+    }
+
     private MockMvc mvc(PostingPageClient client, PostingModelClient model) {
         return MockMvcBuilders
                 .standaloneSetup(new PostingImportController(new PostingImportService(client,

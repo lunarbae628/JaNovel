@@ -17,8 +17,7 @@
 ## API 개발 순서
 
 1. 컨트롤러와 DTO부터 구현하고 필요한 서비스와 저장 계층을 연결한다. [API 문서 안내](backend/README.md#api-문서)에 따라 `@Operation`, 성공·오류 `@ApiResponse`, `@Schema`로 설명과 응답을 선언한다.
-2. `backend/http/`에 요청을 추가하고 httpYac으로 실행해 실제 응답을 확인한다. 서버를 띄워 Swagger UI(`/swagger-ui.html`)에 경로, 오류 응답과 설명이 맞게 나오는지 본다.
-3. `MockMvc` 테스트 추가는 사용자가 별도로 요청할 때 진행한다.
+2. 컨트롤러의 요청·응답을 `MockMvc` 테스트(`@SpringBootTest`와 `@AutoConfigureMockMvc`)로 검증한다. 성공 응답, 주요 오류 응답과 사용자별 접근 차단을 포함한다. 서버를 띄워 Swagger UI(`/swagger-ui.html`)에 경로, 오류 응답과 설명이 맞게 나오는지 본다.
 
 ## 작업과 검증
 

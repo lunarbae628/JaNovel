@@ -39,17 +39,11 @@ Flyway는 빈 PostgreSQL에 [통합 V1 스키마](src/main/resources/db/migratio
 
 새 API는 컨트롤러에 `@Tag`, `@Operation`, 성공·오류 `@ApiResponse`를 달고 요청·응답 DTO에 `@Schema`로 설명을 적는다. 오류 응답은 자동으로 `ErrorResponse` 형식으로 표시된다. 이름이 같은 중첩 DTO는 `@Schema(name = ...)`로 구분한다. 접근 키가 필요한 API는 `@SecurityRequirement(name = OpenApiConfig.PREVIEW_KEY)`를 단다. 배포하기 전에 Swagger UI를 끄도록 설정한다.
 
-### 실행 예제
+### 요청 확인
 
-실제 응답은 `backend/http/`의 `.http` 파일을 httpYac으로 실행해 확인한다. 저장소 루트에서 실행한다.
+컨트롤러의 요청과 응답은 `src/test/java/com/janovel/domain/*/api`의 `MockMvc` 테스트로 검증하며 `./gradlew test`로 실행한다. 새 API를 만들면 성공 응답, 주요 오류 응답과 사용자별 접근 차단을 같은 방식으로 추가한다. 외부 사이트나 모델에 의존하는 부분은 클라이언트를 목으로 바꿔 검증한다.
 
-```sh
-npx httpyac@6.16.7 send backend/http/applications.http --all
-```
-
-`applications.http`(지원 건), `postings.http`(공고 링크), `posting-images.http`(공고 이미지, 같은 폴더에 `posting.png` 필요), `shared-posting-questions.http`(문항 공유), `essay-template.http`(공통 자소서)가 있다. 공고 예시 링크가 만료되면 `postings.http`의 `postingUrl`을 현재 열리는 공개 공고 링크로 바꾼다.
-
-터미널에서는 아래 `curl`로 공고 가져오기를 한 건 호출할 수 있다. Postman 데스크톱 앱에서는 `curl` 명령 전체를 **Import**에 붙여 넣고 **Send**를 누른다. IntelliJ IDEA Ultimate의 HTTP Client는 각 `.http` 요청 옆의 실행 버튼으로 호출한다.
+서버를 띄운 뒤 터미널에서 직접 호출해 볼 수도 있다.
 
 ```sh
 curl --request POST 'http://127.0.0.1:8080/api/postings/import' \
