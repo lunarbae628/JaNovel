@@ -142,7 +142,8 @@ function QuestionSubmissionDialog({application, currentQuestion, initialKey, onS
  </Modal>;
 }
 
-export default function Editor({application:a,question:q,navigate,onSave,onPreferences,preferences,query}){
+export default function Editor({application:a,question:q,navigate,onSave,onOpenEssayTemplate,onPreferences,preferences,query,
+ essayTemplate,onEditTemplateQuestions,templateReturnPath}){
  const valid=key=>{try{resolveRecord(q,key);return true}catch{return false}};
  const view=optionView(q,query),initialBranch=view.branchId,initialKey=view.key,initialRecord=resolveRecord(q,initialKey);
  const[workingId,setWorkingId]=useState(initialBranch);
@@ -161,6 +162,10 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
  const right=resolveRecord(q,valid(target)?target:'draft:'+activeId),comparing=mode==='compare';
  const parts=useMemo(()=>comparisonSegments(source.text,right.text),[source.text,right.text]);
  const qi=a.questions.findIndex(n=>n.id===q.id),lw=preferences.leftWidth||240,rw=preferences.rightWidth||320;
+ const limit=essayTemplate ? q.templateLimit : q.limit;
+ const backPath=essayTemplate && templateReturnPath ? templateReturnPath : '/applications';
+ const backLabel=backPath==='/applications' ? '지원 현황' : '이전 자소서';
+ const count=text=>text.length.toLocaleString()+(limit==null?'':' / '+limit.toLocaleString())+'자';
  function rememberWorkUrl(id,force=false){
   const [path,search='']=location.hash.slice(1).split('?'),params=new URLSearchParams(search),current=params.get('record');
   if(!force&&current&&parseKey(current).kind!=='draft')return;
@@ -244,7 +249,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
  function removeBranch(){try{applyCleanup(deleteBranch(q,deletingBranch));}catch(e){setError(errorMessage(e));setModal('');}}
  return <div className="editor-page">
   <nav className="editor-view-switch" aria-label="작성 화면 보기">
-   <a className="editor-mobile-back" href="#/applications" aria-label="지원 현황"><ArrowLeft size={16} aria-hidden="true"/></a>
+   <a className="editor-mobile-back" href={'#'+backPath} aria-label={backLabel}><ArrowLeft size={16} aria-hidden="true"/></a>
    {compactViews.map(([view,label,Icon,panel])=><button type="button" key={view} aria-pressed={compactView===view} aria-controls={panel} onClick={()=>{
     setCompactView(view);
     if(view==='history')setLeftOpen(true);
@@ -254,32 +259,35 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
   <div className={'editor-layout '+(overviewOpen?'overview-open ':'')+(!leftOpen?'left-closed ':'')+(!rightOpen?'right-closed':'')} data-compact-view={compactView} style={{'--left-width':(overviewOpen?overviewWidth:lw)+'px','--overview-width':overviewWidth+'px','--right-width':rw+'px'}}>
    <aside className="history-panel" id="history-panel">
     <div className="panel-toolbar option-panel-toolbar">
-     <BackLink className="editor-applications-link" to="/applications"><span className={leftOpen?undefined:'visually-hidden'}>지원 현황</span></BackLink>
+     <BackLink className="editor-applications-link" to={backPath}><span className={leftOpen?undefined:'visually-hidden'}>{backLabel}</span></BackLink>
      <div><IconButton label={overviewOpen?'버전별 기록 보기':'전체 버전 그래프'} aria-pressed={overviewOpen} onClick={()=>{setOverviewOpen(!overviewOpen);setLeftOpen(true)}}><PanelGlyph kind={overviewOpen?'shrink':'expand'}/></IconButton><IconButton label={leftOpen?'왼쪽 패널 접기':'왼쪽 패널 펼치기'} onClick={()=>setLeftOpen(!leftOpen)}><PanelGlyph kind={leftOpen?'left':'right'}/></IconButton></div>
     </div>
     {leftOpen&&(overviewOpen?<VersionGraph question={q} selected={selected} onSelect={key=>{selectOverview(key);setCompactView('writing')}} onPreview={setSourcePreview} expanded/>:<OptionHistory question={q} activeId={activeId} selected={selected} onChoose={id=>{chooseBranch(id);setCompactView('writing')}} onSelect={key=>{select(key);setCompactView('writing')}} onAdd={()=>setModal('option')} onRename={id=>{setRenamingId(id);setModal('rename-option')}}/>)}
    </aside>
    {leftOpen&&<PanelResizer side="left" value={overviewOpen?overviewWidth:lw} min={200} max={620} controls="history-panel" onChange={v=>overviewOpen?setOverviewWidth(v):onPreferences({...preferences,leftWidth:v})}/>}
 
-   <main className="writing-panel" id="writing-panel"><div className="editor-toolbar"><nav className="question-tabs" aria-label="자소서 문항">{a.questions.map((n,i)=><button key={n.id} className={n.id===q.id?'active':''} aria-current={n.id===q.id?'page':undefined} onClick={()=>navigate('/write/'+a.id+'/'+n.id)}>Q{i+1}</button>)}<IconButton label="문항 추가·수정" onClick={()=>navigate('/posting/'+a.id)}><Plus size={16}/></IconButton></nav>
-    <div className="editor-actions">{(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>{mode==='read'?'작성 중과 비교':'다른 버전과 비교'}</button>}
+   <main className="writing-panel" id="writing-panel"><div className="editor-toolbar"><nav className="question-tabs" aria-label="자소서 문항">{a.questions.map((n,i)=><button key={n.id} className={n.id===q.id?'active':''} aria-current={n.id===q.id?'page':undefined} onClick={()=>navigate('/write/'+a.id+'/'+n.id)}>Q{i+1}</button>)}<IconButton label="문항 추가·수정" onClick={essayTemplate?onEditTemplateQuestions:()=>navigate('/posting/'+a.id)}><Plus size={16}/></IconButton></nav>
+    <div className="editor-actions">{!essayTemplate&&<button type="button" className="text-button" onClick={onOpenEssayTemplate}><FileText size={15} aria-hidden="true"/>내 공통 자소서</button>}
+     {(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>{mode==='read'?'작성 중과 비교':'다른 버전과 비교'}</button>}
      <IconButton label="새 버전" onClick={()=>{setError('');setModal('option')}}><Plus size={18}/></IconButton><IconButton label="합쳐서 새 버전 만들기" disabled={!!aiReference} onClick={advancedMerge}><MergeIcon size={18} className="downward-icon flow-action-icon"/></IconButton>
      <button className="button small primary snapshot-action" disabled={mode==='read'||(comparing&&right.kind!=='draft')||!activeBranch.draft.dirty||!work.text.trim()} onClick={()=>{setError('');setModal('snapshot')}}><Camera size={15}/>스냅샷</button>
     </div></div>
     <div className={'writing-content'+(comparing?' is-comparing':'')}>
      <div className="essay-context">
-      <div className="essay-company"><strong>{a.company}</strong><span>{a.role}</span></div>
-      <div className="essay-context-actions">
+      <div className="essay-company"><strong>{a.company}</strong>
+       <span>{essayTemplate?'다른 공고에서는 문항별 현재 작성 버전을 불러와요.':a.role}</span>
+      </div>
+      {!essayTemplate&&<div className="essay-context-actions">
        <button type="button" className="button essay-submission-button" onClick={()=>setModal('submission')}>
         <FileText size={15} aria-hidden="true"/>제출본
        </button>
        <a className="button essay-interview-button" href={'#/interviews/'+a.id+'?tab=practice'}><Mic size={16} aria-hidden="true"/>면접 연습</a>
        <a className="text-button" href={'#/application/'+a.id}>공고 정보</a>
        <ApplyLink url={safeUrl(a.url)} onMissing={()=>navigate('/posting/'+a.id)}/>
-      </div>
+      </div>}
      </div>
      <div className="question-heading">
-     <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&<span className={shown.text.length>q.limit?'over-limit':''}>{shown.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</span>}</div>
+     <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&<span className={limit!=null&&shown.text.length>limit?'over-limit':''}>{count(shown.text)}</span>}</div>
     </div>{error&&<Notice type="error">{error}</Notice>}{comparing&&<p className="comparison-hint">{right.kind==='draft'?'바뀐 구절을 누르면 비교 대상에 반영됩니다.':'스냅샷끼리 비교 중'}</p>}
      {!comparing&&sources.length>0&&<div className="option-sources"><span>참고한 버전</span>{sources.map((item,i)=><button key={i} onClick={()=>setSourcePreview(item)}>{item.optionName} · {item.label}</button>)}</div>}
      <div className={'body-columns '+(comparing?'comparing':'')}>
@@ -292,7 +300,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
           options={q.branches.map(b=>({value:b.id,label:b.name+' · 작성 중'}))}/></div>
         </>}
        </div>}
-       {!comparing&&<button type="button" className="text-button submission-star" disabled={!shown.text.trim()}
+       {!essayTemplate&&!comparing&&<button type="button" className="text-button submission-star" disabled={!shown.text.trim()}
         aria-disabled={isCurrentSubmission||undefined} data-designated={isCurrentSubmission} onClick={()=>designateShown()}>
         <Star size={15} fill={isCurrentSubmission?'currentColor':'none'} aria-hidden="true"/>
         {isCurrentSubmission?'현재 제출본':'제출본 지정'}
@@ -303,7 +311,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onPrefe
        {copied&&<small className="copy-notice" role="status">복사했어요</small>}
        {comparing?<><ComparisonSource segments={parts} onTake={right.kind==='draft'?take:undefined}/></>:mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
       </section>
-      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{right.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</small></div>{right.kind==='draft'?<ComparisonDraft text={right.text} onChange={writeDraft}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><textarea className="body-editor" aria-label="비교 대상 본문" value={right.text} readOnly/></>}</section>}
+      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{count(right.text)}</small></div>{right.kind==='draft'?<ComparisonDraft text={right.text} onChange={writeDraft}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><textarea className="body-editor" aria-label="비교 대상 본문" value={right.text} readOnly/></>}</section>}
 
      </div>
     </div>

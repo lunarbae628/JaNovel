@@ -13,7 +13,8 @@ function SourceText({segments,choices,side,onChoose}){
   return <span key={'change-'+segment.id} role="button" tabIndex={0} aria-pressed={selected} aria-label={`${side==='left'?'왼쪽':'오른쪽'} 구절: ${value.trim()||emptyLabel}`} title={selected?'다시 누르면 선택 해제':'결과에 반영'} data-change-id={segment.id} className={'merge-region '+(selected?'selected':'')} onClick={()=>onChoose(segment.id,side)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onChoose(segment.id,side)}}}>{value.trim()?value:<><span className="merge-empty-region">{emptyLabel}</span>{value}</>}</span>;
  })}</div>;
 }
-export default function Merge({application:a,question:q,query,navigate,onSave}){
+export default function Merge({application:a,question:q,query,navigate,onSave,essayTemplate}){
+ const limit=essayTemplate ? q.templateLimit : q.limit;
  const first='draft:'+q.branches[0].id;
  const valid=key=>{try{resolveRecord(q,key);return key}catch{return first}};
  const[left,setLeft]=useState(valid(query.get('left')||first));
@@ -51,7 +52,7 @@ export default function Merge({application:a,question:q,query,navigate,onSave}){
    {error&&<Notice type="error">{error}</Notice>}
    <div className="merge-columns">
     <section aria-label="왼쪽 본문"><div className="record-heading"><RecordSelect question={q} value={left} onChange={key=>changeSource('left',key)} label="기준 버전"/><small>{l.text.length.toLocaleString()}자</small></div><div className="merge-pane-body"><button className="text-button merge-add-source" aria-label="왼쪽 전체 본문 추가" disabled={!l.text.trim()} onClick={()=>setSession(current=>appendMergeSource(current,l.text))}>전체 본문 추가</button><SourceText segments={session.segments} choices={session.choices} side="left" onChoose={choose}/></div></section>
-    <section className="merge-result" aria-label="새 버전 본문"><div className="record-heading"><strong>결과</strong><small className={session.text.length>q.limit?'over-limit':''}>{session.text.length.toLocaleString()} / {q.limit.toLocaleString()}자</small></div><textarea className="body-editor" aria-label="결과 본문" value={session.text} onChange={e=>setSession(current=>editMergeText(current,e.target.value))} placeholder="좌우에서 남길 구절을 선택하세요." spellCheck={false}/></section>
+    <section className="merge-result" aria-label="새 버전 본문"><div className="record-heading"><strong>결과</strong><small className={limit!=null&&session.text.length>limit?'over-limit':''}>{session.text.length.toLocaleString()}{limit==null?'':' / '+limit.toLocaleString()}자</small></div><textarea className="body-editor" aria-label="결과 본문" value={session.text} onChange={e=>setSession(current=>editMergeText(current,e.target.value))} placeholder="좌우에서 남길 구절을 선택하세요." spellCheck={false}/></section>
     <section aria-label="오른쪽 본문"><div className="record-heading"><RecordSelect question={q} value={right} onChange={key=>changeSource('right',key)} label="함께 참고할 기록"/><small>{r.text.length.toLocaleString()}자</small></div><div className="merge-pane-body"><button className="text-button merge-add-source" aria-label="오른쪽 전체 본문 추가" disabled={!r.text.trim()} onClick={()=>setSession(current=>appendMergeSource(current,r.text))}>전체 본문 추가</button><SourceText segments={session.segments} choices={session.choices} side="right" onChoose={choose}/></div></section>
    </div>
   </main>

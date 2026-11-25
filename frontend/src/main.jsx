@@ -1,4 +1,4 @@
-import React, {lazy, Suspense, useEffect, useState} from 'react';
+import React, {lazy, Suspense, useEffect, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import Auth from './pages/Auth.jsx';
 import Schedule from './pages/Schedule.jsx';
@@ -9,7 +9,12 @@ import Editor from './pages/Editor.jsx';
 import Merge from './pages/Merge.jsx';
 import Submissions from './pages/Submissions.jsx';
 import {CareerLayout} from './components/CareerLayout.jsx';
-import {Modal, Field, Notice, Empty, useHashRoute} from './components/UI.jsx';
+import EssayTemplateQuestions from './components/EssayTemplateQuestions.jsx';
+import {
+  createEssayTemplateQuestion, ESSAY_TEMPLATE_ID, essayTemplateItems, essayTemplateOwner,
+  getEssayTemplateQuestions, requestEssayTemplate,
+} from './essay-template.js';
+import {BackLink, Modal, Field, Notice, Empty, useHashRoute} from './components/UI.jsx';
 import {loadStore, saveStore, downloadBackup, STORE_KEY} from './storage.js';
 import {validateStore, errorMessage, updateQuestion} from './model.js';
 import {usePreviewState} from './community-preview.js';
@@ -27,7 +32,7 @@ const Social = lazy(() => import('./pages/Social.jsx'));
 
 const pageTitles = {
   applications: '지원 현황', schedule: '일정', interviews: '면접 준비', community: '커뮤니티', friends: '친구',
-  posting: '공고 등록', write: '작성', merge: '병합', submissions: '제출본',
+  posting: '공고 등록', write: '작성', merge: '병합', submissions: '제출본', 'essay-template': '내 공통 자소서',
   login: '로그인', signup: '회원가입', 'signup-details': '계정 정보',
   reset: '비밀번호 재설정', application: '공고 정보',
 };
@@ -53,6 +58,11 @@ function App() {
   const [saveBlocked, setSaveBlocked] = useState(Boolean(initial.error));
   const [storageError, setStorageError] = useState(initial.error);
   const [settings, setSettings] = useState(false);
+  const [templateQuestionsOpen, setTemplateQuestionsOpen] = useState(false);
+  const [templateLoadFailed, setTemplateLoadFailed] = useState(false);
+  const [templateRetry, setTemplateRetry] = useState(0);
+  const [templateReturnPath, setTemplateReturnPath] = useState('');
+  const templateSync = useRef(new Map());
   const [inboxOpen, setInboxOpen] = useState(false);
   const [imported, setImported] = useState(null);
   const [importError, setImportError] = useState('');
@@ -66,10 +76,54 @@ function App() {
   const [path, search] = pageRoute.split('?');
   const [, kind, aid, qid] = path.split('/');
   const query = new URLSearchParams(search);
-  const application = store.applications.find(item => item.id === aid);
+  const templateRoute = kind === 'essay-template' || (aid === ESSAY_TEMPLATE_ID && ['write', 'merge'].includes(kind));
+  const templateOwner = essayTemplateOwner(store.profile);
+  const templateQuestions = getEssayTemplateQuestions(store);
+  const templatePayload = templateQuestions && JSON.stringify(essayTemplateItems(templateQuestions));
+  const application = templateRoute ? (templateQuestions && {
+    id:ESSAY_TEMPLATE_ID, company:'내 공통 자소서', role:'', questions:templateQuestions, submissions:[],
+  }) : store.applications.find(item => item.id === aid);
   const question = application?.questions.find(item => item.id === qid) || application?.questions[0];
   const isAuth = authPages.includes(kind);
   const careerPage = !kind || ['applications', 'schedule', 'interviews', 'community', 'friends'].includes(kind);
+
+  useEffect(() => {
+    if (!templateRoute || templateQuestions !== undefined) return;
+    const request = new AbortController();
+    setTemplateLoadFailed(false);
+    requestEssayTemplate({email:templateOwner}, {signal:request.signal}).then(items => {
+      if (request.signal.aborted) return;
+      const questions = items.map(createEssayTemplateQuestion);
+      const sync = templateSync.current.get(templateOwner) ?? {};
+      sync.saved = JSON.stringify(essayTemplateItems(questions));
+      templateSync.current.set(templateOwner, sync);
+      setStore(previous => getEssayTemplateQuestions(previous, {email:templateOwner}) !== undefined ? previous : ({
+        ...previous, essayTemplates:{...previous.essayTemplates, [templateOwner]:questions},
+      }));
+    }).catch(() => {
+      if (!request.signal.aborted) setTemplateLoadFailed(true);
+    });
+    return () => request.abort();
+  }, [templateRoute, templateOwner, templateQuestions, templateRetry]);
+
+  useEffect(() => {
+    if (templatePayload === undefined || saveBlocked) return;
+    const sync = templateSync.current.get(templateOwner) ?? {};
+    templateSync.current.set(templateOwner, sync);
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      sync.pending = (sync.pending ?? Promise.resolve()).then(async () => {
+        if (cancelled || sync.saved === templatePayload) return;
+        try {
+          await requestEssayTemplate({email:templateOwner}, {items:JSON.parse(templatePayload)});
+          sync.saved = templatePayload;
+        } catch {
+          // The browser retains the writing workspace and can use it for imports.
+        }
+      });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [templateOwner, templatePayload, saveBlocked]);
 
   useEffect(() => {
     if (saveBlocked) return;
@@ -82,15 +136,16 @@ function App() {
   }, [store, saveBlocked]);
 
   useEffect(() => {
-    document.title = 'JaNovel · ' + (kind === 'community' && aid === 'write' ? '글쓰기' : pageTitles[kind] || '지원 기록');
-  }, [kind, aid]);
+    document.title = 'JaNovel · ' + (templateRoute ? '내 공통 자소서'
+      : kind === 'community' && aid === 'write' ? '글쓰기' : pageTitles[kind] || '지원 기록');
+  }, [kind, aid, templateRoute]);
 
   useEffect(() => {
     if (kind !== 'interviews' || qid !== 'practice') setPracticeSession(null);
   }, [kind, aid, qid]);
 
   useEffect(() => {
-    if (kind !== 'write' || !application) return;
+    if (kind !== 'write' || !application || templateRoute) return;
     setStore(previous => {
       const recent = previous.preferences?.recentApplications ?? [];
       if (recent[0] === aid) return previous;
@@ -99,7 +154,7 @@ function App() {
         preferences: {...previous.preferences, recentApplications: [aid, ...recent.filter(id => id !== aid)].slice(0, 2)},
       };
     });
-  }, [kind, aid, Boolean(application)]);
+  }, [kind, aid, Boolean(application), templateRoute]);
 
   useEffect(() => {
     if (!legacySocialRoute) return;
@@ -109,6 +164,10 @@ function App() {
   }, [legacySocialRoute, originalPath, pageRoute, navigate]);
 
   const openSettings = () => setSettings(true);
+  const openEssayTemplate = () => {
+    setTemplateReturnPath(location.hash.slice(1));
+    navigate('/essay-template');
+  };
   const changeApplication = (id, update) => setStore(previous => ({
     ...previous,
     applications: previous.applications.map(item => {
@@ -119,7 +178,18 @@ function App() {
     }),
   }));
   const saveApplication = next => changeApplication(next.id, () => next);
-  const saveQuestion = (next, questionId = question.id) => setStore(previous => updateQuestion(previous, aid, questionId, next));
+  const changeTemplateQuestions = update => setStore(previous => ({
+    ...previous, essayTemplates:{...previous.essayTemplates,
+      [templateOwner]:update(getEssayTemplateQuestions(previous, {email:templateOwner}) ?? [])},
+  }));
+  const saveQuestion = (next, questionId = question.id) => {
+    if (templateRoute) {
+      changeTemplateQuestions(questions => questions.map(item => item.id === questionId
+        ? (typeof next === 'function' ? next(item) : next) : item));
+    } else {
+      setStore(previous => updateQuestion(previous, aid, questionId, next));
+    }
+  };
 
   const updateInterview = (id, action) => changeApplication(id, item => ({...item, interview: action(interviewFor(item))}));
   const interviewRecord = application && kind === 'interviews' && qid && interviewFor(application).records.find(item => item.id === qid);
@@ -161,23 +231,38 @@ function App() {
         <Interviews store={store} navigate={navigate} query={query}
           onApplicationChange={changeApplication} onInterviewChange={updateInterview}/>}
     </CareerLayout>;
+  } else if (templateRoute && !question) {
+    content = <main className="page essay-template-page">
+      <BackLink className="page-back" to={templateReturnPath || '/applications'}>
+        {templateReturnPath ? '이전 자소서' : '지원 현황'}
+      </BackLink>
+      <h1>내 공통 자소서</h1>
+      {templateQuestions !== undefined
+        ? <button type="button" className="button primary" onClick={() => setTemplateQuestionsOpen(true)}>문항 추가</button>
+        : templateLoadFailed ? <>
+          <Notice type="error">공통 자소서를 불러오지 못했어요.</Notice>
+          <button type="button" className="button" onClick={() => setTemplateRetry(value => value + 1)}>다시 불러오기</button>
+        </> : <Notice>공통 자소서를 불러오는 중이에요.</Notice>}
+    </main>;
   } else if (kind === 'posting' && (!aid || application)) {
-    content = <Posting key={aid || 'new'} existing={application} navigate={navigate} onSave={saveApplication}
+    content = <Posting key={aid || 'new'} existing={application} profile={store.profile} navigate={navigate}
+      templateQuestions={templateQuestions} onSave={saveApplication}
       onAdd={item => setStore(previous => ({...previous, applications: [item, ...previous.applications]}))}/>;
   } else if (application) {
-    if (kind === 'application') {
+    if (kind === 'application' || (!question && (kind === 'write' || kind === 'merge'))) {
       content = <Detail key={aid} application={application} navigate={navigate} onSave={saveApplication}
         onDelete={id => setStore(previous => ({...previous, applications: previous.applications.filter(item => item.id !== id)}))}
         onSaveQuestion={saveQuestion}/>;
     } else if (kind === 'submissions') {
       content = <Submissions key={aid} application={application} onSave={saveApplication}/>;
-    } else if (question && kind === 'write') {
-      content = <Editor key={aid + question.id + search} application={application} question={question} query={query}
-        navigate={navigate} onSave={saveQuestion} preferences={store.preferences || {}}
+    } else if (question && (kind === 'write' || kind === 'essay-template')) {
+      content = <Editor key={application.id + question.id + search} application={application} question={question} query={query}
+        navigate={navigate} onSave={saveQuestion} onOpenEssayTemplate={openEssayTemplate} preferences={store.preferences || {}}
+        essayTemplate={templateRoute} onEditTemplateQuestions={() => setTemplateQuestionsOpen(true)} templateReturnPath={templateReturnPath}
         onPreferences={preferences => setStore(previous => ({...previous, preferences: {...previous.preferences, ...preferences}}))}/>;
     } else if (question && kind === 'merge') {
       content = <Merge key={aid + question.id + search} application={application} question={question} query={query}
-        navigate={navigate} onSave={saveQuestion}/>;
+        essayTemplate={templateRoute} navigate={navigate} onSave={saveQuestion}/>;
     }
   }
 
@@ -192,6 +277,10 @@ function App() {
     {inboxOpen && <Suspense fallback={null}>
       <Inbox preview={socialPreview} setPreview={setSocialPreview} onClose={() => setInboxOpen(false)}/>
     </Suspense>}
+    {templateRoute && templateQuestionsOpen && <Modal title="공통 자소서 문항" wide onClose={() => setTemplateQuestionsOpen(false)}>
+      <EssayTemplateQuestions key={templateOwner} questions={templateQuestions ?? []} onClose={() => setTemplateQuestionsOpen(false)}
+        onSave={questions => { changeTemplateQuestions(() => questions); setTemplateQuestionsOpen(false); }}/>
+    </Modal>}
     {settings && <Modal title="설정 및 백업" onClose={() => {setSettings(false); setImported(null);}}>
       <Notice>자소서와 지원 정보는 이 브라우저에 저장합니다. 기기 간 동기화와 실제 인증은 연결 전입니다.</Notice>
       {!store.profile?.name && <a className="button full" href="#/login" onClick={() => {setSettings(false); setImported(null);}}>로그인 화면</a>}
