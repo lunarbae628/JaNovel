@@ -44,6 +44,10 @@ tasks.withType(Test).configureEach {
 	useJUnitPlatform()
 }
 
+tasks.named('bootRun') {
+	systemProperty 'spring.profiles.default', 'local'
+}
+
 tasks.register('installPostingBrowser', JavaExec) {
 	classpath = sourceSets.main.runtimeClasspath
 	mainClass = 'com.microsoft.playwright.CLI'
