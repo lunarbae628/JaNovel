@@ -16,9 +16,9 @@
 
 ## API 개발 순서
 
-1. [로컬 API 명세](docs/api/README.md)에 경로, 요청, 성공 응답과 오류 응답을 초안으로 작성한다.
-2. 명세를 보면서 컨트롤러부터 구현하고 필요한 서비스와 저장 계층을 연결한다.
-3. `backend/http/`의 `.http` 요청을 httpYac으로 실행해 실제 응답을 명세와 대조한다. `MockMvc` 테스트 추가는 사용자가 별도로 요청할 때 진행한다.
+1. 컨트롤러와 DTO부터 구현하고 필요한 서비스와 저장 계층을 연결한다. [API 문서 안내](backend/README.md#api-문서)에 따라 `@Operation`, 성공·오류 `@ApiResponse`, `@Schema`로 설명과 응답을 선언한다.
+2. `backend/http/`에 요청을 추가하고 httpYac으로 실행해 실제 응답을 확인한다. 서버를 띄워 Swagger UI(`/swagger-ui.html`)에 경로, 오류 응답과 설명이 맞게 나오는지 본다.
+3. `MockMvc` 테스트 추가는 사용자가 별도로 요청할 때 진행한다.
 
 ## 작업과 검증
 

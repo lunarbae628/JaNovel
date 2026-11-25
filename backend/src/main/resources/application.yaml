@@ -1,6 +1,9 @@
 server:
   shutdown: graceful
 
+springdoc:
+  default-produces-media-type: application/json
+
 spring:
   application:
     name: janovel

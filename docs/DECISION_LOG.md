@@ -1,6 +1,13 @@
 # JaNovel 의사결정 로그
 
 ---
+### [2026-11-26] springdoc 도입과 API 명세 README 삭제
+- **배경 및 문제점 (Problem):** `docs/api/README.md`를 손으로 관리해서 코드와 어긋났다. 공고 가져오기 설명이 이미지 전달 방식 변경을 따라가지 못했고 이미지 가져오기 오류 코드 3개가 빠져 있었다.
+- **고려한 대안 (Alternatives):** `.http` 파일만 명세로 쓰는 방식은 오류 조건과 규칙 설명을 담기 어려워 보완 수단으로만 두었다. README를 유지하면서 springdoc을 함께 쓰면 같은 내용을 두 곳에 관리하게 된다.
+- **해결 및 변경 사항 (Solution):** `springdoc-openapi-starter-webmvc-ui:3.0.3`을 추가했다. 컨트롤러 4개에 `@Tag`, `@Operation`, `@ApiResponse`를, DTO에 `@Schema`를 달아 README의 설명과 오류 표를 옮겼다. 이름이 겹치는 중첩 DTO는 `@Schema(name)`으로 구분했다. 오류 응답은 `OpenApiCustomizer`가 항상 `ErrorResponse` 스키마로 바꾸고, 접근 키는 `previewKey` 보안 스킴으로 표시한다. 실행 안내는 백엔드 README의 "API 문서"로 옮기고 `AGENTS.md`의 API 개발 순서를 컨트롤러·DTO 우선으로 바꿨다. `docs/api/README.md`는 삭제하고 모든 링크를 새 안내로 바꿨다. [설정](../backend/src/main/java/com/janovel/global/openapi/OpenApiConfig.java) · [API 문서 안내](../backend/README.md#api-문서)
+- **결과 및 트레이드오프 (Result & Trade-off):** Spring Boot 4.2와 Jackson 3에서 요청 11개가 모두 생성되고 오류 응답 21건이 `ErrorResponse`로 연결됐다. 기본으로 선언하지 않은 `200` 응답은 생략되고 `@ApiResponse`를 쓰면 모든 응답에 반환 타입 스키마가 붙는 springdoc의 동작 때문에 성공 응답을 명시하고 오류 응답은 커스터마이저로 덮어썼다. 구현 전에 명세를 먼저 검토하는 단계는 없어졌다. Swagger UI는 아직 모든 환경에서 열려 있어 배포 전에 끄는 설정이 필요하다. 이전 README의 URL 정규화 같은 세부 설명은 간단히 줄였다.
+
+---
 ### [2026-11-26] JPA 스키마 검증과 종료·세션 설정 추가
 - **배경 및 문제점 (Problem):** 스키마는 Flyway만 관리하고 엔티티와 DB가 어긋나도 쓰는 시점에야 오류가 났다. 서버를 띄울 때 `open-in-view` 경고가 나왔고, 종료할 때 진행 중인 요청을 기다리지 않았다.
 - **고려한 대안 (Alternatives):** `ddl-auto: update`나 `create-drop`은 지연 제약, 복합 외래 키, `CHECK`, PostgreSQL ENUM 같은 V1의 무결성 규칙을 만들지 못하고 기존 컬럼의 NULL 허용도 바꾸지 못해 제외했다.
@@ -17,7 +24,7 @@
 ### [2026-11-26] 지원 건 등록·조회 API와 미리보기 사용자 식별 통합
 - **배경 및 문제점 (Problem):** 서비스와 엔티티는 있었지만 지원 건을 등록·조회하는 API가 없었다. 인증은 나중에 붙이기로 해서 사용자를 구분할 임시 방법이 필요했다. 접근 키 검사와 키 해시로 사용자를 만드는 로직이 공통 자소서에만 있었다.
 - **고려한 대안 (Alternatives):** 요청 헤더에 사용자 번호를 직접 받는 방식은 누구나 다른 사용자 번호를 쓸 수 있어 제외했다. 지원 건 전용으로 키 방식을 새로 만들면 같은 브라우저 프로필의 지원 건과 공통 자소서가 서로 다른 사용자에 쌓여 같은 방식을 쓰기로 했다.
-- **해결 및 변경 사항 (Solution):** `POST /api/applications`, `GET /api/applications`, `GET /api/applications/{id}`를 추가했다. 접근 키 해석과 사용자 생성을 `PreviewUsers`로 모으고 공통 자소서도 이를 쓰게 했다. 마감 종류와 지원 상태는 DB 값(`fixed`, `interested`)으로 JSON을 주고받는다. 다른 사용자의 지원 건은 없는 지원 건과 같은 404로 응답한다. 자소서 문항은 `essay_questions.char_limit`이 NOT NULL이라 글자 수를 모르는 문항을 저장할 수 없어 이번 API에서 제외했다. [컨트롤러](../backend/src/main/java/com/janovel/domain/application/api/ApplicationController.java) · [API 명세](api/README.md#지원-건)
+- **해결 및 변경 사항 (Solution):** `POST /api/applications`, `GET /api/applications`, `GET /api/applications/{id}`를 추가했다. 접근 키 해석과 사용자 생성을 `PreviewUsers`로 모으고 공통 자소서도 이를 쓰게 했다. 마감 종류와 지원 상태는 DB 값(`fixed`, `interested`)으로 JSON을 주고받는다. 다른 사용자의 지원 건은 없는 지원 건과 같은 404로 응답한다. 자소서 문항은 `essay_questions.char_limit`이 NOT NULL이라 글자 수를 모르는 문항을 저장할 수 없어 이번 API에서 제외했다. [컨트롤러](../backend/src/main/java/com/janovel/domain/application/api/ApplicationController.java) · [API 명세](../backend/README.md#api-문서)
 - **결과 및 트레이드오프 (Result & Trade-off):** httpYac 시나리오 15개와 공통 자소서 시나리오 13개, 백엔드 테스트 61건이 통과했다. 접근 키는 인증이 아니라 미리보기 구분용이라 키를 아는 사람은 누구나 해당 데이터에 접근한다. 공고 추출 결과를 지원 건으로 바로 저장하는 연결과 문항 저장은 이후 작업이다.
 
 ---
@@ -80,7 +87,7 @@
 ---
 ### [2026-11-25] 통합 V1과 내 공통 자소서·주간 반복 일정
 - **배경 및 문제점 (Problem)** — 공고 변경 이력 없이도 개인 지원 건이 확정 정보를 보관할 수 있다. 자유문항 공고는 자주 쓰는 질문과 초안을 매번 입력해야 했고, 월간 캘린더에서 드래그하면 날짜 범위의 연속 일정만 만들 수 있었다.
-- **해결 및 변경 사항 (Solution)** — 공개 공고의 최신 정보와 직무를 두 테이블로 관리하고 지원 건에 선택적 직무 외래 키를 추가했다. V1과 V2를 통합하고 새 DB에 적용한 뒤 기존 데이터를 복사했다. 공통 자소서는 미리보기 프로필별 PostgreSQL에 저장하고 개인 문항과 초안으로 복사한다. 같은 요일 열을 세로로 드래그하면 마지막 날짜를 반복 종료일로 채우는 매주 일정이 열린다. [통합 DBML](planning/posting-reference-proposal.dbml) · [공통 자소서 API](api/README.md#내-공통-자소서)
+- **해결 및 변경 사항 (Solution)** — 공개 공고의 최신 정보와 직무를 두 테이블로 관리하고 지원 건에 선택적 직무 외래 키를 추가했다. V1과 V2를 통합하고 새 DB에 적용한 뒤 기존 데이터를 복사했다. 공통 자소서는 미리보기 프로필별 PostgreSQL에 저장하고 개인 문항과 초안으로 복사한다. 같은 요일 열을 세로로 드래그하면 마지막 날짜를 반복 종료일로 채우는 매주 일정이 열린다. [통합 DBML](planning/posting-reference-proposal.dbml) · [공통 자소서 API](../backend/README.md#api-문서)
 - **결과 및 트레이드오프 (Result & Trade-off)** — 기존 13개 테이블 데이터와 자동 증가 시퀀스 10개가 이전 전후 일치했다. 원본 DB는 `mydatabase_before_v1_20261125`에 두었다. Chrome에서 공통 자소서를 저장하고 작성 화면에 초안을 불러오는 경로와 수요일 세로 드래그의 매주·종료일 기본값을 확인했다. 자동 테스트는 주간 반복 종료일·회차 조작과 프로필 분리를 검증했다. 공고 추출 결과 적재 로직과 실제 계정 인증은 이후 연결한다.
 
 ---
@@ -93,7 +100,7 @@
 ### [2026-11-25] 이전 사용자 자소서 문항 자동 채움과 제보
 - **배경 및 문제점 (Problem)** — 기존 공고 확인 화면에서 입력한 문항은 해당 브라우저의 지원 건에 저장됐다. 같은 공고와 직무를 추가하는 다음 사용자는 같은 문항을 다시 입력해야 했고, 후속 입력으로 공통 문항을 곧바로 바꾸면 오류나 악의적인 입력이 다른 사용자에게 전달될 수 있었다.
 - **고려한 대안 (Alternatives)** — 후속 수정으로 공통 문항을 즉시 바꾸는 방식과 여러 사람의 입력이 일치해야 문항을 제공하는 방식을 검토했다. 전자는 한 번의 입력으로 원래 문항을 덮어쓸 수 있고, 후자는 최초 입력 직후 재사용할 수 없다.
-- **해결 및 변경 사항 (Solution)** — 공고 상세 URL과 직무명에 고유 키를 두고 최초 입력의 질문·순서·글자 수를 PostgreSQL에 저장한다. 원문에서 추출한 문항이 없을 때 저장된 문항을 채우고, 제보에는 표시된 세트 ID와 사용자가 선택한 정정 내용을 저장한다. 개인 수정은 해당 지원 건에 반영한다. 입력 도중 주소나 직무가 달라지면 기존 질문은 개인 지원 건에만 저장한다. [API 명세](api/README.md#자소서-문항-자동-채움과-제보) · [통합 V1](../backend/src/main/resources/db/migration/V1__initial_schema.sql)
+- **해결 및 변경 사항 (Solution)** — 공고 상세 URL과 직무명에 고유 키를 두고 최초 입력의 질문·순서·글자 수를 PostgreSQL에 저장한다. 원문에서 추출한 문항이 없을 때 저장된 문항을 채우고, 제보에는 표시된 세트 ID와 사용자가 선택한 정정 내용을 저장한다. 개인 수정은 해당 지원 건에 반영한다. 입력 도중 주소나 직무가 달라지면 기존 질문은 개인 지원 건에만 저장한다. [API 명세](../backend/README.md#api-문서) · [통합 V1](../backend/src/main/resources/db/migration/V1__initial_schema.sql)
 - **결과 및 트레이드오프 (Result & Trade-off)** — Safari의 일반 창과 개인정보 보호 창에서 최초 등록, 추적 값이 붙은 같은 공고의 자동 채움, 미확인 글자 수, 제보와 개인 저장을 확인했다. PostgreSQL에는 최초 문항과 정정 제안이 각각 남았다. 미리보기는 루프백에서 동작하며 공개 운영을 위해서는 서버 인증, 출처 확인과 제보 검토가 필요하다. 같은 주소와 직무명을 다음 모집 회차에도 사용하는 사이트는 별도의 공고 식별자가 필요하다.
 
 ---
@@ -142,7 +149,7 @@
 ### [2026-11-24] 공고 링크 API와 공통 오류 응답 정리
 - **배경 및 문제점 (Problem):** 브라우저의 수동 등록만으로는 공고 정보를 매번 옮겨 적어야 했다. 서버가 사용자가 준 URL을 가져오면 내부 주소에 연결할 수 있고, JSON을 읽지 못한 요청과 읽은 뒤 값 검증에 실패한 요청도 API에서 처리해야 했다.
 - **해결 및 변경 사항 (Solution):** `POST /api/postings/import`를 추가해 공개 HTML을 Jsoup으로 읽고 확인 화면에 연결했다. 서버가 연결할 주소와 리다이렉트를 검사한다. 도메인별 오류 코드는 enum으로 정의하고, `CustomException`과 `GlobalExceptionHandler`가 `status`, `message`, `error` 응답을 조립한다. 로컬 API 명세를 먼저 작성하고 `.http` 예제를 httpYac으로 실행하는 흐름을 정했다.
-- **결과 및 트레이드오프 (Result & Trade-off):** 컨트롤러는 요청을 서비스에 넘기고 프론트는 같은 오류 계약을 사용한다. 정적 HTML로 얻을 수 있는 정보는 제한적이어서 동적·이미지 공고의 처리는 이후 단계에 추가했다. `b2dad9c` · `a9ed4fc` · `1a6d027` · [API 명세](api/README.md)
+- **결과 및 트레이드오프 (Result & Trade-off):** 컨트롤러는 요청을 서비스에 넘기고 프론트는 같은 오류 계약을 사용한다. 정적 HTML로 얻을 수 있는 정보는 제한적이어서 동적·이미지 공고의 처리는 이후 단계에 추가했다. `b2dad9c` · `a9ed4fc` · `1a6d027` · [API 명세](../backend/README.md#api-문서)
 
 ---
 ### [2026-11-24] 지원 건 생성과 사용자별 목록의 서비스 경계 정의
