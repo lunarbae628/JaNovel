@@ -11,6 +11,8 @@ import com.janovel.domain.application.entity.ApplicationSection;
 import com.janovel.domain.application.entity.ApplicationStage;
 import com.janovel.domain.application.exception.ApplicationErrorCode;
 import com.janovel.domain.user.dao.UserRepository;
+import com.janovel.domain.writing.dao.EssayQuestionRepository;
+import com.janovel.domain.writing.entity.EssayQuestion;
 import com.janovel.global.exception.CustomException;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
@@ -24,14 +26,17 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final ApplicationSectionRepository sectionRepository;
     private final ApplicationStageRepository stageRepository;
+    private final EssayQuestionRepository questionRepository;
     private final UserRepository userRepository;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               ApplicationSectionRepository sectionRepository,
-                              ApplicationStageRepository stageRepository, UserRepository userRepository) {
+                              ApplicationStageRepository stageRepository,
+                              EssayQuestionRepository questionRepository, UserRepository userRepository) {
         this.applicationRepository = applicationRepository;
         this.sectionRepository = sectionRepository;
         this.stageRepository = stageRepository;
+        this.questionRepository = questionRepository;
         this.userRepository = userRepository;
     }
 
@@ -56,7 +61,11 @@ public class ApplicationService {
         var stages = stageRepository.saveAll(IntStream.range(0, request.stages().size())
                 .mapToObj(index -> new ApplicationStage(application, request.stages().get(index), index + 1))
                 .toList());
-        return ApplicationDetail.of(application, sections, stages);
+        var questions = questionRepository.saveAll(IntStream.range(0, request.questions().size())
+                .mapToObj(index -> new EssayQuestion(application, request.questions().get(index).prompt(),
+                        request.questions().get(index).limit(), index + 1))
+                .toList());
+        return ApplicationDetail.of(application, sections, stages, questions);
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +73,8 @@ public class ApplicationService {
         var application = applicationRepository.findByIdAndUserId(applicationId, userId)
                 .orElseThrow(() -> new CustomException(ApplicationErrorCode.APPLICATION_NOT_FOUND));
         return ApplicationDetail.of(application, sectionRepository.findAllByApplicationIdOrderByPosition(applicationId),
-                stageRepository.findAllByApplicationIdOrderByPosition(applicationId));
+                stageRepository.findAllByApplicationIdOrderByPosition(applicationId),
+                questionRepository.findAllByApplicationIdOrderByPosition(applicationId));
     }
 
     @Transactional

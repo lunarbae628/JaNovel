@@ -1,5 +1,6 @@
 package com.janovel.domain.application.api;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.HttpHeaders.CACHE_CONTROL;
@@ -15,6 +16,8 @@ import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,7 +44,8 @@ class ApplicationControllerTests {
               "sourceUrl": "https://careers.example.com/jobs/1",
               "sourceText": "공고 원문",
               "sections": [{"title": "업무", "body": "API 개발"}, {"title": "우대 사항", "body": "Docker 경험"}],
-              "stages": ["서류전형", "1차 면접", "합격"]
+              "stages": ["서류전형", "1차 면접", "합격"],
+              "questions": [{"prompt": " 지원 동기를 알려 주세요. ", "limit": null}, {"prompt": "협업 경험을 알려 주세요.", "limit": 800}]
             }
             """;
 
@@ -107,6 +111,10 @@ class ApplicationControllerTests {
                 .andExpect(jsonPath("$.sections[0].title").value("업무"))
                 .andExpect(jsonPath("$.stages.length()").value(3))
                 .andExpect(jsonPath("$.stages[2].name").value("합격"))
+                .andExpect(jsonPath("$.questions.length()").value(2))
+                .andExpect(jsonPath("$.questions[0].prompt").value("지원 동기를 알려 주세요."))
+                .andExpect(jsonPath("$.questions[0].limit").value(nullValue()))
+                .andExpect(jsonPath("$.questions[1].limit").value(800))
                 .andReturn();
         long id = ((Number) JsonPath.read(created.getResponse().getContentAsString(StandardCharsets.UTF_8), "$.id")).longValue();
 
@@ -116,19 +124,22 @@ class ApplicationControllerTests {
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.sourceUrl").value("https://careers.example.com/jobs/1"))
                 .andExpect(jsonPath("$.sections[1].body").value("Docker 경험"))
-                .andExpect(jsonPath("$.stages[0].name").value("서류전형"));
+                .andExpect(jsonPath("$.stages[0].name").value("서류전형"))
+                .andExpect(jsonPath("$.questions[1].prompt").value("협업 경험을 알려 주세요."))
+                .andExpect(jsonPath("$.questions[1].limit").value(800));
     }
 
     @Test
-    @DisplayName("회사와 직무만 등록하면 마감은 null이고 항목과 전형은 빈 배열이다")
+    @DisplayName("회사와 직무만 등록하면 마감은 null이고 항목·전형·문항은 빈 배열이다")
     void registersMinimalApplication() throws Exception {
         mvc.perform(post("/api/applications").header(AUTHORIZATION, newKey())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"company\":\"두 번째 회사\",\"role\":\"디자이너\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.deadline").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.deadline").value(nullValue()))
                 .andExpect(jsonPath("$.sections.length()").value(0))
-                .andExpect(jsonPath("$.stages.length()").value(0));
+                .andExpect(jsonPath("$.stages.length()").value(0))
+                .andExpect(jsonPath("$.questions.length()").value(0));
     }
 
     @Test
@@ -165,12 +176,29 @@ class ApplicationControllerTests {
             "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"deadline\":{\"kind\":\"fixed\"}}",
             "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"deadline\":{\"kind\":\"always_open\",\"date\":\"2026-12-16\"}}",
             "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"deadline\":{\"kind\":\"someday\"}}",
+            "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"questions\":[{\"prompt\":\"  \"}]}",
+            "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"questions\":[{\"prompt\":\"문항\",\"limit\":0}]}",
+            "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"questions\":[{\"prompt\":\"문항\",\"limit\":500.5}]}",
+            "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"questions\":[{\"prompt\":\"문항\",\"limit\":\"500\"}]}",
             "{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"stages\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\",\"11\",\"12\",\"13\",\"14\",\"15\",\"16\",\"17\",\"18\",\"19\",\"20\",\"21\"]}"
     })
-    @DisplayName("회사명이 공백이거나 마감 조합·종류가 틀리거나 전형이 20개를 넘으면 400 INVALID_REQUEST다")
+    @DisplayName("회사명이 공백이거나 마감 조합·종류가 틀리거나 전형이 20개를 넘거나 문항이 잘못되면 400 INVALID_REQUEST다")
     void rejectsInvalidRequest(String body) throws Exception {
         mvc.perform(post("/api/applications").header(AUTHORIZATION, newKey())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("문항이 30개를 넘으면 400 INVALID_REQUEST다")
+    void rejectsTooManyQuestions() throws Exception {
+        String questions = IntStream.range(0, 31).mapToObj(index -> "{\"prompt\":\"문항 " + index + "\"}")
+                .collect(Collectors.joining(","));
+
+        mvc.perform(post("/api/applications").header(AUTHORIZATION, newKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"company\":\"예시 회사\",\"role\":\"백엔드\",\"questions\":[" + questions + "]}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("INVALID_REQUEST"));
     }

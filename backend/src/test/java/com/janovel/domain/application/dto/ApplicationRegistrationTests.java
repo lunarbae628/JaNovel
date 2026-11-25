@@ -2,6 +2,8 @@ package com.janovel.domain.application.dto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.janovel.domain.application.model.DeadlineKind;
@@ -13,6 +15,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 class ApplicationRegistrationTests {
@@ -75,5 +78,29 @@ class ApplicationRegistrationTests {
 
         assertFalse(valid("{\"company\":\"A\",\"role\":\"B\",\"sections\":[" + sections + "]}"));
         assertFalse(valid("{\"company\":\"A\",\"role\":\"B\",\"stages\":[" + stages + "]}"));
+    }
+
+    @Test
+    @DisplayName("문항은 앞뒤 공백을 제거하고 글자 수 제한을 생략하면 null로 읽는다")
+    void readsQuestions() {
+        var request = json.readValue("""
+                {"company":"A","role":"B","questions":[{"prompt":"  지원 동기 "},{"prompt":"협업","limit":800}]}
+                """, ApplicationRegistration.class);
+
+        assertTrue(validator.validate(request).isEmpty());
+        assertEquals("지원 동기", request.questions().get(0).prompt());
+        assertNull(request.questions().get(0).limit());
+        assertEquals(800, request.questions().get(1).limit());
+    }
+
+    @Test
+    @DisplayName("문항이 공백이거나 글자 수 제한이 범위 밖이면 거부하고 정수가 아니면 읽지 못한다")
+    void rejectsInvalidQuestions() {
+        assertFalse(valid("{\"company\":\"A\",\"role\":\"B\",\"questions\":[{\"prompt\":\" \"}]}"));
+        assertFalse(valid("{\"company\":\"A\",\"role\":\"B\",\"questions\":[{\"prompt\":\"문항\",\"limit\":0}]}"));
+        assertFalse(valid("{\"company\":\"A\",\"role\":\"B\",\"questions\":[{\"prompt\":\"문항\",\"limit\":100001}]}"));
+        assertThrows(JacksonException.class, () ->
+                json.readValue("{\"company\":\"A\",\"role\":\"B\",\"questions\":[{\"prompt\":\"문항\",\"limit\":500.5}]}",
+                        ApplicationRegistration.class));
     }
 }
