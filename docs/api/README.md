@@ -32,7 +32,7 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
 
 상태 `구현됨`
 
-`POST /api/postings/import`는 공개 공고의 본문을 HTTP로 읽고, 본문이 부족하면 Chromium으로 읽는다. Java가 확보한 본문을 설정된 OpenAI 모델에 전달해 지원 건 초안을 만든다. 기본 모델은 GPT-6 Luna다. 인증 없이 호출할 수 있으며, 가져온 값은 확인 화면에서 수정한 후 등록한다. [컨트롤러](../../backend/src/main/java/com/janovel/domain/application/api/PostingImportController.java)
+`POST /api/postings/import`는 공개 공고의 표준 `JobPosting` 데이터와 상세 텍스트를 확인한다. 본문이 없으면 같은 사이트의 대표 주소를 확인한다. 동적 본문, 접힌 내용, 상세 iframe은 Chromium에서 읽는다. 원티드의 접힌 전형과 문항은 같은 공고의 내장 데이터에서 읽는다. 텍스트가 부족하면 공고 이미지를 찾아 읽을 수 있는 크기로 나누어 한 번의 모델 요청으로 보낸다. 기본 모델은 GPT-5.4 mini다. 인증 없이 호출할 수 있으며, 가져온 값은 확인 화면에서 수정한 후 등록한다. [컨트롤러](../../backend/src/main/java/com/janovel/domain/application/api/PostingImportController.java)
 
 ### 요청
 
@@ -59,7 +59,8 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
 | `sections` | 배열 | 공고 항목 `{title, body}`. |
 | `stages` | 문자열 배열 | 공고에 나온 채용 전형 순서. |
 | `questions` | 배열 | 자소서 문항 `{prompt, limit}`. 글자 수를 확인하지 못하면 `limit`은 `null`이다. |
-| `sourceText` | 문자열 | 링크에서 확보한 본문. 최대 30,000자이며 이미지 입력에서는 빈 문자열이다. |
+| `positions` | 배열 | 공고에 명시된 여러 모집 직무. 항목마다 `role`, `deadline`, `deadlineTime`, `sections`, `stages`, `questions`를 포함한다. 공통 값은 상위 필드에 둔다. 모집 직무가 하나면 상위 필드를 채우고 빈 배열을 반환한다. |
+| `sourceText` | 문자열 | 링크에서 확보한 본문. 최대 30,000자이며 이미지로 읽은 경우 빈 문자열이다. |
 
 ```json
 {
@@ -70,6 +71,7 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
   "sections": [{"title": "주요 업무", "body": "API를 개발합니다."}],
   "stages": ["서류전형", "면접"],
   "questions": [],
+  "positions": [],
   "sourceText": "주요 업무\nAPI를 개발합니다.\n지원 요건\nSpring 개발 경험"
 }
 ```
@@ -98,14 +100,15 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
 }
 ```
 
+모집 직무가 여러 개면 사용자가 등록할 직무를 먼저 선택한다. 확인 화면은 공통 항목과 선택한 직무의 항목을 함께 보여준다.
+
 ## 공고 이미지 가져오기
 
 상태 `구현됨`
 
-- `POST /api/postings/import/retry`는 기존 `{"url":"https://…"}`를 받아 공고 본문을 캡처해 이미지 입력으로 모델에 전달한다. 확인 화면에서 사용자가 재시도를 선택할 때 호출한다.
 - `POST /api/postings/import-image`는 `multipart/form-data`의 `image` 파일 한 개를 받아 이미지 입력으로 모델에 전달한다. PNG·JPEG·WebP를 지원하며 파일은 최대 10 MiB다.
 
-두 이미지 요청은 작업을 접수하면 `202 Accepted`와 `Location`을 반환한다. `Location`에서 상태를 조회할 수 있다. 접수 한도를 넘으면 `503 POSTING_IMPORT_BUSY`를 반환한다.
+이미지 첨부 요청은 작업을 접수하면 `202 Accepted`와 `Location`을 반환한다. `Location`에서 상태를 조회할 수 있다. 접수 한도를 넘으면 `503 POSTING_IMPORT_BUSY`를 반환한다.
 
 ```json
 {"jobId":"3e0f7de1-970c-44b3-8231-a5a0ffdf93d3","status":"QUEUED"}
@@ -113,4 +116,50 @@ IntelliJ IDEA Ultimate의 HTTP Client를 사용하면 각 `.http` 요청 옆의 
 
 `GET /api/postings/import-jobs/{jobId}`는 `200`과 현재 작업 상태를 반환한다. `QUEUED`, `PROCESSING`이면 `Retry-After: 1`에 따라 잠시 뒤 조회한다. `COMPLETED`면 `result`에 구조화한 항목을 반환하고 `sourceText`는 빈 문자열이다. `FAILED`면 `error`에 `status`, `message`, `error`가 있다. 완료·실패 결과는 최대 2분간 조회할 수 있으며, 작업이 없거나 조회 기간이 지나면 `404 POSTING_IMPORT_JOB_NOT_FOUND`를 반환한다.
 
-사용자는 이미지 처리 완료까지 로딩 화면에서 기다린다. 결과가 도착하면 확인 화면에 채우고, 실패하면 원문을 보면서 재시도하거나 직접 입력할 수 있다. [실행 예제](../../backend/http/posting-images.http) · [공고 구조화 계획](../planning/08-posting-structured-import.md)
+사용자는 이미지 처리 완료까지 로딩 화면에서 기다린다. 결과가 도착하면 확인 화면에 채우고, 실패하면 원문을 보면서 직접 입력할 수 있다. [실행 예제](../../backend/http/posting-images.http) · [공고 구조화 계획](../planning/08-posting-structured-import.md)
+
+## 자소서 문항 자동 채움과 제보
+
+상태 `구현됨` · 서버 인증 연결 전에는 `local` 프로필의 루프백 서버에서 확인할 수 있다.
+
+| 요청 | 요청 본문 | 성공 응답 |
+|---|---|---|
+| `POST /api/postings/shared-questions/lookup` | `{url, role}` | `200 {id, questions}` 또는 문항이 없으면 `204` |
+| `POST /api/postings/shared-questions` | `{url, role, questions}` | 최초 저장 시 `201`, 같은 공고·직무에 이미 저장돼 있으면 `204` |
+| `POST /api/postings/shared-questions/{id}/reports` | `{questions}`. 정정 제안이 없으면 `{}` | 제보 저장 시 `201` |
+
+`questions`는 등록 순서대로 나열한 `{prompt, limit}` 배열이다. 문항은 최대 30개, 문항 본문은 최대 2,000자, 확인된 제한은 1~100,000자다. 제한이 미확인이면 `limit`은 `null`이다. 공고는 상세 URL을, 직무는 최대 150자의 이름을 사용한다. 공고별 상세 주소의 경로, 식별 쿼리, 화면 경로는 유지하고 알려진 추적 값만 제거한다. 응답의 `id`는 자동 채운 문항 세트의 버전을 나타내며 제보는 이 버전에 연결된다. 제보는 공통 문항을 변경하지 않는다.
+
+| 상태 | 코드 | 조건 |
+|---|---|---|
+| `400` | `INVALID_REQUEST` | 필수 값 누락 또는 문항 본문·제한·개수 범위 오류 |
+| `400` | `INVALID_POSTING_URL` | 상세 공고 주소로 사용할 수 없는 URL |
+| `404` | `POSTING_QUESTIONS_NOT_FOUND` | 제보할 문항 버전이 없음 |
+
+[로컬 확인 요청](../../backend/http/shared-posting-questions.http)
+
+```sh
+npx httpyac@6.16.7 send backend/http/shared-posting-questions.http --all
+```
+
+## 내 공통 자소서
+
+상태 `구현됨` · 서버 계정 인증 연결 전에는 루프백의 `local` 프로필에서 미리보기 프로필별로 이용한다.
+
+| 요청 | 요청 본문 | 성공 응답 |
+|---|---|---|
+| `GET /api/me/essay-template` | 없음 | `200 {items}`. 저장한 내용이 없으면 빈 배열 |
+| `PUT /api/me/essay-template` | `{items}` | 세트 저장 시 `204`. 빈 배열은 현재 세트 비우기 |
+
+`items`는 저장 순서대로 나열한 `{prompt, draftBody, limit}` 배열이다. 최대 30개까지 저장하고 문항은 1~2,000자, 초안은 최대 20,000자다. 글자 수 제한은 미확인이면 `null`이고 값이 있으면 1~100,000자다. 요청에는 현재 브라우저의 미리보기 프로필이 보유한 32바이트 접근 키를 `Authorization: Bearer <소문자 16진수 64자리>`로 보낸다. 서버는 키로 소유자를 찾는다.
+
+| 상태 | 코드 | 조건 |
+|---|---|---|
+| `400` | `INVALID_REQUEST` | 배열 또는 항목 형식이나 길이 범위 오류 |
+| `401` | `ESSAY_TEMPLATE_UNAUTHORIZED` | 접근 키 누락 또는 형식 오류 |
+
+[로컬 확인 요청](../../backend/http/essay-template.http)
+
+```sh
+npx httpyac@6.16.7 send backend/http/essay-template.http --all
+```
