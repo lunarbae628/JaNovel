@@ -53,6 +53,43 @@ export function calendarWeeks(month) {
     Array.from({length: 7}, (_, d) => addDays(first, w * 7 + d)));
 }
 
+export const weekDays = date => {
+  const first = addDays(date, -new Date(dateValue(date)).getUTCDay());
+  return Array.from({length: 7}, (_, day) => addDays(first, day));
+};
+
+export const weekAgenda = (events, days) => days.map(day => ({
+  day,
+  events: events.filter(event => event.start <= day && event.end >= day)
+    .sort((a, b) => (a.time || '').localeCompare(b.time || '')),
+}));
+
+export function shiftDates({start, end}, from, to) {
+  const days = Math.round((dateValue(to) - dateValue(from)) / DAY);
+  return {start: addDays(start, days), end: addDays(end, days)};
+}
+
+export function calendarSelection(anchor, target) {
+  const [start, last] = [anchor, target].sort();
+  const weekly = start !== last && (dateValue(last) - dateValue(start)) % (7 * DAY) === 0;
+  return {start, end: weekly ? start : last, repeat: weekly ? 'weekly' : false, repeatUntil: weekly ? last : ''};
+}
+
+export function scheduleFormDates({repeatUntil, ...item}) {
+  return {...item, end:item.repeat ? repeatUntil || '' : item.end};
+}
+
+export function scheduleFormRepeat(form, repeat) {
+  let end = form.end;
+  if (repeat && !form.repeat && end === form.start) end = '';
+  if (!repeat && !end) end = form.start;
+  return {...form, repeat, end};
+}
+
+export function scheduleItemDates(form) {
+  return {...form, end:form.repeat ? form.start : form.end, repeatUntil:form.repeat ? form.end : ''};
+}
+
 export function validateScheduleItem(item) {
   if (typeof item.title !== 'string' || !item.title.trim()) return '일정 제목을 입력해 주세요.';
   if (!isDateKey(item.start) || !isDateKey(item.end) || item.end < item.start) return '시작일과 종료일을 확인해 주세요.';
@@ -60,16 +97,18 @@ export function validateScheduleItem(item) {
       (item.endTime && (!item.time || (item.start === item.end && item.endTime < item.time)))) {
     return '시작 시간과 종료 시간을 확인해 주세요.';
   }
-  if (item.repeat && item.start !== item.end) return '일일 반복은 하루 일정에만 설정할 수 있어요.';
+  if (item.repeat && item.start !== item.end) {
+    return (item.repeat === 'weekly' ? '주간' : '일일') + ' 반복은 하루 일정에만 설정할 수 있어요.';
+  }
   if (item.repeat && item.repeatUntil && (!isDateKey(item.repeatUntil) || item.repeatUntil < item.start)) {
-    return '반복 종료일은 시작일 이후로 설정해 주세요.';
+    return '종료일은 시작일과 같거나 그 이후여야 해요.';
   }
   return '';
 }
 
 export function isScheduleItem(item) {
   return Boolean(item && typeof item.id === 'string' && item.id && ['event', 'task'].includes(item.kind) &&
-    scheduleColors.includes(item.color) && typeof item.note === 'string' && typeof item.repeat === 'boolean' &&
+    scheduleColors.includes(item.color) && typeof item.note === 'string' && [false, true, 'weekly'].includes(item.repeat) &&
     typeof item.repeatUntil === 'string' && Array.isArray(item.completed) && item.completed.every(isDateKey) &&
     Array.isArray(item.skipped) && item.skipped.every(isDateKey) && !validateScheduleItem(item));
 }
@@ -79,8 +118,12 @@ export function projectSchedule(items, first, last) {
     if (!item.repeat) return item.end < first || item.start > last ? [] :
       [{...item, date: item.start, done: item.completed.includes(item.start)}];
     const result = [];
-    const until = minDate(last, item.repeatUntil || last);
-    for (let day = maxDate(first, item.start); day <= until; day = addDays(day, 1)) {
+    const start = dateValue(item.start);
+    const step = (item.repeat === 'weekly' ? 7 : 1) * DAY;
+    const until = dateValue(minDate(last, item.repeatUntil || last));
+    const offset = Math.max(0, dateValue(first) - start);
+    for (let occurrence = start + Math.ceil(offset / step) * step; occurrence <= until; occurrence += step) {
+      const day = dateKey(occurrence);
       if (!item.skipped.includes(day)) result.push({
         ...item, start: day, end: day, date: day, done: item.completed.includes(day),
       });
