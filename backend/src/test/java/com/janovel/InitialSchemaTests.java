@@ -97,6 +97,22 @@ class InitialSchemaTests {
     }
 
     @Test
+    @DisplayName("문항의 글자 수 제한은 비워 둘 수 있고 값이 있으면 1~100000이어야 한다")
+    void allowsUnknownCharLimitAndRejectsOutOfRange() {
+        jdbc.update("""
+                INSERT INTO essay_questions (id, application_id, prompt, char_limit, position)
+                VALUES (43, 10, '제한 미확인', NULL, 1), (44, 10, '제한 있음', 500, 2)
+                """);
+
+        assertNull(jdbc.queryForObject("SELECT char_limit FROM essay_questions WHERE id = 43", Integer.class));
+        var zero = assertThrows(DataIntegrityViolationException.class, () -> jdbc.update("""
+                INSERT INTO essay_questions (id, application_id, prompt, char_limit, position)
+                VALUES (45, 10, '0자 제한', 0, 3)
+                """));
+        assertEquals("23514", ((SQLException) zero.getMostSpecificCause()).getSQLState());
+    }
+
+    @Test
     @DisplayName("다른 문항의 스냅샷을 부모로 연결할 수 없다")
     void rejectsSnapshotParentFromAnotherQuestion() {
         jdbc.update("""

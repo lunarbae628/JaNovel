@@ -27,8 +27,8 @@ public class EssayQuestion {
     @Column(nullable = false, columnDefinition = "text")
     private String prompt;
 
-    @Column(name = "char_limit", nullable = false)
-    private int charLimit;
+    @Column(name = "char_limit")
+    private Integer charLimit;
 
     @Column(nullable = false)
     private int position;
@@ -36,7 +36,7 @@ public class EssayQuestion {
     protected EssayQuestion() {
     }
 
-    public EssayQuestion(Application application, String prompt, int charLimit, int position) {
+    public EssayQuestion(Application application, String prompt, Integer charLimit, int position) {
         this.application = Objects.requireNonNull(application, "application");
         this.prompt = Objects.requireNonNull(prompt, "prompt");
         this.charLimit = charLimit;
@@ -63,11 +63,11 @@ public class EssayQuestion {
         this.prompt = Objects.requireNonNull(prompt, "prompt");
     }
 
-    public int getCharLimit() {
+    public Integer getCharLimit() {
         return charLimit;
     }
 
-    public void setCharLimit(int charLimit) {
+    public void setCharLimit(Integer charLimit) {
         this.charLimit = charLimit;
     }
 

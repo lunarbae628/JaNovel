@@ -106,7 +106,7 @@ Table "essay_questions" {
   "id" BIGINT [pk, increment]
   "application_id" bigint [not null]
   "prompt" text [not null]
-  "char_limit" integer [not null]
+  "char_limit" integer [check: `char_limit BETWEEN 1 AND 100000`, note: '글자 수를 모르면 NULL']
   "position" integer [not null]
 
   Indexes {
