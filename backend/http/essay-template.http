@@ -1,0 +1,129 @@
+@baseUrl = http://127.0.0.1:8080
+
+{{
+const { randomBytes } = require('node:crypto');
+exports.essayAccessKey = randomBytes(32).toString('hex');
+exports.otherEssayAccessKey = randomBytes(32).toString('hex');
+}}
+
+### 접근 키가 없는 조회 (401)
+GET {{baseUrl}}/api/me/essay-template
+
+?? status == 401
+?? body error == ESSAY_TEMPLATE_UNAUTHORIZED
+?? header www-authenticate == Bearer
+
+### 형식이 잘못된 접근 키로 저장 (401)
+PUT {{baseUrl}}/api/me/essay-template
+Authorization: Bearer invalid
+Content-Type: application/json
+
+{"items":[]}
+
+?? status == 401
+?? body error == ESSAY_TEMPLATE_UNAUTHORIZED
+
+### 처음 조회하는 프로필의 빈 양식 (200)
+GET {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+
+?? status == 200
+?? header cache-control == no-store
+?? body items.length == 0
+
+### 입력한 순서로 문항과 초안 저장 (204)
+PUT {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+Content-Type: application/json
+
+{
+  "items": [
+    {"prompt":" 지원 동기 ","draftBody":" 첫째 문단\n\n둘째 문단 ","limit":null},
+    {"prompt":"협업 경험","draftBody":"","limit":800}
+  ]
+}
+
+?? status == 204
+
+### 저장된 양식 조회 (200)
+GET {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+
+?? status == 200
+?? header cache-control == no-store
+?? body items.length == 2
+?? body items[0].prompt == 지원 동기
+?? body items[0].limit == null
+?? js response.parsedBody.items[0].draftBody === ' 첫째 문단\n\n둘째 문단 ' == true
+?? body items[1].prompt == 협업 경험
+?? body items[1].limit == 800
+
+### 다른 프로필에서는 빈 양식 조회 (200)
+GET {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{otherEssayAccessKey}}
+
+?? status == 200
+?? body items.length == 0
+
+### 누락된 초안 거절 (400)
+PUT {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+Content-Type: application/json
+
+{"items":[{"prompt":"성장 과정","limit":500}]}
+
+?? status == 400
+?? body error == INVALID_REQUEST
+
+### 범위 밖 글자 수 제한 거절 (400)
+PUT {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+Content-Type: application/json
+
+{"items":[{"prompt":"성장 과정","draftBody":"새 초안","limit":0}]}
+
+?? status == 400
+?? body error == INVALID_REQUEST
+
+### 소수 글자 수 제한 거절 (400)
+PUT {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+Content-Type: application/json
+
+{"items":[{"prompt":"성장 과정","draftBody":"새 초안","limit":500.5}]}
+
+?? status == 400
+?? body error == INVALID_REQUEST
+
+### 양식 교체 (204)
+PUT {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+Content-Type: application/json
+
+{"items":[{"prompt":"성장 과정","draftBody":"새 초안","limit":500}]}
+
+?? status == 204
+
+### 교체된 문항만 조회 (200)
+GET {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+
+?? status == 200
+?? body items.length == 1
+?? body items[0].prompt == 성장 과정
+
+### 빈 배열로 세트 비우기 (204)
+PUT {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+Content-Type: application/json
+
+{"items":[]}
+
+?? status == 204
+
+### 비운 세트 조회 (200)
+GET {{baseUrl}}/api/me/essay-template
+Authorization: Bearer {{essayAccessKey}}
+
+?? status == 200
+?? body items.length == 0
