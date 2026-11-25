@@ -1,8 +1,8 @@
 # 공고 링크와 이미지의 로컬 추출
 
-이 문서는 로컬 OCR 경로를 사용한 당시 기획과 검증 기록이다. [현재 공고 가져오기](08-posting-structured-import.md)
+이 문서는 로컬 OCR(PaddleOCR)로 공고를 읽으려던 옛 계획과 검증 기록이다. 현재는 OCR 서비스를 쓰지 않고 이미지를 모델이 직접 읽는다. 아래 내용은 구현하지 않으며 코드도 삭제했다. [현재 공고 가져오기](08-posting-structured-import.md)
 
-상태 `구현됨`
+상태 `폐기됨`
 
 공개 공고 링크와 첨부 이미지에서 본문을 읽어 기존 등록 확인 화면에 채운다. 사람인에서 확인한 사례는 HTTP `200`으로 페이지 제목과 메뉴를 반환했지만, 회사명·마감일과 실제 공고 본문은 빠져 있었다. 성공 조건을 공고 본문을 확보한 경우로 잡는다. [현재 공고 가져오기 서비스](../../backend/src/main/java/com/janovel/domain/application/app/PostingImportService.java)
 
