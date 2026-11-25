@@ -31,7 +31,7 @@ class PostingImportJobsTests {
         var started = new CountDownLatch(1);
         var finish = new CountDownLatch(1);
         byte[] image = {1};
-        var posting = new ImportedPosting("", "", "", "", List.of(), List.of(), List.of(), "주요 업무");
+        var posting = new ImportedPosting("", "", "", "", List.of(), List.of(), List.of(), List.of(), "주요 업무");
         when(imports.importImage(same(image), eq("image/png"), anyLong())).thenAnswer(call -> {
             started.countDown();
             assertTrue(finish.await(3, TimeUnit.SECONDS));

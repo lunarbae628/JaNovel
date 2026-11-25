@@ -38,13 +38,13 @@ class PostingImportControllerTests {
                 "description":"<h2>주요 업무</h2><p>API를 개발합니다.</p>","validThrough":"2027-03-30T18:00:00+09:00"}]}
                 </script>
                 <main><h2>주요 업무</h2><p>API를 개발합니다.</p><h2>지원 요건</h2><p>Spring 개발 경험</p></main>
-                """));
+                """, url));
 
         var model = mock(PostingModelClient.class);
-        String source = "회사명: 예시 회사\n공고 제목: 백엔드 개발자\n마감일: 2027-03-30\n주요 업무\nAPI를 개발합니다.\n지원 요건\nSpring 개발 경험";
+        String source = "회사명: 예시 회사\n공고 제목: 백엔드 개발자\n마감일: 2027-03-30 18:00\n주요 업무\nAPI를 개발합니다.\n지원 요건\nSpring 개발 경험";
         when(model.classifyText(eq(source), anyLong())).thenReturn(
                 new ImportedPosting("예시 회사", "백엔드 개발자", "2027-03-30", "18:00",
-                        List.of(new Section("지원 요건", "Spring 개발 경험")), List.of("서류전형"), List.of(), source));
+                        List.of(new Section("지원 요건", "Spring 개발 경험")), List.of("서류전형"), List.of(), List.of(), source));
         mvc(client, model).perform(post("/api/postings/import")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"url\":\"" + url + "\"}"))
@@ -52,6 +52,7 @@ class PostingImportControllerTests {
                 .andExpect(jsonPath("$.company").value("예시 회사"))
                 .andExpect(jsonPath("$.role").value("백엔드 개발자"))
                 .andExpect(jsonPath("$.deadline").value("2027-03-30"))
+                .andExpect(jsonPath("$.deadlineTime").value("18:00"))
                 .andExpect(jsonPath("$.sections[0].title").value("지원 요건"))
                 .andExpect(jsonPath("$.stages[0]").value("서류전형"))
                 .andExpect(jsonPath("$.sourceText").value(source));

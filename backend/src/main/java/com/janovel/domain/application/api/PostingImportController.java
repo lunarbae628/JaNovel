@@ -39,11 +39,6 @@ public class PostingImportController {
         return postingImportService.importPosting(request.url());
     }
 
-    @PostMapping({"/import/retry", "/import/ocr"})
-    public ResponseEntity<PostingImportJobStatus> retryWithImage(@Valid @RequestBody PostingImportRequest request) {
-        return accepted(jobs.submitLink(request.url()));
-    }
-
     @PostMapping(path = "/import-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PostingImportJobStatus> importImage(@RequestPart("image") MultipartFile image)
             throws IOException {

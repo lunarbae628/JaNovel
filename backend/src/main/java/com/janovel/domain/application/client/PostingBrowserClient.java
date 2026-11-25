@@ -4,15 +4,21 @@ import com.janovel.domain.application.exception.PostingErrorCode;
 import com.janovel.global.exception.CustomException;
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.Frame;
+import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.Proxy;
 import com.microsoft.playwright.options.ServiceWorkerPolicy;
 import com.microsoft.playwright.options.WaitUntilState;
+import com.microsoft.playwright.options.WaitForSelectorState;
 import jakarta.annotation.PreDestroy;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,6 +31,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.regex.Pattern;
+import javax.imageio.ImageIO;
 import java.util.stream.IntStream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -37,15 +45,31 @@ import org.springframework.stereotype.Component;
 public class PostingBrowserClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(PostingBrowserClient.class);
-    private static final String CONTENT = "main, article, [role=main]";
-    private static final Set<String> TEXT_ONLY_SKIPS = Set.of("image", "media", "font");
+    private static final String DETAIL_CONTROLS = "button,[role=button],details:not([open]) > summary";
+    private static final String DETAIL_FRAMES = "iframe[title*='요강'],iframe[title*='채용공고'],"
+            + "iframe[title*='공고 상세'],iframe[title*='job description' i],"
+            + "iframe[title*='job posting' i],iframe[title*='job detail' i]";
+    private static final Set<String> SKIPPED_RESOURCES = Set.of("media", "font");
+    private static final Pattern EXPAND_DETAIL = Pattern.compile(
+            "^(?:(?:채용|공고)\\s*상세(?:\\s*(?:더\\s*보기|펼치기))?|"
+                    + "상세\\s*(?:정보|내용)\\s*(?:더\\s*보기|펼치기)|"
+                    + "(?:show|read|view)\\s+(?:the\\s+)?(?:full\\s+)?(?:job\\s+)?(?:description|details))$",
+            Pattern.CASE_INSENSITIVE);
     private static final String POSTING_VISIBLE = """
-            () => /주요\\s*업무|자격\\s*요건|담당\\s*업무|지원\\s*자격|모집\\s*부문|responsibilities|qualifications/i
+            frames => /주요\\s*업무|자격\\s*요건|담당\\s*업무|지원\\s*자격|모집\\s*부문|업무를\\s*통해|responsibilities|qualifications/i
                 .test(document.body?.innerText ?? '')
+                || document.querySelector(frames) !== null
+                || Array.from(document.images).some(image => {
+                    const bounds = image.getBoundingClientRect();
+                    return image.complete && image.naturalWidth >= 320 && bounds.width >= 300 && bounds.height >= 420
+                        && !image.closest('nav, footer, aside, [aria-hidden=true]');
+                })
             """;
+    private static final int TILE_HEIGHT = 1_200;
+    private static final int TILE_OVERLAP = 100;
+    private static final int MAX_TILES = 12;
 
     private final List<BrowserWorker> workers;
-    private final Object availability = new Object();
 
     public PostingBrowserClient(@Value("${janovel.postings.browser-channel:}") String channel,
                                 @Value("${janovel.postings.browser-workers:2}") int workerCount) {
@@ -55,40 +79,169 @@ public class PostingBrowserClient {
         workers = IntStream.rangeClosed(1, workerCount).mapToObj(index -> new BrowserWorker(channel, index)).toList();
     }
 
-    public Document render(String url) {
-        return browse(url, false, System.nanoTime() + TimeUnit.SECONDS.toNanos(8),
-                page -> Jsoup.parse(page.content(), page.url()));
+    public static boolean hasCollapsedDetails(Document document) {
+        return document.select(DETAIL_CONTROLS).stream()
+                .anyMatch(button -> EXPAND_DETAIL.matcher(button.text()).matches()
+                        && !"true".equals(button.attr("aria-expanded")));
     }
 
-    public byte[] capture(String url, long deadline) {
-        return browse(url, true, deadline, page -> {
-            var area = page.locator("main article, [role=main] article").first();
-            if (area.count() == 0) {
-                area = page.locator(CONTENT).first();
+    public RenderedPosting collect(String url, long deadline, Function<Document, String> extract) {
+        return browse(url, deadline, page -> {
+            expandPosting(page);
+            Document document = Jsoup.parse(page.content(), page.url());
+            RenderedPosting embedded = embeddedPosting(page, document, extract);
+            if (embedded != null) {
+                return embedded;
             }
-            if (area.count() == 0) {
-                area = page.locator("body");
+            String text = extract.apply(document);
+            if (text != null) {
+                return new RenderedPosting(text, List.of());
             }
-            area.evaluate("node => { for (const image of node.querySelectorAll('img[loading=lazy]')) image.loading = 'eager'; }");
-            var bounds = area.boundingBox();
-            if (bounds == null) {
-                throw new CustomException(PostingErrorCode.POSTING_UNREADABLE);
-            }
-            if (bounds.width * bounds.height > 20_000_000) {
-                throw new CustomException(PostingErrorCode.POSTING_IMAGE_TOO_LARGE);
-            }
-            return area.screenshot();
+            return new RenderedPosting(null, screenshotTiles(page.mainFrame()));
         });
     }
 
-    private <T> T browse(String url, boolean capture, long deadline, Function<Page, T> read) {
+    public record RenderedPosting(String text, List<byte[]> images) {
+    }
+
+    private RenderedPosting embeddedPosting(Page page, Document document, Function<Document, String> extract) {
+        var frames = page.locator(DETAIL_FRAMES);
+        if (frames.count() == 0) {
+            return null;
+        }
+        try {
+            var element = frames.first().elementHandle(new Locator.ElementHandleOptions().setTimeout(1_500));
+            Frame frame;
+            try {
+                frame = element.contentFrame();
+            } finally {
+                element.dispose();
+            }
+            if (frame == null) {
+                return null;
+            }
+            var body = frame.locator("body");
+            body.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE).setTimeout(2_000));
+            frame.waitForFunction("() => document.body.innerText.trim().length >= 40 || document.images.length > 0",
+                    null, new Frame.WaitForFunctionOptions().setTimeout(2_000)).dispose();
+            Document detail = document.clone();
+            detail.body().empty().appendElement("article").html(body.innerHTML());
+            String text = extract.apply(detail);
+            if (text != null) {
+                return new RenderedPosting(text, List.of());
+            }
+            loadPostingImages(frame);
+            return new RenderedPosting(null, screenshotTiles(frame));
+        } catch (PlaywrightException exception) {
+            LOG.debug("Could not read embedded posting ({})", exception.getClass().getSimpleName());
+            return null;
+        } catch (CustomException exception) {
+            if (exception.getErrorCode() == PostingErrorCode.POSTING_UNREADABLE) {
+                return null;
+            }
+            throw exception;
+        }
+    }
+
+    private void expandPosting(Page page) {
+        var controls = page.locator(DETAIL_CONTROLS)
+                .filter(new Locator.FilterOptions().setHasText(EXPAND_DETAIL));
+        Number initialTextSize = (Number) page.evaluate("() => document.body?.innerText.length ?? 0");
+        boolean expanded = false;
+        for (Locator button : controls.all().stream().limit(3).toList()) {
+            if (button.isVisible() && button.isEnabled() && !"true".equals(button.getAttribute("aria-expanded"))) {
+                try {
+                    button.click(new Locator.ClickOptions().setTimeout(600));
+                    expanded = true;
+                } catch (com.microsoft.playwright.TimeoutError ignored) {
+                    // Other public content may still be readable.
+                }
+            }
+        }
+        if (expanded) {
+            try {
+                page.waitForFunction("size => document.body?.innerText.length > size", initialTextSize,
+                        new Page.WaitForFunctionOptions().setTimeout(800));
+            } catch (com.microsoft.playwright.TimeoutError ignored) {
+                // The expanded panel may already have been present in the HTML.
+            }
+        }
+        loadPostingImages(page.mainFrame());
+    }
+
+    private List<byte[]> screenshotTiles(Frame frame) {
+        int index;
+        try {
+            var ready = frame.waitForFunction("""
+                    () => {
+                        let selected = 0, best = 0;
+                        const directImage = document.contentType.startsWith('image/');
+                        Array.from(document.images).forEach((image, index) => {
+                            const bounds = image.getBoundingClientRect();
+                            const inContent = image.closest('main, article, [role=main], [itemprop=description]');
+                            const minimumHeight = directImage ? 120 : inContent ? 420 : 600;
+                            const score = bounds.height * (inContent ? 1.25 : 1);
+                            if (image.complete && image.naturalWidth >= 320 && bounds.width >= 300
+                                    && bounds.height >= minimumHeight && score > best
+                                    && !image.closest('nav, footer, aside, [aria-hidden=true]')
+                                    && getComputedStyle(image).visibility === 'visible') {
+                                selected = index + 1;
+                                best = score;
+                            }
+                        });
+                        return selected;
+                    }
+                    """, null, new Frame.WaitForFunctionOptions().setTimeout(2_000));
+            try {
+                index = ((Number) ready.jsonValue()).intValue() - 1;
+            } finally {
+                ready.dispose();
+            }
+        } catch (com.microsoft.playwright.TimeoutError exception) {
+            throw new CustomException(PostingErrorCode.POSTING_UNREADABLE, exception);
+        }
+        var image = frame.locator("img").nth(index);
+        var bounds = image.boundingBox();
+        if (bounds == null || bounds.width * bounds.height > 20_000_000
+                || bounds.height > TILE_HEIGHT + (MAX_TILES - 1) * (TILE_HEIGHT - TILE_OVERLAP)) {
+            throw new CustomException(PostingErrorCode.POSTING_IMAGE_TOO_LARGE);
+        }
+        try {
+            var fullImage = ImageIO.read(new ByteArrayInputStream(image.screenshot()));
+            if (fullImage == null) {
+                throw new CustomException(PostingErrorCode.POSTING_UNREADABLE);
+            }
+            var tiles = new ArrayList<byte[]>();
+            for (int top = 0; ; top += TILE_HEIGHT - TILE_OVERLAP) {
+                int height = Math.min(TILE_HEIGHT, fullImage.getHeight() - top);
+                var output = new ByteArrayOutputStream();
+                ImageIO.write(fullImage.getSubimage(0, top, fullImage.getWidth(), height), "png", output);
+                tiles.add(output.toByteArray());
+                if (top + height == fullImage.getHeight()) {
+                    return tiles;
+                }
+            }
+        } catch (IOException exception) {
+            throw new CustomException(PostingErrorCode.POSTING_UNREADABLE, exception);
+        }
+    }
+
+    private void loadPostingImages(Frame frame) {
+        frame.locator("img[loading=lazy]").evaluateAll("""
+                images => images.forEach(image => {
+                    if (!image.closest('nav, footer, aside')) image.loading = 'eager';
+                })
+                """);
+    }
+
+    private <T> T browse(String url, long deadline, Function<Page, T> read) {
         try {
             PostingPageClient.validate(URI.create(url.strip()));
         } catch (IllegalArgumentException exception) {
             throw new CustomException(PostingErrorCode.INVALID_POSTING_URL, exception);
         }
-        var worker = acquire(capture, deadline);
-        long executionDeadline = Math.min(deadline, System.nanoTime() + TimeUnit.SECONDS.toNanos(8));
+        var worker = acquire();
+        long executionDeadline = Math.min(deadline, System.nanoTime() + TimeUnit.SECONDS.toNanos(10));
         if (executionDeadline - System.nanoTime() <= 0) {
             release(worker);
             throw new CustomException(PostingErrorCode.POSTING_TIMEOUT);
@@ -101,7 +254,7 @@ public class PostingBrowserClient {
                             .setServiceWorkers(ServiceWorkerPolicy.BLOCK).setDeviceScaleFactor(1))) {
                         context.setDefaultTimeout(2_000);
                         context.route("**/*", route -> {
-                            if (!capture && TEXT_ONLY_SKIPS.contains(route.request().resourceType())) {
+                            if (SKIPPED_RESOURCES.contains(route.request().resourceType())) {
                                 route.abort();
                             } else {
                                 route.resume();
@@ -114,10 +267,9 @@ public class PostingBrowserClient {
                             throw new CustomException(PostingErrorCode.POSTING_UNREADABLE);
                         }
                         try {
-                            String ready = capture
-                                    ? "() => document.body?.innerText.trim().length > 120 || document.querySelector('main img, article img')?.complete"
-                                    : POSTING_VISIBLE;
-                            page.waitForFunction(ready, null, new Page.WaitForFunctionOptions().setTimeout(2_000));
+                            loadPostingImages(page.mainFrame());
+                            page.waitForFunction(POSTING_VISIBLE, DETAIL_FRAMES,
+                                    new Page.WaitForFunctionOptions().setTimeout(4_000)).dispose();
                         } catch (com.microsoft.playwright.TimeoutError ignored) {
                             // A page can have readable content without any of the expected headings.
                         }
@@ -149,36 +301,17 @@ public class PostingBrowserClient {
         }
     }
 
-    private BrowserWorker acquire(boolean waitForSlot, long deadline) {
-        synchronized (availability) {
-            while (deadline - System.nanoTime() > 0) {
-                for (BrowserWorker worker : workers) {
-                    if (worker.available.tryAcquire()) {
-                        return worker;
-                    }
-                }
-                if (!waitForSlot) {
-                    throw new CustomException(PostingErrorCode.POSTING_IMPORT_BUSY);
-                }
-                try {
-                    long remaining = deadline - System.nanoTime();
-                    if (remaining > 0) {
-                        TimeUnit.NANOSECONDS.timedWait(availability, remaining);
-                    }
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                    throw new CustomException(PostingErrorCode.POSTING_TIMEOUT, exception);
-                }
+    private BrowserWorker acquire() {
+        for (BrowserWorker worker : workers) {
+            if (worker.available.tryAcquire()) {
+                return worker;
             }
-            throw new CustomException(PostingErrorCode.POSTING_TIMEOUT);
         }
+        throw new CustomException(PostingErrorCode.POSTING_IMPORT_BUSY);
     }
 
     private void release(BrowserWorker worker) {
-        synchronized (availability) {
-            worker.available.release();
-            availability.notifyAll();
-        }
+        worker.available.release();
     }
 
     @PreDestroy

@@ -12,6 +12,7 @@ public enum PostingErrorCode implements ErrorCode {
     POSTING_INVALID_IMAGE(HttpStatus.BAD_REQUEST, "이미지 파일을 확인해 주세요."),
     POSTING_IMPORT_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "다른 공고를 읽고 있어요. 잠시 후 다시 시도해 주세요."),
     POSTING_IMPORT_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "가져오기 요청을 찾을 수 없어요. 다시 시도해 주세요."),
+    POSTING_QUESTIONS_NOT_FOUND(HttpStatus.NOT_FOUND, "제보할 문항을 찾을 수 없어요."),
     POSTING_MODEL_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "공고 정리 서비스를 사용할 수 없어요. 잠시 후 다시 시도해 주세요."),
     POSTING_MODEL_FAILED(HttpStatus.BAD_GATEWAY, "공고 내용을 정리하지 못했어요. 원문을 확인하고 직접 입력할 수 있어요.");
 

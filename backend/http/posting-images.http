@@ -1,28 +1,7 @@
 @baseUrl = http://127.0.0.1:8080
-@postingUrl = https://careers.nhn.com/recruits/4188040849792836347
 
-# 이미지 접수 예제를 실행하려면 이 파일 옆에 posting.png를 둔다.
-# 상태가 QUEUED나 PROCESSING이면 Retry-After 뒤 같은 Location을 다시 GET한다.
-# curl -i "http://127.0.0.1:8080/api/postings/import-jobs/JOB_ID"
-
-### 공고 링크 캡처 구조화 접수
-# @name enqueueLinkImage
-POST {{baseUrl}}/api/postings/import/retry
-Content-Type: application/json
-
-{"url":"{{postingUrl}}"}
-
-?? status == 202
-?? header location startsWith /api/postings/import-jobs/
-?? body status == QUEUED
-
-### 공고 링크 구조화 상태 조회
-# @name getLinkImageJob
-# @ref enqueueLinkImage
-GET {{baseUrl}}/api/postings/import-jobs/{{enqueueLinkImage.jobId}}
-
-?? status == 200
-?? body status matches ^(QUEUED|PROCESSING|COMPLETED|FAILED)$
+# 이 파일 옆에 posting.png를 두고 실행한다.
+# 접수 뒤 Retry-After 헤더 간격으로 작업 상태를 조회한다.
 
 ### 첨부 공고 이미지 구조화 접수
 # @name enqueueAttachment

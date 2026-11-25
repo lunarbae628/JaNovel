@@ -30,6 +30,8 @@ import org.springframework.stereotype.Component;
 public class PostingPageClient implements AutoCloseable {
 
     private static final int MAX_BYTES = 2 * 1024 * 1024;
+    private static final int MAX_IMAGE_BYTES = 32 * 1024 * 1024;
+    private static final Set<String> IMAGE_TYPES = Set.of("image/png", "image/jpeg");
     private static final Set<String> HTML_TYPES = Set.of("text/html", "application/xhtml+xml");
     private static final Set<Integer> REDIRECT_CODES = Set.of(301, 302, 303, 307, 308);
 
@@ -59,13 +61,21 @@ public class PostingPageClient implements AutoCloseable {
     }
 
     public Document fetch(String url) throws IOException {
-        URI uri = URI.create(url.strip());
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(12);
+        return get(url, "text/html, application/xhtml+xml", deadline, (entity, uri) -> readPage(entity, uri, deadline));
+    }
+
+    public byte[] fetchImage(String url, long deadline) throws IOException {
+        return get(url, "image/png, image/jpeg", deadline, (entity, uri) -> readImage(entity, deadline));
+    }
+
+    private <T> T get(String url, String accept, long deadline, EntityReader<T> reader) throws IOException {
+        URI uri = URI.create(url.strip());
         for (int attempt = 0; attempt < 5; attempt++) {
             validate(uri);
             checkTime(deadline);
             HttpGet request = new HttpGet(uri);
-            request.setHeader("Accept", "text/html, application/xhtml+xml");
+            request.setHeader("Accept", accept);
             var response = (CloseableHttpResponse) client.executeOpen(null, request, null);
             try {
                 if (REDIRECT_CODES.contains(response.getCode())) {
@@ -79,13 +89,31 @@ public class PostingPageClient implements AutoCloseable {
                 if (response.getCode() < 200 || response.getCode() > 299) {
                     throw new IOException("공고 페이지가 오류를 반환했습니다.");
                 }
-                return readPage(response.getEntity(), uri, deadline);
+                return reader.read(response.getEntity(), uri);
             } finally {
-                // Discard remaining response bytes without waiting for more chunks.
                 response.close(CloseMode.IMMEDIATE);
             }
         }
         throw new IOException("공고 페이지의 이동 횟수가 너무 많습니다.");
+    }
+
+    private interface EntityReader<T> {
+        T read(HttpEntity entity, URI uri) throws IOException;
+    }
+
+    private byte[] readImage(HttpEntity entity, long deadline) throws IOException {
+        if (entity == null) {
+            throw new IOException("공고 이미지에 본문이 없습니다.");
+        }
+        ContentType contentType = entity.getContentType() != null
+                ? ContentType.parseLenient(entity.getContentType()) : null;
+        if (contentType == null || !IMAGE_TYPES.contains(contentType.getMimeType())) {
+            throw new IOException("지원하지 않는 공고 이미지 형식입니다.");
+        }
+        if (entity.getContentLength() > MAX_IMAGE_BYTES) {
+            throw new IOException("공고 이미지가 너무 큽니다.");
+        }
+        return readBody(entity.getContent(), deadline, MAX_IMAGE_BYTES);
     }
 
     private Document readPage(HttpEntity entity, URI uri, long deadline) throws IOException {
@@ -100,7 +128,7 @@ public class PostingPageClient implements AutoCloseable {
         if (entity.getContentLength() > MAX_BYTES) {
             throw new IOException("공고 페이지가 너무 큽니다.");
         }
-        byte[] bytes = readBody(entity.getContent(), deadline);
+        byte[] bytes = readBody(entity.getContent(), deadline, MAX_BYTES);
         String charset = contentType.getCharset() != null ? contentType.getCharset().name() : null;
         return Jsoup.parse(new ByteArrayInputStream(bytes), charset, uri.toString());
     }
@@ -128,7 +156,7 @@ public class PostingPageClient implements AutoCloseable {
         }
     }
 
-    private byte[] readBody(InputStream input, long deadline) throws IOException {
+    private byte[] readBody(InputStream input, long deadline, int maxBytes) throws IOException {
         var output = new ByteArrayOutputStream();
         byte[] buffer = new byte[8192];
         while (true) {
@@ -137,7 +165,7 @@ public class PostingPageClient implements AutoCloseable {
             if (count == -1) {
                 return output.toByteArray();
             }
-            if (output.size() + count > MAX_BYTES) {
+            if (output.size() + count > maxBytes) {
                 throw new IOException("공고 페이지가 너무 큽니다.");
             }
             output.write(buffer, 0, count);

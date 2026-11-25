@@ -32,7 +32,6 @@ public class PostingImportJobs {
     private static final long DEADLINE = Duration.ofSeconds(23).toNanos();
     private static final long RESULT_TTL = Duration.ofMinutes(2).toNanos();
     private static final long IMAGE_ESTIMATE = Duration.ofSeconds(8).toNanos();
-    private static final long LINK_ESTIMATE = Duration.ofSeconds(12).toNanos();
 
     private final Map<UUID, Job> jobs = new LinkedHashMap<>();
     private final PostingImportService imports;
@@ -48,12 +47,6 @@ public class PostingImportJobs {
         this.capacity = capacity;
         this.executor = new ThreadPoolExecutor(capacity, capacity, 0, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(QUEUE_CAPACITY), Thread.ofPlatform().daemon().name("posting-image-", 1).factory());
-    }
-
-    public PostingImportJobStatus submitLink(String url) {
-        PostingImportService.validateUrl(url);
-        imports.requireModel();
-        return submit(LINK_ESTIMATE, deadline -> imports.retryWithImage(url, deadline));
     }
 
     public PostingImportJobStatus submitImage(byte[] image, String contentType) {
