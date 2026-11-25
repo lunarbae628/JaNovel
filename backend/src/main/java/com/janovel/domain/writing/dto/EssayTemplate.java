@@ -27,15 +27,8 @@ public record EssayTemplate(
         public static Item fromJson(@JsonProperty("prompt") JsonNode prompt,
                                     @JsonProperty("draftBody") JsonNode draftBody,
                                     @JsonProperty("limit") JsonNode limit) {
-            Integer charLimit = null;
-            if (limit != null && !limit.isNull()) {
-                if (!limit.isIntegralNumber() || !limit.canConvertToInt()) {
-                    throw new IllegalArgumentException("limit must be an integer");
-                }
-                charLimit = limit.intValue();
-            }
             return new Item(prompt == null ? null : prompt.stringValue(),
-                    draftBody == null ? null : draftBody.stringValue(), charLimit);
+                    draftBody == null ? null : draftBody.stringValue(), CharLimit.parse(limit));
         }
     }
 }
