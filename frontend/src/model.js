@@ -5,6 +5,10 @@ export const colors=['#274690','#39816F','#A4753E','#8869A4','#63758C','#657D55'
 export function branchColor(b){if(!previousColors.includes(b.color)&&!colors.includes(b.color))return b.color;return colors[b.order]||`hsl(${Math.round(b.order*137.508)%360} 30% 44%)`;}
 
 export const uid=(prefix='id')=>prefix+'-'+crypto.randomUUID();
+export function writingPath(application) {
+ const first = application.questions[0];
+ return first ? '/write/' + application.id + '/' + first.id : '/posting/' + application.id;
+}
 const now=()=>new Date().toISOString();
 const clone=value=>structuredClone(value);
 const fail=message=>{throw new Error(message)};
@@ -14,6 +18,10 @@ export const recordKey=r=>r.kind+':'+r.id;
 export function parseKey(key){if(typeof key==='object')return key;const cut=key.indexOf(':');return cut<0?{kind:'snapshot',id:key}:{kind:key.slice(0,cut),id:key.slice(cut+1)};}
 export function resolveRecord(q,key){const r=parseKey(key);if(r.kind==='draft'){const b=branch(q,r.id);return {...b.draft,id:b.id,kind:'draft',branchId:b.id,label:b.draft.closed||!b.draft.dirty?'마지막 본문':'작성 중',title:b.name,parentIds:b.draft.baseIds};}const s=commit(q,r.id);return {...s,kind:'snapshot'};}
 export function createQuestion(prompt='새 문항',limit=1000){const id=uid('branch');return{id:uid('question'),prompt,limit:Number(limit)||1000,snapshots:[],branches:[{id,name:'기본',color:colors[0],order:0,createdAt:now(),snapshotIds:[],fromIds:[],draft:{text:'',baseIds:[],dirty:false,closed:true,updatedAt:now()}}],messages:[]};}
+export function createPostingQuestion({prompt, limit, draftBody}) {
+ const question = createQuestion(prompt, limit);
+ return draftBody ? updateDraft(question, question.branches[0].id, draftBody) : question;
+}
 export function updateDraft(question,branchId,text){
  const q=clone(question),b=branch(q,branchId),base=b.draft.baseIds.length===1?q.snapshots.find(s=>s.id===b.draft.baseIds[0]):null;
  const dirty=text!==(base?.text||'')||(b.snapshotIds.length>0&&b.snapshotIds.at(-1)!==base?.id);
@@ -37,6 +45,7 @@ function freezeSubmissionAnswer(question, key, draftLabel) {
   source: {kind, id}, label, text: record.text};
 }
 export function freezeSubmission(application, selections, name = '제출본') {
+ if (!application.questions.length) fail('EMPTY_TEXT');
  return {id: uid('submission'), name: name.trim() || '제출본', createdAt: now(), submitted: false,
   answers: application.questions.map(question => freezeSubmissionAnswer(question, selections[question.id]))};
 }
@@ -80,7 +89,7 @@ export function validateStore(data){
  if(data.profile)check(object(data.profile)&&str(data.profile.name)&&(!data.profile.email||str(data.profile.email)));
  if(data.scheduleItems!==undefined)check(list(data.scheduleItems)&&data.scheduleItems.every(isScheduleItem)&&unique(data.scheduleItems.map(item=>item.id)));
  for(const a of data.applications){
-  check(object(a)&&str(a.id)&&a.id&&str(a.company)&&str(a.role)&&str(a.url)&&str(a.duties)&&str(a.requirements)&&str(a.status)&&date(a.deadline)&&time(a.deadlineTime)&&list(a.questions)&&a.questions.length>0&&list(a.events)&&list(a.stages)&&a.stages.every(str)&&list(a.submissions));
+  check(object(a)&&str(a.id)&&a.id&&str(a.company)&&str(a.role)&&str(a.url)&&str(a.duties)&&str(a.requirements)&&str(a.status)&&date(a.deadline)&&time(a.deadlineTime)&&list(a.questions)&&list(a.events)&&list(a.stages)&&a.stages.every(str)&&list(a.submissions));
   if(a.sections!==undefined)check(list(a.sections)&&unique(a.sections.map(section=>section?.id))&&
    a.sections.every(section=>object(section)&&str(section.id)&&section.id&&str(section.title)&&section.title.trim()&&
     section.title.length<=100&&str(section.body)));
@@ -97,8 +106,13 @@ export function validateStore(data){
    check(unique(submission.answers.map(n=>n?.questionId)));
    check(submission.answers.every(frozenAnswer));
   }
-  for(const q of a.questions){
+ }
+ if(data.essayTemplates!==undefined)check(object(data.essayTemplates));
+ for(const questions of [...data.applications.map(a=>a.questions),...Object.values(data.essayTemplates??{})]){
+  check(list(questions)&&unique(questions.map(q=>q?.id)));
+  for(const q of questions){
    check(object(q)&&str(q.id)&&q.id&&str(q.prompt)&&limit(q.limit)&&list(q.branches)&&q.branches.length>0&&list(q.snapshots)&&list(q.messages));
+   if(q.templateLimit!=null)check(limit(q.templateLimit));
    if(q.submissionHistory!==undefined)check(list(q.submissionHistory)&&unique(q.submissionHistory.map(answer=>answer?.id))&&
     q.submissionHistory.every(answer=>frozenAnswer(answer)&&answer.questionId===q.id&&str(answer.id)&&answer.id&&timestamp(answer.createdAt)));
    check(unique(q.snapshots.map(s=>s?.id))&&unique(q.branches.map(b=>b?.id))&&unique(q.messages.map(m=>m?.id)));

@@ -1,13 +1,12 @@
 import React, {useState} from 'react';
 import {ArrowLeft, ArrowRight, CalendarDays, Mic, Plus, Trash2} from 'lucide-react';
-import {writingPath} from '../components/CareerLayout.jsx';
 import {Field, Modal, Notice} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import AnswerRecording from '../components/AnswerRecording.jsx';
 import InterviewSetup from '../components/InterviewSetup.jsx';
 import {deleteAttachment} from '../storage.js';
 import {interviewFor, patchInterviewQuestion, practiceModeLabels, timecode} from '../interview.js';
-import {designatedSubmissionAnswers, uid} from '../model.js';
+import {designatedSubmissionAnswers, uid, writingPath} from '../model.js';
 import {saveApplicationEvent, todayKey} from '../schedule.js';
 import {EventForm} from './Applications.jsx';
 

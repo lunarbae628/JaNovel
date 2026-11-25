@@ -1,5 +1,6 @@
 import React from 'react';
 import {Bell, BriefcaseBusiness, CalendarDays, MessagesSquare, Settings2, UserRound, UsersRound} from 'lucide-react';
+import {writingPath} from '../model.js';
 
 const links = [
   ['/applications', '지원 현황', BriefcaseBusiness],
@@ -9,14 +10,10 @@ const links = [
   ['/friends', '친구', UserRound],
 ];
 
-export function writingPath(application) {
-  return '/write/' + application.id + '/' + application.questions[0].id;
-}
-
 export function recentApplications(store) {
   const recent = (store.preferences?.recentApplications ?? [])
     .map(id => store.applications.find(application => application.id === id))
-    .filter(Boolean);
+    .filter(application => application?.questions.length);
   return recent.length ? recent : store.applications.filter(application => application.example &&
     application.questions.some(question => question.branches.some(branch => branch.draft.text))).slice(0, 2);
 }

@@ -3,8 +3,8 @@ import {QuestionSubmissions} from './Editor.jsx';
 import {Plus,ChevronRight,Search,ArrowUp,ArrowDown,Trash2,CalendarDays,FileText,Pencil} from 'lucide-react';
 import {BackLink,IconButton,Modal,Field,Notice,Empty,ApplyLink,dateLabel} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
-import {recentApplications,writingPath} from '../components/CareerLayout.jsx';
-import {postingSections,safeUrl,uid} from '../model.js';
+import {recentApplications} from '../components/CareerLayout.jsx';
+import {postingSections,safeUrl,uid,writingPath} from '../model.js';
 import {getAttachment} from '../storage.js';
 import {applicationEventTypes, saveApplicationEvent, todayKey, validateScheduleItem} from '../schedule.js';
 export const stageOptions=a=>[...new Set(['관심', '작성 중', ...a.stages, a.status, '최종 합격','불합격','지원 취소'])];
@@ -94,6 +94,7 @@ export function Applications({store, navigate, onApplicationChange}) {
         <div className="dashboard-heading">
           <div className="dashboard-list-label">
             <h1 id="dashboard-list-title">지원 목록</h1>
+            <a className="career-button" href="#/essay-template"><FileText size={15} aria-hidden="true"/>내 공통 자소서</a>
             <button className="career-button primary near-action" onClick={() => navigate('/posting')}>
               <Plus size={15} aria-hidden="true"/>공고 등록
             </button>
@@ -126,6 +127,7 @@ export function Applications({store, navigate, onApplicationChange}) {
                 schedules.find(item => item.type === '면접' && !item.date);
               const separateInterview = interview && interview.id !== event?.id;
               const remaining = schedules.length - (separateInterview ? 2 : 1);
+              const writingLabel = application.questions.length ? '자소서 열기' : '문항 추가';
               const setField = (field, value) => onApplicationChange(application.id, current => ({...current, [field]: value}));
               return <li key={application.id} className="dashboard-grid dashboard-row">
                 <div className="dashboard-company">
@@ -147,8 +149,8 @@ export function Applications({store, navigate, onApplicationChange}) {
                   triggerClassName={'dashboard-stage' + (stageGroup(application.status) === '전형 진행' ? ' accented' : '')}
                   label={application.company + ' 지원 단계 수정'} value={application.status}
                   options={stageOptions(application)} onChange={value => setField('status', value)}/>
-                <a className="dashboard-write" href={'#' + writingPath(application)} aria-label={application.company + ' 자소서 열기'}
-                  title="자소서 열기"><span>자소서 열기</span><ChevronRight size={14}/></a>
+                <a className="dashboard-write" href={'#' + writingPath(application)} aria-label={application.company + ' ' + writingLabel}
+                  title={writingLabel}><span>{writingLabel}</span><ChevronRight size={14}/></a>
               </li>;
             })}
           </ul>
@@ -254,7 +256,7 @@ export function Detail({application:a,navigate,onSave,onDelete,onSaveQuestion}){
     onChange={event=>onSave({...a,sections:postingSections(a).map(item=>item.id===section.id?{...item,body:event.target.value}:item)})}/>
   </Field>)}
  </div>}
- <div className="section-heading"><h2>자소서 문항</h2><button className="text-button" onClick={()=>navigate('/posting/'+a.id)}><Plus size={15}/>문항 추가·수정</button></div>{a.questions.map((q,i)=><button className="question-link" key={q.id} onClick={()=>navigate('/write/'+a.id+'/'+q.id)}><span>Q{i+1}</span><strong>{q.prompt}</strong><small>{q.limit}자</small><ChevronRight size={16}/></button>)}{a.sourceText&&<details className="image-details posting-original"><summary>공고 원문 보기</summary><p>{a.sourceText}</p></details>}{image&&<details className="image-details"><summary>등록한 공고 이미지</summary><img className="posting-image" src={image} alt="보관한 공고"/></details>}<button className="text-button danger" onClick={()=>setRemove(true)}>지원 기록 삭제</button></div><aside className="application-side"><Dropdown field label="현재 단계" value={a.status} options={stageOptions(a)}
-  onChange={status=>onSave({...a,status})}/><div className="section-heading"><h2>일정</h2><button className="text-button" onClick={()=>setEvent({})}><Plus size={15}/>추가</button></div>{allEvents(a).sort((x,y)=>x.date.localeCompare(y.date)).map(e=><div className="detail-event" key={e.id}><button onClick={()=>setEvent(e)}><small>{dateLabel(e.date,e.time)}</small><strong>{e.title}</strong></button>{!e.deadline&&<IconButton label={e.title+' 삭제'} onClick={()=>onSave({...a,events:a.events.filter(n=>n.id!==e.id)})}><Trash2 size={14}/></IconButton>}</div>)}<button className="button primary full" onClick={()=>navigate('/write/'+a.id+'/'+a.questions[0].id)}>자소서 작성</button><button className="button full" onClick={()=>setSubmissionOpen(true)}>제출본</button></aside></main>
+ <div className="section-heading"><h2>자소서 문항</h2><button className="text-button" onClick={()=>navigate('/posting/'+a.id)}><Plus size={15}/>{a.questions.length ? '문항 추가·수정' : '문항 추가'}</button></div>{!a.questions.length && <p className="muted">등록한 자소서 문항이 없어요.</p>}{a.questions.map((q,i)=><button className="question-link" key={q.id} onClick={()=>navigate('/write/'+a.id+'/'+q.id)}><span>Q{i+1}</span><strong>{q.prompt}</strong><small>{q.limit}자</small><ChevronRight size={16}/></button>)}{a.sourceText&&<details className="image-details posting-original"><summary>공고 원문 보기</summary><p>{a.sourceText}</p></details>}{image&&<details className="image-details"><summary>등록한 공고 이미지</summary><img className="posting-image" src={image} alt="보관한 공고"/></details>}<button className="text-button danger" onClick={()=>setRemove(true)}>지원 기록 삭제</button></div><aside className="application-side"><Dropdown field label="현재 단계" value={a.status} options={stageOptions(a)}
+  onChange={status=>onSave({...a,status})}/><div className="section-heading"><h2>일정</h2><button className="text-button" onClick={()=>setEvent({})}><Plus size={15}/>추가</button></div>{allEvents(a).sort((x,y)=>x.date.localeCompare(y.date)).map(e=><div className="detail-event" key={e.id}><button onClick={()=>setEvent(e)}><small>{dateLabel(e.date,e.time)}</small><strong>{e.title}</strong></button>{!e.deadline&&<IconButton label={e.title+' 삭제'} onClick={()=>onSave({...a,events:a.events.filter(n=>n.id!==e.id)})}><Trash2 size={14}/></IconButton>}</div>)}<button className="button primary full" onClick={()=>navigate(writingPath(a))}>{a.questions.length ? '자소서 작성' : '문항 추가'}</button>{a.questions.length > 0 && <button className="button full" onClick={()=>setSubmissionOpen(true)}>제출본</button>}</aside></main>
  {submissionOpen&&<QuestionSubmissions application={a} currentQuestion={a.questions[0]} onSave={onSaveQuestion} onClose={()=>setSubmissionOpen(false)}/>}
  {event&&<Modal title={event.deadline?'지원 마감 수정':event.id?'일정 수정':'일정 추가'} onClose={()=>setEvent(null)}><EventForm event={event.id?event:undefined} onClose={()=>setEvent(null)} onSubmit={next=>{onSave(saveApplicationEvent(a,next));setEvent(null)}}/></Modal>}{procedure&&<Modal title="채용 절차 수정" onClose={()=>setProcedure(false)}><StageFields stages={stages} onChange={setStages}/><div className="form-actions"><button className="button" onClick={()=>setProcedure(false)}>취소</button><button className="button primary" onClick={()=>{const next=stages.map(s=>s.trim()).filter(Boolean);onSave({...a,stages:next,status:next.includes(a.status)||['관심','작성 중','최종 합격','불합격','지원 취소'].includes(a.status)?a.status:'관심'});setProcedure(false)}}>변경 반영</button></div></Modal>}{remove&&<Modal title="지원 기록 삭제" onClose={()=>setRemove(false)}><p>{a.company}의 문항·기록·일정을 함께 삭제합니다.</p><div className="form-actions"><button className="button" onClick={()=>setRemove(false)}>취소</button><button className="button danger-button" onClick={()=>{onDelete(a.id);navigate('/applications')}}>삭제</button></div></Modal>}</>}
