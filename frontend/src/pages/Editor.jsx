@@ -8,8 +8,9 @@ import VersionGraph from '../components/VersionGraph.jsx';
 import {optionView,comparisonSearch} from '../option-route.js';
 import {createWritingOption,renameWritingOption,editOptionSnapshot,optionSources} from '../writing-options.js';
 import AIChat from '../components/AIChat.jsx';
-import {ComparisonSource,ComparisonDraft} from '../components/Diff.jsx';
-import {comparisonSegments,takeReferenceChange} from '../comparison.js';
+import {VersionText,MergeDraft,ChangeCards} from '../components/Diff.jsx';
+import {createMergeState,chooseAllRegions,choiceOf,editMergeText,toggleCard} from '../merge-state.js';
+import {differingRanges} from '../comparison.js';
 import {resolveRecord,updateDraft,snapshot,activateBranch,errorMessage,safeUrl,parseKey,defaultRecordKey,designateQuestionSubmission,reviseQuestionSubmission,recordKey} from '../model.js';
 import {canDeleteSnapshot,deleteSnapshot,deleteBranch} from '../history-actions.js';
 
@@ -160,7 +161,14 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
  const record=resolveRecord(q,valid(selected)?selected:'draft:'+activeId);
  const source=aiReference?{kind:'suggestion',label:'AI 수정안',title:'AI 수정안',text:aiReference.candidate,id:aiReference.id}:valid(referenceKey)?resolveRecord(q,referenceKey):record;
  const right=resolveRecord(q,valid(target)?target:'draft:'+activeId),comparing=mode==='compare';
- const parts=useMemo(()=>comparisonSegments(source.text,right.text),[source.text,right.text]);
+ // 비교 상태: 왼쪽에서 고른 구절과 오른쪽 본문 안 위치. 비교 대상이 바뀌거나 본문이 밖에서 바뀌면 새로 시작한다.
+ const compareScope=(aiReference?'ai:'+aiReference.id:referenceKey)+'|'+right.kind+':'+right.id;
+ const[compareSession,setCompareSession]=useState(null),[compareTab,setCompareTab]=useState('part');
+ const comparison=useMemo(()=>{
+  if(!comparing)return null;
+  const kept=compareSession?.scope===compareScope&&compareSession.reference===source.text&&compareSession.state.text===right.text;
+  return kept?compareSession.state:createMergeState(source.text,right.text,'right');
+ },[comparing,compareSession,compareScope,source.text,right.text]);
  const qi=a.questions.findIndex(n=>n.id===q.id),lw=preferences.leftWidth||240,rw=preferences.rightWidth||320;
  const limit=essayTemplate ? q.templateLimit : q.limit;
  const backPath=essayTemplate && templateReturnPath ? templateReturnPath : '/applications';
@@ -187,7 +195,10 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
  function returnToWrite(){chooseBranch(activeId);}
  function openCompare(){
   if(comparing){returnToWrite();return;}
-  const other=q.branches.find(b=>b.id!==activeId),key=record.kind==='snapshot'?selected:valid(referenceKey)&&referenceKey!=='draft:'+activeId?referenceKey:other?defaultRecordKey(q,other.id):q.snapshots.length?'snapshot:'+q.snapshots.at(-1).id:'draft:'+activeId;
+  const other=q.branches.find(b=>b.id!==activeId),preferred=record.kind==='snapshot'?selected:valid(referenceKey)&&referenceKey!=='draft:'+activeId?referenceKey:null;
+  // 지금 본문과 같은 기록은 비교해도 보이는 차이가 없으므로 다른 버전이나 이전 기록을 먼저 고른다.
+  const differs=key=>key&&valid(key)&&resolveRecord(q,key).text!==work.text;
+  const key=[preferred,other&&defaultRecordKey(q,other.id),...q.snapshots.map(s=>'snapshot:'+s.id).reverse()].find(differs)||preferred||(other?defaultRecordKey(q,other.id):'draft:'+activeId);
   if(!key){setError('비교할 기록이 없어요. 스냅샷을 남기거나 AI 수정안을 추가해 주세요.');return;}
   setReferenceKey(key);setSelected(key);setTarget('draft:'+activeId);setMode('compare');setAiReference(null);setError('');rememberComparison(key,'draft:'+activeId);
  }
@@ -200,7 +211,15 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
   setError('');
  }
  function writeDraft(text){const id=comparing?right.id:activeId,b=q.branches.find(b=>b.id===id);acceptEdit(updateDraft(q,id,text),id,b.autoFromId);}
- function take(id){writeDraft(takeReferenceChange(source.text,right.text,id));}
+ function updateComparison(next){setCompareSession({scope:compareScope,reference:source.text,state:next});if(next.text!==right.text)writeDraft(next.text);}
+ const allApplied=!!comparison?.changes.length&&comparison.changes.every(change=>choiceOf(comparison,change.id)==='left');
+ const toggleSentence=ids=>updateComparison(toggleCard(comparison,ids));
+ // 오른쪽 내 본문에서 참고본과 다른 곳과 방금 반영한 곳.
+ // 오른쪽 내 본문에서 참고본과 다른 곳과 방금 반영한 곳.
+ const draftMarks=useMemo(()=>comparing&&right.kind==='draft'?differingRanges(source.text,right.text).map(range=>({...range,side:'right'})):[],[comparing,right.kind,source.text,right.text]);
+ const applied=comparison?.last?.side==='left'?comparison.last:null;
+ const applyAll=()=>updateComparison(chooseAllRegions(comparison,allApplied?'right':'left'));
+ const typeComparison=text=>updateComparison(editMergeText(comparison,text));
  function editRecord(text,asNew=false){
   try{
    if(asNew){let next=createWritingOption(q,activeBranch.name+' 다른 안');const id=next.activeBranchId;next=updateDraft(next,id,text);acceptEdit(next,id);}
@@ -268,7 +287,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
 
    <main className="writing-panel" id="writing-panel"><div className="editor-toolbar"><nav className="question-tabs" aria-label="자소서 문항">{a.questions.map((n,i)=><button key={n.id} className={n.id===q.id?'active':''} aria-current={n.id===q.id?'page':undefined} onClick={()=>navigate('/write/'+a.id+'/'+n.id)}>Q{i+1}</button>)}<IconButton label="문항 추가·수정" onClick={essayTemplate?onEditTemplateQuestions:()=>navigate('/posting/'+a.id)}><Plus size={16}/></IconButton></nav>
     <div className="editor-actions">{!essayTemplate&&<button type="button" className="text-button" onClick={onOpenEssayTemplate}><FileText size={15} aria-hidden="true"/>내 공통 자소서</button>}
-     {(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>{mode==='read'?'작성 중과 비교':'다른 버전과 비교'}</button>}
+     {(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>비교하기</button>}
      <IconButton label="새 버전" onClick={()=>{setError('');setModal('option')}}><Plus size={18}/></IconButton><IconButton label="합쳐서 새 버전 만들기" disabled={!!aiReference} onClick={advancedMerge}><MergeIcon size={18} className="downward-icon flow-action-icon"/></IconButton>
      <button className="button small primary snapshot-action" disabled={mode==='read'||(comparing&&right.kind!=='draft')||!activeBranch.draft.dirty||!work.text.trim()} onClick={()=>{setError('');setModal('snapshot')}}><Camera size={15}/>스냅샷</button>
     </div></div>
@@ -288,7 +307,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
      </div>
      <div className="question-heading">
      <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&<span className={limit!=null&&shown.text.length>limit?'over-limit':''}>{count(shown.text)}</span>}</div>
-    </div>{error&&<Notice type="error">{error}</Notice>}{comparing&&<p className="comparison-hint">{right.kind==='draft'?'바뀐 구절을 누르면 비교 대상에 반영됩니다.':'스냅샷끼리 비교 중'}</p>}
+    </div>{error&&<Notice type="error">{error}</Notice>}{comparing&&<p className="comparison-hint">{right.kind==='draft'?'달라진 문장을 누르면 오른쪽 내 본문에 반영되고, 다시 누르면 취소돼요.':'스냅샷끼리 비교 중'}</p>}
      {!comparing&&sources.length>0&&<div className="option-sources"><span>참고한 버전</span>{sources.map((item,i)=><button key={i} onClick={()=>setSourcePreview(item)}>{item.optionName} · {item.label}</button>)}</div>}
      <div className={'body-columns '+(comparing?'comparing':'')}>
       <section className="body-column"><div className="record-heading">
@@ -309,9 +328,12 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
        <Info size={14} aria-hidden="true"/>정보
       </button>}{comparing&&<small>{source.text.length.toLocaleString()}자</small>}<IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>{shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}</div>
        {copied&&<small className="copy-notice" role="status">복사했어요</small>}
-       {comparing?<><ComparisonSource segments={parts} onTake={right.kind==='draft'?take:undefined}/></>:mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
+       {comparing?(right.kind==='draft'?<>
+        <div className="compare-tabs"><div role="tablist" aria-label="참고본 보기">{[['all','전체'],['part','부분']].map(([key,name])=><button key={key} type="button" role="tab" aria-selected={compareTab===key} onClick={()=>setCompareTab(key)}>{name}</button>)}</div><button type="button" className="text-button" disabled={!comparison.changes.length} onClick={applyAll}>{allApplied?'일괄 취소':'일괄 반영'}</button></div>
+        {compareTab==='all'?<div className="document-body version-text left">{source.text}</div>:<ChangeCards state={comparison} onToggle={toggleSentence}/>}
+       </>:<div className="document-body version-text left">{source.text}</div>):mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
       </section>
-      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{count(right.text)}</small></div>{right.kind==='draft'?<ComparisonDraft text={right.text} onChange={writeDraft}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><textarea className="body-editor" aria-label="비교 대상 본문" value={right.text} readOnly/></>}</section>}
+      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{count(right.text)}</small></div>{right.kind==='draft'?<MergeDraft className="compare-draft" text={right.text} onChange={typeComparison} highlights={applied?[...draftMarks,{start:applied.start,end:applied.end,side:'applied'}]:draftMarks} flash={applied}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><VersionText state={comparison} side="right"/></>}</section>}
 
      </div>
     </div>

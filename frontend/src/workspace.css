@@ -71,6 +71,7 @@
 .snapshot-details dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .editor-page .record-heading .record-context .dropdown-trigger { color: #586274; }
 .editor-page .body-editor { padding: 9px 0 15px; font-size: 15px; line-height: 1.9; }
+.editor-page .version-text { padding-top: 9px; font-size: 15px; line-height: 1.9; }
 .editor-page .chat-panel .panel-toolbar small { color: #586274; }
 
 .posting-page, .detail-page, .submissions-page { padding-top: 18px; }
@@ -328,7 +329,7 @@
   .editor-page .body-columns.comparing .body-column + section {
     border-left: 0; padding-left: 0; padding-top: 13px; border-top: 1px solid var(--border);
   }
-  .editor-page .comparison-source { min-height: 160px; max-height: 40dvh; overflow: auto; }
+  .editor-page .version-text.left { min-height: 160px; max-height: 40dvh; overflow: auto; }
   .detail-page, .submissions-page { display: block; }
   .detail-page .application-side { border: 0; border-top: 1px solid var(--border); margin-top: 22px; padding: 18px 0 0; }
   .submissions-title { margin-bottom: 16px; }
