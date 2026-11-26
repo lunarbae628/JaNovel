@@ -27,8 +27,11 @@ function pairScore(a,b){
 }
 
 // 문단 순서를 지키며 비슷한 문단끼리 짝짓는다. 짝이 없는 문단은 한쪽에만 있는 문단이 된다.
-function alignParagraphs(left,right){
- const n=left.length,m=right.length,score=left.map(a=>right.map(b=>pairScore(a,b)));
+// 문단 쌍이 많으면 순서상 가까운 쌍만 비교해 계산량을 문단 수에 비례하게 묶는다.
+const PAIR_LIMIT=2500,BAND=8;
+function alignMiddle(left,right){
+ const n=left.length,m=right.length,banded=n*m>PAIR_LIMIT;
+ const score=left.map((a,i)=>right.map((b,j)=>banded&&Math.abs(i*m/n-j)>BAND?-Infinity:pairScore(a,b)));
  const best=Array.from({length:n+1},()=>Array(m+1).fill(0));
  for(let i=n-1;i>=0;i--)best[i][m]=best[i+1][m]+GAP;
  for(let j=m-1;j>=0;j--)best[n][j]=best[n][j+1]+GAP;
@@ -40,6 +43,16 @@ function alignParagraphs(left,right){
   else if(i<n&&drop>=add)pairs.push([i++,null]);
   else pairs.push([null,j++]);
  }
+ return pairs;
+}
+// 앞뒤로 같은 문단은 바로 짝짓고 가운데만 정렬한다. 한 문단을 고치는 동안에는 그 문단만 비교한다.
+function alignParagraphs(left,right){
+ const same=(i,j)=>left[i].text.trim()===right[j].text.trim();
+ let head=0;while(head<left.length&&head<right.length&&same(head,head))head++;
+ let tail=0;while(tail<left.length-head&&tail<right.length-head&&same(left.length-1-tail,right.length-1-tail))tail++;
+ const pairs=[];for(let k=0;k<head;k++)pairs.push([k,k]);
+ for(const[i,j]of alignMiddle(left.slice(head,left.length-tail),right.slice(head,right.length-tail)))pairs.push([i==null?null:i+head,j==null?null:j+head]);
+ for(let k=tail;k>0;k--)pairs.push([left.length-k,right.length-k]);
  return pairs;
 }
 

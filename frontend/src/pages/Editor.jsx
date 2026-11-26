@@ -9,7 +9,7 @@ import {optionView,comparisonSearch} from '../option-route.js';
 import {createWritingOption,renameWritingOption,editOptionSnapshot,optionSources} from '../writing-options.js';
 import AIChat from '../components/AIChat.jsx';
 import {VersionText,MergeDraft,ChangeCards} from '../components/Diff.jsx';
-import {createMergeState,chooseAllRegions,choiceOf,editMergeText,toggleCard} from '../merge-state.js';
+import {createMergeState,chooseAllRegions,choiceOf,editMergeText,followRanges,isIntact,toggleCard} from '../merge-state.js';
 import {differingRanges} from '../comparison.js';
 import {resolveRecord,updateDraft,snapshot,activateBranch,errorMessage,safeUrl,parseKey,defaultRecordKey,designateQuestionSubmission,reviseQuestionSubmission,recordKey} from '../model.js';
 import {canDeleteSnapshot,deleteSnapshot,deleteBranch} from '../history-actions.js';
@@ -212,13 +212,26 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
  }
  function writeDraft(text){const id=comparing?right.id:activeId,b=q.branches.find(b=>b.id===id);acceptEdit(updateDraft(q,id,text),id,b.autoFromId);}
  function updateComparison(next){setCompareSession({scope:compareScope,reference:source.text,state:next});if(next.text!==right.text)writeDraft(next.text);}
- const allApplied=!!comparison?.changes.length&&comparison.changes.every(change=>choiceOf(comparison,change.id)==='left');
+ const liveChanges=comparison?comparison.changes.filter(change=>isIntact(comparison,change.id)):[];
+ const allApplied=!!liveChanges.length&&liveChanges.every(change=>choiceOf(comparison,change.id)==='left');
  const toggleSentence=ids=>updateComparison(toggleCard(comparison,ids));
  // 오른쪽 내 본문에서 참고본과 다른 곳과 방금 반영한 곳.
- // 오른쪽 내 본문에서 참고본과 다른 곳과 방금 반영한 곳.
- const draftMarks=useMemo(()=>comparing&&right.kind==='draft'?differingRanges(source.text,right.text).map(range=>({...range,side:'right'})):[],[comparing,right.kind,source.text,right.text]);
+ // 오른쪽 내 본문에서 참고본과 다른 곳. 긴 본문도 입력이 밀리지 않게 입력을 멈췄을 때 다시 계산하고, 그 사이에는 이전 결과를 편집 위치에 맞춰 옮겨 보여 준다.
+ // 반영한 구절이 없으면 같은 때 카드도 지금 본문 기준으로 다시 만든다.
+ const[diffMarks,setDiffMarks]=useState({reference:null,text:null,ranges:[]});
+ const editingDraft=comparing&&right.kind==='draft';
+ useEffect(()=>{
+  if(!editingDraft)return;
+  const ready=diffMarks.reference===source.text&&diffMarks.text!=null;
+  const timer=setTimeout(()=>{
+   setDiffMarks({reference:source.text,text:right.text,ranges:differingRanges(source.text,right.text)});
+   if(comparison?.manual&&!Object.values(comparison.choices).includes('left'))setCompareSession({scope:compareScope,reference:source.text,state:createMergeState(source.text,right.text,'right')});
+  },ready?250:0);
+  return()=>clearTimeout(timer);
+ },[editingDraft,source.text,right.text]);
+ const draftMarks=useMemo(()=>!editingDraft||diffMarks.reference!==source.text||diffMarks.text==null?[]:followRanges(diffMarks.ranges,diffMarks.text,right.text).filter(range=>range.end>range.start).map(range=>({...range,side:'right'})),[editingDraft,diffMarks,source.text,right.text]);
  const applied=comparison?.last?.side==='left'?comparison.last:null;
- const applyAll=()=>updateComparison(chooseAllRegions(comparison,allApplied?'right':'left'));
+ const applyAll=()=>updateComparison(chooseAllRegions(comparison,allApplied?'right':'left',{intact:true}));
  const typeComparison=text=>updateComparison(editMergeText(comparison,text));
  function editRecord(text,asNew=false){
   try{
@@ -329,7 +342,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
       </button>}{comparing&&<small>{source.text.length.toLocaleString()}자</small>}<IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>{shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}</div>
        {copied&&<small className="copy-notice" role="status">복사했어요</small>}
        {comparing?(right.kind==='draft'?<>
-        <div className="compare-tabs"><div role="tablist" aria-label="참고본 보기">{[['all','전체'],['part','부분']].map(([key,name])=><button key={key} type="button" role="tab" aria-selected={compareTab===key} onClick={()=>setCompareTab(key)}>{name}</button>)}</div><button type="button" className="text-button" disabled={!comparison.changes.length} onClick={applyAll}>{allApplied?'일괄 취소':'일괄 반영'}</button></div>
+        <div className="compare-tabs"><div role="tablist" aria-label="참고본 보기">{[['all','전체'],['part','부분']].map(([key,name])=><button key={key} type="button" role="tab" aria-selected={compareTab===key} onClick={()=>setCompareTab(key)}>{name}</button>)}</div><button type="button" className="text-button" disabled={!liveChanges.length} onClick={applyAll}>{allApplied?'일괄 취소':'일괄 반영'}</button></div>
         {compareTab==='all'?<div className="document-body version-text left">{source.text}</div>:<ChangeCards state={comparison} onToggle={toggleSentence}/>}
        </>:<div className="document-body version-text left">{source.text}</div>):mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
       </section>

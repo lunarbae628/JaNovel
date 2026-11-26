@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compareRows,paragraphs,differingRanges} from '../src/comparison.js';
-import {createMergeState,chooseMergeRegion,editMergeText,mergeHighlights,changeCards,toggleCard} from '../src/merge-state.js';
+import {createMergeState,chooseMergeRegion,chooseAllRegions,editMergeText,mergeHighlights,changeCards,toggleCard,followRanges} from '../src/merge-state.js';
 import {firstDraft,polished,revised,aiSuggestion,shortened,addComparisonSample} from '../src/comparison-sample.js';
 import {createQuestion,updateDraft,snapshot,branchFrom,graphRecords,visibleGraphRecords,activateBranch,validateStore} from '../src/model.js';
 import {seedStore} from '../src/seed.js';
@@ -108,6 +108,40 @@ test('오른쪽 내 본문에는 참고본과 다른 구간만 칠하고 같은 
  assert.deepEqual(differingRanges(revised,revised),[]);
  const added=differingRanges('첫 문단입니다.','첫 문단입니다.\n전혀 다른 내용의 새 문단을 덧붙였습니다.').map(range=>range.end-range.start);
  assert.deepEqual(added,['전혀 다른 내용의 새 문단을 덧붙였습니다.'.length]);
+});
+test('직접 고쳐 달라진 문장의 카드는 숨기고 눌러도 내 본문을 바꾸지 않는다',()=>{
+ let s=createMergeState('저는 Python으로 개발했습니다.','저는 Java로 개발했습니다.','right');
+ const card=changeCards(s)[0];
+ s=editMergeText(s,'저는 고객 상담을 맡았습니다.');
+ assert.deepEqual(changeCards(s),[]);
+ assert.equal(toggleCard(s,card.ids).text,'저는 고객 상담을 맡았습니다.');
+ assert.equal(chooseAllRegions(s,'left',{intact:true}).text,'저는 고객 상담을 맡았습니다.');
+});
+test('반영한 카드는 다른 문단을 직접 고친 뒤에도 다시 눌러 취소할 수 있다',()=>{
+ let s=createMergeState(aiSuggestion,revised,'right');const card=changeCards(s)[1];
+ s=toggleCard(s,card.ids);s=editMergeText(s,s.text+' 직접 덧붙인 문장.');
+ assert.ok(changeCards(s).find(c=>c.key===card.key).applied);
+ assert.equal(toggleCard(s,card.ids).text,revised+' 직접 덧붙인 문장.');
+});
+test('앞뒤 공백과 들여쓰기가 있는 본문도 비교를 시작하고 반영을 취소하면 원문과 같다',()=>{
+ const draft='\n  첫 문단은 같습니다.\n둘째 문단에서 Java를 썼습니다.  \n\n',reference='  첫 문단은 같습니다.\n둘째 문단에서 Python을 썼습니다.  ';
+ let s=createMergeState(reference,draft,'right');
+ assert.equal(s.text,draft);
+ const card=changeCards(s)[0];s=toggleCard(s,card.ids);
+ assert.ok(s.text.includes('Python을'));assert.equal(toggleCard(s,card.ids).text,draft);
+ assert.equal(createMergeState(reference,'   ','right').text,'   ');
+});
+test('긴 본문은 같은 앞뒤 문단을 건너뛰고 문단 쌍이 많아도 가까운 쌍만 비교해 빨리 끝난다',()=>{
+ const line=(k,t)=>t+' 문단 '+k+'에서는 서비스 운영과 장애 대응 경험을 바탕으로 개선한 내용을 설명합니다.';
+ const left=Array.from({length:150},(_,k)=>line(k,'왼쪽')).join('\n'),right=Array.from({length:150},(_,k)=>line(k*7%150,'오른쪽 다른')).join('\n');
+ let start=performance.now();differingRanges(left,right);const different=performance.now()-start;
+ start=performance.now();const one=differingRanges(left,left.replace('문단 5에서','문단 5에선'));const edit=performance.now()-start;
+ assert.equal(one.length,1);assert.ok(edit<20,'한 문단 수정 '+edit+'ms');assert.ok(different<400,'다른 본문 '+different+'ms');
+});
+test('계산 전 입력에도 칠한 구간이 같은 글자를 따라간다',()=>{
+ const ranges=differingRanges(aiSuggestion,revised),typed='앞에 넣은 문장. '+revised;
+ const moved=followRanges(ranges,revised,typed);
+ assert.deepEqual(moved.map(r=>typed.slice(r.start,r.end)),ranges.map(r=>revised.slice(r.start,r.end)));
 });
 test('비교 연습 데이터는 기존 지원 건을 지우지 않고 한 번만 추가되며 저장 검증을 통과한다',()=>{
  const store=seedStore(),before=structuredClone(store.applications);

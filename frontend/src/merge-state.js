@@ -1,5 +1,5 @@
 import DiffMatchPatch from 'diff-match-patch';
-import {compareRows} from './comparison.js';
+import {compareRows,paragraphs} from './comparison.js';
 
 const matcher=new DiffMatchPatch();
 function editGroups(diffs){
@@ -23,6 +23,8 @@ function moveOffset(point,edits,bias){
  }
  return point+delta;
 }
+// 앞 본문 기준 구간을 바뀐 본문 위치로 옮긴다.
+export function followRanges(ranges,from,to){return from===to?ranges:moveRanges(ranges,editGroups(matcher.diff_main(from,to)));}
 function moveRanges(ranges,edits){return ranges.map(range=>{
  const empty=range.start===range.end;
  const start=moveOffset(range.start,edits,'right');
@@ -48,7 +50,9 @@ export function createMergeState(left,right,keep=null){
   const block=row.left||row.right;
   return {...row,change:add({left:row.left?.text||'',right:row.right?.text||'',whole:true,sep:block.start>0?block.sep:sep})};
  });
- const lead=keep==='right'?right.match(/^\s*/)[0]:'',trail=keep==='right'&&right.trim()?right.match(/\s*$/)[0]:'';
+ // 오른쪽 본문을 두고 시작할 때는 첫 문단 앞과 끝 문단 뒤의 줄만 그대로 붙인다. 줄 안의 공백은 이미 문단에 들어 있다.
+ const blocks=keep==='right'?paragraphs(right):[];
+ const lead=keep!=='right'?'':blocks.length?right.slice(0,blocks[0].start):right,trail=blocks.length?right.slice(blocks.at(-1).end):'';
  let text=lead,emitted=false;const ranges=[];
  const range=(id,value)=>{ranges.push({id,start:text.length,end:text.length+value.length});text+=value;};
  for(const row of rows){
@@ -66,6 +70,11 @@ export function createMergeState(left,right,keep=null){
 }
 
 export const choiceOf=(state,id)=>id in state.choices?state.choices[id]:state.keep;
+// 구절 자리에 지금 고른 쪽 글이 그대로 있는지. 직접 고쳐 달라졌으면 카드로 바꾸지 않는다.
+export function isIntact(state,id){
+ const range=state.ranges.find(r=>r.id===id),choice=choiceOf(state,id);
+ return !!range&&state.text.slice(range.start,range.end).trim()===(choice?state.changes[id][choice]:'').trim();
+}
 
 // 구절 하나를 바꿔 넣는다. 한쪽에만 있는 문단은 앞뒤 문단 구분을 함께 넣고 뺀다.
 function replaceRegion(state,id,choice){
@@ -103,10 +112,10 @@ export function chooseMergeRegion(state,id,side){
  return replaceRegion(state,id,choice);
 }
 
-// 모든 구절을 한쪽으로 고른다. 직접 고친 다른 내용은 그대로 둔다.
-export function chooseAllRegions(state,side){
+// 모든 구절을 한쪽으로 고른다. 직접 고친 다른 내용은 그대로 둔다. intact이면 직접 고친 구절은 건너뛴다.
+export function chooseAllRegions(state,side,{intact=false}={}){
  let next=state;
- for(const change of state.changes)if(choiceOf(next,change.id)!==side)next=replaceRegion(next,change.id,side);
+ for(const change of state.changes)if(choiceOf(next,change.id)!==side&&(!intact||isIntact(next,change.id)))next=replaceRegion(next,change.id,side);
  return {...next,last:null};
 }
 
@@ -133,7 +142,7 @@ function trimParts(parts){
 export function changeCards(state){
  const cards=[];
  const add=(key,segments)=>{
-  const ids=segments.filter(item=>item.id!=null).map(item=>item.id);if(!ids.length)return;
+  const ids=segments.filter(item=>item.id!=null).map(item=>item.id);if(!ids.length||!ids.every(id=>isIntact(state,id)))return;
   const side=name=>trimParts(segments.map(item=>({text:item.id==null?item.text:item[name],changed:item.id!=null})));
   const current=side('right'),reference=side('left'),plain=parts=>parts.map(part=>part.text).join('');
   if(plain(current)===plain(reference))return;
@@ -155,8 +164,9 @@ export function changeCards(state){
  return cards;
 }
 
-// 카드 하나의 구절을 모두 참고본으로 바꾸고, 이미 바꿨으면 모두 되돌린다.
+// 카드 하나의 구절을 모두 참고본으로 바꾸고, 이미 바꿨으면 모두 되돌린다. 직접 고친 구절이 있으면 바꾸지 않는다.
 export function toggleCard(state,ids){
+ if(!ids.every(id=>isIntact(state,id)))return state;
  const applied=ids.every(id=>choiceOf(state,id)==='left');let next=state;
  for(const id of ids)if(applied||choiceOf(next,id)!=='left')next=chooseMergeRegion(next,id,'left');
  return next;
