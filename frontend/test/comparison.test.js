@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compareRows,paragraphs,differingRanges} from '../src/comparison.js';
-import {createMergeState,chooseMergeRegion,chooseAllRegions,editMergeText,mergeHighlights,changeCards,toggleCard,followRanges} from '../src/merge-state.js';
+import {createMergeState,chooseMergeRegion,chooseAllRegions,editMergeText,mergeHighlights,changeCards,toggleCard,followRanges,draftHighlights} from '../src/merge-state.js';
 import {firstDraft,polished,revised,aiSuggestion,shortened,addComparisonSample} from '../src/comparison-sample.js';
 import {createQuestion,updateDraft,snapshot,branchFrom,graphRecords,visibleGraphRecords,activateBranch,validateStore} from '../src/model.js';
 import {seedStore} from '../src/seed.js';
@@ -155,3 +155,17 @@ test('비교 연습 데이터는 기존 지원 건을 지우지 않고 한 번�
  assert.equal(validateStore(structuredClone(first.store)).applications.length,before.length+1);
 });
 
+
+test('카드를 반영한 직후에도 반영한 곳 강조가 이전 차이 표시에 가려지지 않는다', () => {
+ const reference='지원 동기는 결제 경험입니다.\n두 번째 문단입니다.',mine='지원 동기는 송금 경험입니다.\n두번째 문단이에요.';
+ const marks=differingRanges(reference,mine);
+ const state=createMergeState(reference,mine,'right');
+ for(const card of changeCards(state)){
+  const next=toggleCard(state,card.ids),applied=next.last;
+  const shown=draftHighlights(followRanges(marks,mine,next.text),applied);
+  const flash=shown.find(range=>range.side==='applied');
+  assert.deepEqual([flash.start,flash.end],[applied.start,applied.end]);
+  assert.ok(shown.every(range=>range===flash||range.end<=flash.start||range.start>=flash.end));
+ }
+ assert.deepEqual(draftHighlights([{start:0,end:3},{start:3,end:3}],null),[{start:0,end:3,side:'right'}]);
+});

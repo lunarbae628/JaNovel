@@ -9,7 +9,7 @@ import {optionView,comparisonSearch} from '../option-route.js';
 import {createWritingOption,renameWritingOption,editOptionSnapshot,optionSources} from '../writing-options.js';
 import AIChat from '../components/AIChat.jsx';
 import {VersionText,MergeDraft,ChangeCards} from '../components/Diff.jsx';
-import {createMergeState,chooseAllRegions,choiceOf,editMergeText,followRanges,isIntact,toggleCard} from '../merge-state.js';
+import {createMergeState,chooseAllRegions,choiceOf,editMergeText,followRanges,isIntact,toggleCard,draftHighlights} from '../merge-state.js';
 import {differingRanges} from '../comparison.js';
 import {resolveRecord,updateDraft,snapshot,activateBranch,errorMessage,safeUrl,parseKey,defaultRecordKey,designateQuestionSubmission,reviseQuestionSubmission,recordKey} from '../model.js';
 import {canDeleteSnapshot,deleteSnapshot,deleteBranch} from '../history-actions.js';
@@ -229,7 +229,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
   },ready?250:0);
   return()=>clearTimeout(timer);
  },[editingDraft,source.text,right.text]);
- const draftMarks=useMemo(()=>!editingDraft||diffMarks.reference!==source.text||diffMarks.text==null?[]:followRanges(diffMarks.ranges,diffMarks.text,right.text).filter(range=>range.end>range.start).map(range=>({...range,side:'right'})),[editingDraft,diffMarks,source.text,right.text]);
+ const draftMarks=useMemo(()=>!editingDraft||diffMarks.reference!==source.text||diffMarks.text==null?[]:followRanges(diffMarks.ranges,diffMarks.text,right.text),[editingDraft,diffMarks,source.text,right.text]);
  const applied=comparison?.last?.side==='left'?comparison.last:null;
  const applyAll=()=>updateComparison(chooseAllRegions(comparison,allApplied?'right':'left',{intact:true}));
  const typeComparison=text=>updateComparison(editMergeText(comparison,text));
@@ -346,7 +346,7 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
         {compareTab==='all'?<div className="document-body version-text left">{source.text}</div>:<ChangeCards state={comparison} onToggle={toggleSentence}/>}
        </>:<div className="document-body version-text left">{source.text}</div>):mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
       </section>
-      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{count(right.text)}</small></div>{right.kind==='draft'?<MergeDraft className="compare-draft" text={right.text} onChange={typeComparison} highlights={applied?[...draftMarks,{start:applied.start,end:applied.end,side:'applied'}]:draftMarks} flash={applied}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><VersionText state={comparison} side="right"/></>}</section>}
+      {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{count(right.text)}</small></div>{right.kind==='draft'?<MergeDraft className="compare-draft" text={right.text} onChange={typeComparison} highlights={draftHighlights(draftMarks,applied)} flash={applied}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><VersionText state={comparison} side="right"/></>}</section>}
 
      </div>
     </div>

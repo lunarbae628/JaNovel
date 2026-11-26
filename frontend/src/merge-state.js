@@ -171,3 +171,11 @@ export function toggleCard(state,ids){
  for(const id of ids)if(applied||choiceOf(next,id)!=='left')next=chooseMergeRegion(next,id,'left');
  return next;
 }
+
+// 편집 칸에 그릴 표시. 참고본과 다른 곳은 입력을 멈춘 뒤에야 다시 계산되므로, 방금 반영한 곳과 겹치는 이전 표시는 빼서
+// 반영한 곳 강조와 그 자리로의 스크롤이 바로 동작하게 한다.
+export function draftHighlights(marks,applied){
+ const visible=marks.filter(range=>range.end>range.start).map(range=>({...range,side:'right'}));
+ if(!applied)return visible;
+ return [...visible.filter(range=>range.end<=applied.start||range.start>=applied.end),{start:applied.start,end:applied.end,side:'applied'}];
+}
