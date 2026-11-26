@@ -15,4 +15,4 @@
 | PDF 설정 · 미리보기 | [278:35199](https://www.figma.com/design/ArLSPAcNklUKhcpk8V4zyf?node-id=278-35199) · [278:35413](https://www.figma.com/design/ArLSPAcNklUKhcpk8V4zyf?node-id=278-35413) |
 | 로그인 | [144:194717](https://www.figma.com/design/ArLSPAcNklUKhcpk8V4zyf?node-id=144-194717) |
 
-서비스의 AI/MCP 연결 계획은 [웹 내부 AI 검토](../planning/05-local-agent-chat-review.md)에 있다.
+서비스의 AI/MCP 연결 계획은 [AI 방향과 연결 검토](../planning/05-local-agent-chat-review.md)에 있다.
