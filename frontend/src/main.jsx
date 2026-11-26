@@ -16,6 +16,7 @@ import {
 } from './essay-template.js';
 import {BackLink, Modal, Field, Notice, Empty, useHashRoute} from './components/UI.jsx';
 import {loadStore, saveStore, downloadBackup, STORE_KEY} from './storage.js';
+import {addComparisonSample} from './comparison-sample.js';
 import {validateStore, errorMessage, updateQuestion} from './model.js';
 import {usePreviewState} from './community-preview.js';
 import {initialSocial} from './social-preview.js';
@@ -53,8 +54,12 @@ class ErrorBoundary extends React.Component {
 
 function App() {
   const [initial] = useState(loadStore);
+  // 개발 서버에서 ?sample=comparison으로 열면 비교 연습용 지원 건을 추가하고 그 문항을 연다.
+  const [sample] = useState(() => import.meta.env.DEV && !initial.error
+    && new URLSearchParams(location.search).get('sample') === 'comparison' ? addComparisonSample(initial.data) : null);
   const [socialPreview, setSocialPreview] = usePreviewState('social', initialSocial);
-  const [store, setStore] = useState(initial.data);
+  const [store, setStore] = useState(sample ? sample.store : initial.data);
+
   const [saveBlocked, setSaveBlocked] = useState(Boolean(initial.error));
   const [storageError, setStorageError] = useState(initial.error);
   const [settings, setSettings] = useState(false);
@@ -69,6 +74,11 @@ function App() {
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [practiceSession, setPracticeSession] = useState(null);
   const [route, navigate] = useHashRoute();
+  useEffect(() => {
+    if (!sample) return;
+    history.replaceState(null, '', location.pathname + location.hash);
+    navigate('/write/' + sample.applicationId + '/' + sample.questionId);
+  }, [sample]);
   const [originalPath, originalSearch] = route.split('?');
   const legacySocialRoute = originalPath === '/chat' || originalPath === '/inbox';
   const pageRoute = legacySocialRoute ? '/friends' +
