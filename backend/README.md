@@ -1,10 +1,10 @@
 # JaNovel 백엔드
 
-Java 21·Spring Boot 백엔드다. PostgreSQL 스키마와 JPA 엔티티, 공고 링크 가져오기 API가 구현되어 있다. 지원 건 저장 API와 서버 인증은 다음 단계다. [제품 기획과 저장 설계](../docs/planning/01-product-plan.md)
+Java 21·Spring Boot 백엔드다. PostgreSQL 스키마와 JPA 엔티티, 공고 가져오기와 지원 건·문항 저장 API가 구현되어 있다. 지원 건과 문항은 프론트와 동기화하며, 서버 인증은 다음 단계다. [제품 기획과 저장 설계](../docs/planning/01-product-plan.md)
 
 ## 공고 링크 가져오기
 
-공개 공고 링크는 표준 `JobPosting` 데이터와 상세 텍스트를 먼저 읽는다. 본문이 부족하면 Chromium으로 렌더링해 접힌 내용과 상세 iframe도 읽는다. Java가 수집한 본문을 OpenAI Responses API로 전달한다. 긴 이미지 공고는 글자 해상도를 유지하도록 세로로 나누어 한 요청으로 보내며, 사용자 첨부 이미지도 모델의 이미지 입력으로 보낸다. 화면에서 등록한 지원 건은 현재 브라우저에 저장된다. [API 명세와 실행 예제](#api-문서)
+공개 공고 링크는 표준 `JobPosting` 데이터와 상세 텍스트를 먼저 읽는다. 본문이 부족하면 Chromium으로 렌더링해 접힌 내용과 상세 iframe도 읽는다. Java가 수집한 본문을 OpenAI Responses API로 전달한다. 긴 이미지 공고는 글자 해상도를 유지하도록 세로로 나누어 한 요청으로 보내며, 사용자 첨부 이미지도 모델의 이미지 입력으로 보낸다. 화면에서 등록한 지원 건은 먼저 브라우저에 저장되고 백엔드와 동기화된다. [API 명세와 실행 예제](#api-문서)
 
 `backend/.env`의 `OPENAI_API_KEY=` 뒤에 키를 넣고 `backend/`에서 백엔드를 실행한다. 배포 환경에서는 같은 이름의 환경 변수를 지정할 수 있다. 키가 비어 있으면 서버는 시작되고 공고 가져오기 요청에 `503 POSTING_MODEL_UNAVAILABLE`을 반환한다. [OpenAI API 키 가이드](https://developers.openai.com/api/docs/quickstart)
 
@@ -22,6 +22,10 @@ OPENAI_POSTING_MODEL=gpt-6-luna
 
 `backend/`에서 `./gradlew bootRun`을 실행하면 기본값으로 `local` 프로필을 사용한다. 백엔드를 `127.0.0.1`에 바인딩하고 공고 문항 저장과 내 공통 자소서 API를 활성화한다. 서버 인증 연결 전에는 내 공통 자소서를 브라우저의 미리보기 프로필별로 저장한다. [공고 문항 저장 API](#api-문서) · [내 공통 자소서 API](#api-문서)
 
+## 작성 화면 AI 채팅 미리보기
+
+프론트를 기본 설정으로 실행하면 작성 화면에서 예시 응답을 보여 준다. `VITE_WRITING_AI=live`로 실행하면 초안 요청과 후속 메시지를 `POST /api/me/writing-chat`으로 받는다. 공고 가져오기와 같은 `OPENAI_API_KEY`가 필요하다. 작성 모델의 기본값은 `gpt-6.2-sol`이며, `OPENAI_WRITING_MODEL`로 지정할 수 있다. 채팅 API는 `local` 프로필에서만 열린다. 대화와 비교 후보는 프론트에서 문항별로 저장한다. [프론트 실행 가이드](../frontend/README.md#실행)
+
 ## 스키마와 패키지
 
 Flyway는 빈 PostgreSQL에 [통합 V1 스키마](src/main/resources/db/migration/V1__initial_schema.sql)를 적용한다. 초기 스키마, 공고·직무, 공고 문항 공유·제보와 개인 자소서 템플릿 테이블이 포함된다. 통합 전 DB의 데이터를 옮길 때는 새 DB에 V1을 적용한 뒤 기존 데이터와 시퀀스를 복사한다. 이때 이전 Flyway 이력은 원본 DB에 보존한다. [통합 V1 DBML](../docs/planning/posting-reference-proposal.dbml)
@@ -36,6 +40,8 @@ Flyway는 빈 PostgreSQL에 [통합 V1 스키마](src/main/resources/db/migratio
 
 - Swagger UI: `http://127.0.0.1:8080/swagger-ui.html`에서 요청을 직접 보내 볼 수 있다.
 - OpenAPI JSON: `http://127.0.0.1:8080/v3/api-docs`
+
+지원 건 수정 API(기본 정보·상태·항목·전형·문항·삭제)는 낙관적 잠금을 쓴다. 목록과 상세 응답의 `version`이나 상세 응답의 `ETag`를 `If-Match`로 보내면, 그 사이 다른 곳에서 바뀐 지원 건은 `409 APPLICATION_CONFLICT`로 거절한다. 성공 응답의 `ETag`가 새 버전이며 지원 건 삭제 응답에는 `ETag`가 없다. `If-Match`를 생략하면 확인하지 않는다. 마지막으로 연 문항 기억은 버전을 올리지 않는다. [버전 확인](src/main/java/com/janovel/domain/application/app/ApplicationChanges.java)
 
 새 API는 컨트롤러에 `@Tag`, `@Operation`, 성공·오류 `@ApiResponse`를 달고 요청·응답 DTO에 `@Schema`로 설명을 적는다. 일반 오류는 자동으로 `ErrorResponse` 형식으로 표시된다. 초안 저장 충돌은 최신 초안이 포함된 `DraftConflictResponse`로 표시된다. 이름이 같은 중첩 DTO는 `@Schema(name = ...)`로 구분한다. 접근 키가 필요한 API는 `@SecurityRequirement(name = OpenApiConfig.PREVIEW_KEY)`를 단다. 배포하기 전에 Swagger UI를 끄도록 설정한다.
 
