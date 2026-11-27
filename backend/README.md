@@ -26,7 +26,7 @@ OPENAI_POSTING_MODEL=gpt-6-luna
 
 Flyway는 빈 PostgreSQL에 [통합 V1 스키마](src/main/resources/db/migration/V1__initial_schema.sql)를 적용한다. 초기 스키마, 공고·직무, 공고 문항 공유·제보와 개인 자소서 템플릿 테이블이 포함된다. 통합 전 DB의 데이터를 옮길 때는 새 DB에 V1을 적용한 뒤 기존 데이터와 시퀀스를 복사한다. 이때 이전 Flyway 이력은 원본 DB에 보존한다. [통합 V1 DBML](../docs/planning/posting-reference-proposal.dbml)
 
-이미 적용한 스키마를 바꿀 때는 새 마이그레이션을 추가한다.
+첫 배포 전에는 V1 하나만 두고 스키마 변경을 V1에 직접 반영한다. V1이 바뀌면 기존 개발 DB는 Flyway 체크섬 검증에 실패하므로 `backend/`에서 `docker compose down -v`로 초기화한 뒤 다시 실행한다. 개발 DB의 데이터는 지워진다. 배포한 뒤에는 이미 적용한 스키마를 바꿀 때 새 마이그레이션을 추가한다.
 
 엔티티는 `com.janovel.domain` 아래에서 [사용자·OAuth 계정](src/main/java/com/janovel/domain/user/entity), [지원 건·공고 항목·전형·결과 옵션](src/main/java/com/janovel/domain/application/entity), [자소서 문항·버전·스냅샷·제출본](src/main/java/com/janovel/domain/writing/entity)으로 나눈다.
 
@@ -37,7 +37,7 @@ Flyway는 빈 PostgreSQL에 [통합 V1 스키마](src/main/resources/db/migratio
 - Swagger UI: `http://127.0.0.1:8080/swagger-ui.html`에서 요청을 직접 보내 볼 수 있다.
 - OpenAPI JSON: `http://127.0.0.1:8080/v3/api-docs`
 
-새 API는 컨트롤러에 `@Tag`, `@Operation`, 성공·오류 `@ApiResponse`를 달고 요청·응답 DTO에 `@Schema`로 설명을 적는다. 오류 응답은 자동으로 `ErrorResponse` 형식으로 표시된다. 이름이 같은 중첩 DTO는 `@Schema(name = ...)`로 구분한다. 접근 키가 필요한 API는 `@SecurityRequirement(name = OpenApiConfig.PREVIEW_KEY)`를 단다. 배포하기 전에 Swagger UI를 끄도록 설정한다.
+새 API는 컨트롤러에 `@Tag`, `@Operation`, 성공·오류 `@ApiResponse`를 달고 요청·응답 DTO에 `@Schema`로 설명을 적는다. 일반 오류는 자동으로 `ErrorResponse` 형식으로 표시된다. 초안 저장 충돌은 최신 초안이 포함된 `DraftConflictResponse`로 표시된다. 이름이 같은 중첩 DTO는 `@Schema(name = ...)`로 구분한다. 접근 키가 필요한 API는 `@SecurityRequirement(name = OpenApiConfig.PREVIEW_KEY)`를 단다. 배포하기 전에 Swagger UI를 끄도록 설정한다.
 
 ### 요청 확인
 
