@@ -1,7 +1,99 @@
-import React,{useState} from 'react';
-import {Copy,Plus} from 'lucide-react';
-import {Modal,Field,Notice,copyText} from './UI.jsx';
-import {postingSections,uid} from '../model.js';
-export default function AIChat({question:q,application,record,onSave,onCandidate}){const[input,setInput]=useState(''),[paste,setPaste]=useState(false),[feedback,setFeedback]=useState(''),[candidate,setCandidate]=useState(''),[notice,setNotice]=useState('');async function request(){const posting=postingSections(application).filter(section=>section.body.trim())
- .map(section=>section.title+': '+section.body).join('\n');
- const context=`회사: ${application.company}\n직무: ${application.role}\n${posting?posting+'\n':''}문항: ${q.prompt} (${q.limit}자)\n본문:\n${record.text}\n\n피드백 기준: 문항 적합성, 경험의 구체성, 회사·직무 연결, 문장 명료성. 없는 경험을 만들지 말고 부족한 근거는 질문해 주세요. 수정안은 피드백과 구분해 제공해 주세요.\n요청: ${input||'위 기준으로 피드백해 주세요.'}`;try{await copyText(context);onSave(current=>({...current,messages:[...current.messages,{id:uid('message'),role:'user',text:input||'피드백 요청',source:record.kind+':'+record.id,createdAt:new Date().toISOString()}]}));setInput('');setNotice('문항·본문·피드백 기준을 복사했어요. 사용하는 AI에 붙여넣어 주세요.');}catch{setNotice('클립보드에 접근하지 못했어요. 브라우저 권한을 확인해 주세요.')}}return <><div className="chat-messages"><p className="connection-status"><i/> AI 연결 전 · 복사해서 요청</p>{q.messages.length?q.messages.map(m=><div className={'chat-message '+m.role} key={m.id}><p>{m.text}</p>{m.candidate&&<button className="text-button" onClick={()=>onCandidate(m)}>수정안 비교 →</button>}</div>):<p className="muted chat-empty">이 문항의 피드백을 기록하세요.</p>}{notice&&<Notice>{notice}</Notice>}</div><div className="chat-compose"><div className="chat-compose-tools"><button className="text-button" onClick={request}>피드백 요청 <Copy size={13}/></button><button className="text-button" onClick={()=>setPaste(true)}><Plus size={14}/>응답 추가</button></div><textarea aria-label="AI에게 요청할 내용" rows={4} value={input} onChange={e=>setInput(e.target.value)} placeholder="요청 입력 · Enter로 복사" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();request()}}}/></div>{paste&&<Modal title="AI 응답 추가" onClose={()=>setPaste(false)}><form onSubmit={e=>{e.preventDefault();onSave(current=>({...current,messages:[...current.messages,{id:uid('message'),role:'assistant',text:feedback,candidate,baseText:record.text,createdAt:new Date().toISOString()}]}));setPaste(false);setFeedback('');setCandidate('')}}><Field label="피드백"><textarea value={feedback} onChange={e=>setFeedback(e.target.value)} rows={5} required/></Field><Field label="수정안 본문 · 선택"><textarea value={candidate} onChange={e=>setCandidate(e.target.value)} rows={7}/></Field><div className="form-actions"><button className="button" type="button" onClick={()=>setPaste(false)}>취소</button><button className="button primary">대화에 추가</button></div></form></Modal>}</>}
+import React, {useDeferredValue, useEffect, useMemo, useRef, useState} from 'react';
+import {Columns2, Send, Sparkles} from 'lucide-react';
+import {changeSummary, draftRequestBranch} from '../ai-review.js';
+
+// 요약을 계산하는 최근 수정안 수. 본문을 고칠 때마다 다시 비교하므로 오래된 수정안은 버튼만 둔다.
+const SUMMARY_LIMIT = 3;
+
+function CandidateCard({message, draftText, summarize, reviewing, onReview}) {
+  const summary = useMemo(() => summarize ? changeSummary(message.candidate, draftText) : null,
+    [summarize, message.candidate, draftText]);
+  const same = summary?.count === 0;
+  // 요청한 뒤 본문이 바뀌었으면, 이 수정안으로 검토할 때 그 사이 바뀐 내용도 되돌리는 변경으로 보인다.
+  const stale = !reviewing && !same && message.baseText != null && message.baseText !== draftText;
+  return <div className={'chat-candidate' + (stale ? ' stale' : '')}>
+    <div className="chat-candidate-heading">
+      <Sparkles size={14} aria-hidden="true"/><strong>{message.kind === 'draft' ? 'AI 초안' : 'AI 수정안'}</strong>
+      {message.preview && <small className="chat-candidate-preview">예시</small>}
+      {stale && <small className="chat-candidate-preview" title="요청한 뒤 본문이 바뀌었어요. 검토하면 그 사이 바뀐 내용도 되돌리는 변경으로 보여요.">이전 본문 기준</small>}
+      {summary && <span>{same ? '지금 본문과 같아요' : '변경 ' + summary.count + '곳'
+        + (summary.delta ? ' · ' + (summary.delta > 0 ? '+' : '') + summary.delta.toLocaleString() + '자' : '')}</span>}
+    </div>
+    {reviewing
+      ? <span className="chat-candidate-reviewing">본문에서 검토 중</span>
+      : <button type="button" className="button small chat-candidate-button" aria-controls="writing-panel"
+        disabled={same} onClick={() => onReview(message)}>
+        <Columns2 size={14} aria-hidden="true"/>본문에서 검토
+      </button>}
+  </div>;
+}
+
+export default function AIChat({question, chat, draftId, draftText, reviewingId, onReview, draftAction, draftInChat = false}) {
+  const [input, setInput] = useState('');
+  const scrollTarget = useRef(null);
+  const messageCount = useRef(question.messages.length);
+  const deferredDraft = useDeferredValue(draftText);
+  const {pending, failure} = chat;
+  const summarized = new Set(question.messages.filter(message => message.candidate).slice(-SUMMARY_LIMIT).map(message => message.id));
+
+  useEffect(() => {
+    if (pending || failure || messageCount.current !== question.messages.length) {
+      scrollTarget.current?.scrollIntoView({block: 'nearest'});
+    }
+    messageCount.current = question.messages.length;
+  }, [pending, failure, question.messages.length]);
+
+  // 보낸 글을 그대로 두고 있을 때만 입력 칸을 비운다. 기다리는 동안 새로 쓴 글은 남긴다.
+  const clearSent = sent => answer => {
+    if (answer) setInput(current => current === sent ? '' : current);
+  };
+
+  function requestChat(event) {
+    event.preventDefault();
+    if (!input.trim()) return;
+    chat.requestChat(input).then(clearSent(input));
+  }
+
+  function retry() {
+    chat.retry().then(clearSent(failure.request.payload.request));
+  }
+  // 빈 문항의 초안 받기는 본문 자리에서 보내므로 실패도 그곳에서 알리고, 채팅에서 보낸 초안 요청만 여기서 알린다.
+  const chatFailure = failure?.request.payload.kind === 'chat' || (draftInChat && failure?.request.payload.kind === 'draft')
+    ? failure : null;
+
+  return <>
+    <div className="chat-messages">
+      <div role="log" aria-label="이 문항의 대화" aria-live="polite">
+        {question.messages.length ? question.messages.map(message => {
+          const origin = draftRequestBranch(question.messages, message);
+          const originDraft = origin && origin !== draftId ? question.branches.find(branch => branch.id === origin)?.draft : null;
+          return <div className={'chat-message ' + message.role} key={message.id}>
+            {message.text && <p>{message.text}</p>}
+            {message.candidate && <CandidateCard message={message} draftText={originDraft?.text ?? deferredDraft}
+              summarize={summarized.has(message.id)} reviewing={reviewingId === message.id} onReview={onReview}/>}
+          </div>;
+        }) : !pending && !chatFailure && <p className="muted chat-empty">이 문항에 대해 질문하거나 수정을 요청해 보세요.</p>}
+      </div>
+      {pending && <div className="chat-message user"><p>{pending.message.text}</p></div>}
+      {pending && <p role="status" className="chat-pending"><Sparkles size={15} aria-hidden="true"/>
+        {pending.payload.kind === 'draft' ? '초안을 작성하고 있어요.' : '답변을 작성하고 있어요.'}</p>}
+      {chatFailure && <div role="alert" className="chat-failure">
+        <p>{chatFailure.message}</p><button type="button" className="text-button" onClick={retry}>다시 시도</button>
+      </div>}
+      <div ref={scrollTarget}/>
+    </div>
+    <form className="chat-compose" onSubmit={requestChat}>
+      <textarea aria-label="AI에게 보낼 메시지" rows={3} value={input}
+        maxLength={4_000} onChange={event => setInput(event.target.value)} placeholder="본문에 대해 질문하거나 수정을 요청하세요."
+        onKeyDown={event => {
+          if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            event.currentTarget.form.requestSubmit();
+          }
+        }}/>
+      <div className="chat-submit">{draftAction}<button type="submit" className="button primary" disabled={!!pending || !input.trim()}>
+        <Send size={14} aria-hidden="true"/>보내기
+      </button></div>
+    </form>
+  </>;
+}

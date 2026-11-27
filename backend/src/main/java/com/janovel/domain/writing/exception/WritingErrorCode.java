@@ -14,7 +14,11 @@ public enum WritingErrorCode implements ErrorCode {
     SUBMISSION_REQUIRED(HttpStatus.CONFLICT, "먼저 제출본으로 쓸 기록을 골라 주세요."),
     EMPTY_TEXT(HttpStatus.BAD_REQUEST, "본문을 입력해 주세요."),
     NO_CHANGES(HttpStatus.CONFLICT, "이전 스냅샷과 본문이 같아요."),
-    DRAFT_CONFLICT(HttpStatus.CONFLICT, "다른 곳에서 초안이 바뀌었어요.");
+    DRAFT_CONFLICT(HttpStatus.CONFLICT, "다른 곳에서 초안이 바뀌었어요."),
+    WRITING_CHAT_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AI 채팅 접근 키를 확인해 주세요."),
+    WRITING_CHAT_FAILED(HttpStatus.BAD_GATEWAY, "AI 답변을 읽지 못했어요."),
+    WRITING_CHAT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 채팅에 연결할 수 없어요."),
+    WRITING_CHAT_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "AI 답변이 제시간에 도착하지 않았어요.");
 
     private final HttpStatus status;
     private final String message;

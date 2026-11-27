@@ -1,5 +1,5 @@
 import React,{lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
-import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic,Info,Star} from 'lucide-react';
+import {Merge as MergeIcon,Camera,Columns2,Copy,Plus,ArrowLeft,Trash2,History,MessagesSquare,FileText,Download,Mic,Info,Star,Sparkles,Undo2,Redo2,ChevronRight,Loader2} from 'lucide-react';
 import {BackLink,ApplyLink,IconButton,PanelGlyph,Modal,RecordForm,Field,Notice,copyText} from '../components/UI.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import PanelResizer from '../components/PanelResizer.jsx';
@@ -8,13 +8,21 @@ import VersionGraph from '../components/VersionGraph.jsx';
 import {optionView,comparisonSearch} from '../option-route.js';
 import {createWritingOption,renameWritingOption,editOptionSnapshot,optionSources,sourceName} from '../writing-options.js';
 import AIChat from '../components/AIChat.jsx';
+import AIReview from '../components/AIReview.jsx';
+import useWritingChat from '../components/use-writing-chat.js';
+import {draftRequestBranch} from '../ai-review.js';
 import {VersionText,MergeDraft,ChangeCards} from '../components/Diff.jsx';
 import {createMergeState,chooseAllRegions,choiceOf,editMergeText,followRanges,isIntact,toggleCard,draftHighlights} from '../merge-state.js';
 import {differingRanges} from '../comparison.js';
+import {createHistory,recordText,undoText,redoText} from '../text-history.js';
 import {resolveRecord,updateDraft,snapshot,activateBranch,errorMessage,safeUrl,parseKey,defaultRecordKey,designateQuestionSubmission,reviseQuestionSubmission,recordKey} from '../model.js';
 import {canDeleteSnapshot,deleteSnapshot,deleteBranch} from '../history-actions.js';
 
 const EssayPdf = lazy(() => import('../components/EssayPdf.jsx'));
+// 추천 경험은 개발용 샘플이라 개발 서버에서만 빈 문항의 본문 자리에 보여 준다.
+const DraftStarter = import.meta.env.DEV ? lazy(() => import('../components/ExperienceSelectionPreview.jsx')) : null;
+const ExperienceDraftDialog = import.meta.env.DEV
+ ? lazy(() => import('../components/ExperienceSelectionPreview.jsx').then(module => ({default: module.ExperienceDraftDialog}))) : null;
 const compactViews = [
  ['writing', '본문', FileText, 'writing-panel'],
  ['history', '버전', History, 'history-panel'],
@@ -143,7 +151,7 @@ function QuestionSubmissionDialog({application, currentQuestion, initialKey, onS
  </Modal>;
 }
 
-export default function Editor({application:a,question:q,navigate,onSave,onOpenEssayTemplate,onPreferences,preferences,query,
+export default function Editor({application:a,question:q,navigate,onSave,onOpenEssayTemplate,onPreferences,preferences,query,profile,
  essayTemplate,onEditTemplateQuestions,templateReturnPath}){
  const valid=key=>{try{resolveRecord(q,key);return true}catch{return false}};
  const view=optionView(q,query),initialBranch=view.branchId,initialKey=view.key,initialRecord=resolveRecord(q,initialKey);
@@ -162,10 +170,11 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
  const activeId=q.branches.some(b=>b.id===workingId)?workingId:q.branches[0].id;
  const work=resolveRecord(q,'draft:'+activeId),activeBranch=q.branches.find(b=>b.id===activeId),sources=optionSources(q,activeId),renaming=q.branches.find(b=>b.id===renamingId);
  const record=resolveRecord(q,valid(selected)?selected:'draft:'+activeId);
- const source=aiReference?{kind:'suggestion',label:'AI 수정안',title:'AI 수정안',text:aiReference.candidate,id:aiReference.id}:valid(referenceKey)?resolveRecord(q,referenceKey):record;
+ const source=valid(referenceKey)?resolveRecord(q,referenceKey):record;
  const right=resolveRecord(q,valid(target)?target:'draft:'+activeId),comparing=mode==='compare';
+ const chat=useWritingChat({question:q,application:a,record:mode==='read'?record:work,profile,onSave});
  // 비교 상태: 왼쪽에서 고른 구절과 오른쪽 본문 안 위치. 비교 대상이 바뀌거나 본문이 밖에서 바뀌면 새로 시작한다.
- const compareScope=(aiReference?'ai:'+aiReference.id:referenceKey)+'|'+right.kind+':'+right.id;
+ const compareScope=referenceKey+'|'+right.kind+':'+right.id;
  const[compareSession,setCompareSession]=useState(null),[compareTab,setCompareTab]=useState('part');
  const comparison=useMemo(()=>{
   if(!comparing)return null;
@@ -253,7 +262,76 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
   const to=comparing?target:other?defaultRecordKey(q,other.id):'draft:'+activeId;
   navigate(`/merge/${a.id}/${q.id}?left=${encodeURIComponent(from)}&right=${encodeURIComponent(to)}`);
  }
- function compareCandidate(message){setAiReference(message);setTarget('draft:'+activeId);setMode('compare');setError('');}
+ // AI 수정안은 작성 중 본문 위에서 검토한다. 비교나 스냅샷 보기 중이면 작성 중 본문으로 돌아온다.
+ function reviewCandidate(message){
+  const id=draftRequestBranch(q.messages,message)??activeId;
+  if(!q.branches.some(branch=>branch.id===id)){setError('이 초안을 요청한 버전을 찾을 수 없어요.');return;}
+  if(id!==activeId){setWorkingId(id);onSave(current=>activateBranch(current,id));}
+  if(comparing||mode==='read'||id!==activeId){const key='draft:'+id;setSelected(key);setReferenceKey(key);setTarget(key);setMode('write');rememberWorkUrl(id,true);}
+  setAiReference(message);setError('');
+ }
+ const snapshotTaken=activeBranch.snapshotIds.length&&!activeBranch.draft.dirty&&activeBranch.draft.baseIds.length===1;
+ const canSnapshotDraft=!!work.text.trim()&&!snapshotTaken;
+ // 적용하기 전 본문을 스냅샷으로 남길지는 검토 화면에서 묻는다. 이미 스냅샷과 같은 본문이면 묻지 않고 바로 적용한다.
+ function applyReview({text,snapshot:keep}){
+  try{
+   let next=q;
+   if(keep)next=snapshot(next,activeId,aiReference.kind==='draft'?'AI 초안 적용 전':'AI 수정안 적용 전');
+   historyKind.current='apply';
+   acceptEdit(updateDraft(next,activeId,text),activeId);
+  }catch(e){setError(errorMessage(e));}
+  setAiReference(null);
+ }
+ // 검토에서 하나라도 골랐으면 다른 수정안·문항·버전으로 옮기기 전에 버릴지 묻는다.
+ const[reviewDirty,setReviewDirty]=useState(false),[pendingLeave,setPendingLeave]=useState(null);
+ function guard(action){if(aiReference&&reviewDirty){setPendingLeave({run:action});return;}action();}
+ // 빈 문항에서 경험으로 받은 초안은 비교 없이 본문에 넣고, 넣기 전으로 되돌릴 수 있게 한다.
+ const[manualWriting,setManualWriting]=useState(false),[insertedDraft,setInsertedDraft]=useState(null),[usedOpen,setUsedOpen]=useState(false);
+ const latestWork=useRef(work);latestWork.current=work;
+ const reviewing=useRef(aiReference);reviewing.current=aiReference;
+ // 본문이 있으면 받은 초안을 바로 넣지 않고 수정안처럼 본문 위에서 검토한다.
+ async function makeDraft(experiences){
+  const answer=await chat.requestDraft(experiences);
+  if(!answer||latestWork.current.id!==activeId)return;
+  if(latestWork.current.text.trim()){if(!reviewing.current)reviewCandidate(answer);return;}
+  const text=answer.candidate,id=activeId;
+  historyKind.current='apply';
+  onSave(current=>{const b=current.branches.find(item=>item.id===id);return !b||b.draft.text.trim()?current:activateBranch(updateDraft(current,id,text),id);});
+  setInsertedDraft({id,text,titles:experiences.map(item=>item.title)});setUsedOpen(false);
+ }
+ function undoDraft(){historyKind.current='apply';writeDraft('');setInsertedDraft(null);}
+ // 작성 중 본문의 되돌리기·다시 실행. 타이핑, AI 수정안 적용, 초안 넣기를 모두 기록하고 버전을 바꾸면 새로 시작한다.
+ const[textHistory,setTextHistory]=useState(()=>({id:activeId,history:createHistory(work.text)}));
+ const historyKind=useRef('typing');
+ useEffect(()=>{
+  setTextHistory(current=>current.id!==activeId?{id:activeId,history:createHistory(work.text)}
+   :{id:activeId,history:recordText(current.history,work.text,{at:Date.now(),kind:historyKind.current})});
+  historyKind.current='typing';
+ },[work.text,activeId]);
+ const historyReady=mode==='write'&&!comparing&&!aiReference&&textHistory.id===activeId;
+ const canUndo=historyReady&&textHistory.history.past.length>0,canRedo=historyReady&&textHistory.history.future.length>0;
+ function stepHistory(step){
+  if(!(step<0?canUndo:canRedo))return;
+  const next=(step<0?undoText:redoText)(textHistory.history);
+  setTextHistory({id:activeId,history:next});writeDraft(next.present);
+ }
+ const historyKeys=useRef(null);
+ historyKeys.current=event=>{
+  if(!(event.metaKey||event.ctrlKey)||event.altKey)return false;
+  const key=event.key.toLowerCase(),redo=(key==='z'&&event.shiftKey)||(key==='y'&&event.ctrlKey&&!event.metaKey);
+  if(key!=='z'&&!redo)return false;
+  event.preventDefault();stepHistory(redo?1:-1);return true;
+ };
+ // 본문 칸 밖(버튼 등)에 초점이 있을 때도 ⌘Z가 본문을 되돌리게 한다. 다른 입력 칸과 창 안에서는 그 칸의 기본 동작을 둔다.
+ useEffect(()=>{
+  const listen=event=>{if(!event.target.closest?.('input,textarea,select,[contenteditable="true"],[role="dialog"]'))historyKeys.current(event);};
+  document.addEventListener('keydown',listen);return()=>document.removeEventListener('keydown',listen);
+ },[]);
+ const mod=typeof navigator!=='undefined'&&/Mac|iPhone|iPad/.test(navigator.platform)?'⌘':'Ctrl+';
+ const starterAvailable=!!DraftStarter&&!essayTemplate;
+ const[draftDialog,setDraftDialog]=useState(false);
+ const drafting=chat.pending?.payload.kind==='draft';
+ const showStarter=starterAvailable&&!manualWriting&&!work.text.trim();
  async function copyBody(){try{await copyText(mode==='write'?work.text:comparing?source.text:record.text);setCopied(true);setTimeout(()=>setCopied(false),1500)}catch{setError('복사하지 못했어요. 브라우저 권한을 확인해 주세요.')}}
  const shown=mode==='write'?work:comparing?source:record;
  const submission=q.submissionHistory?.at(-1);
@@ -283,6 +361,13 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
  }
  function removeSnapshot(){try{applyCleanup(deleteSnapshot(q,shown.id));}catch(e){setError(errorMessage(e));setModal('');}}
  function removeBranch(){try{applyCleanup(deleteBranch(q,deletingBranch));}catch(e){setError(errorMessage(e));setModal('');}}
+ // 본문을 쓰기 시작한 뒤의 경험으로 초안 받기는 AI 채팅 입력 칸 옆에 둔다. 빈 문항은 본문 자리의 경험 고르기를 쓴다.
+ const draftAction=starterAvailable&&mode==='write'&&!showStarter&&<button type="button" className="text-button chat-draft-action" disabled={drafting}
+  onClick={()=>{if(work.text.trim())setDraftDialog(true);else{setManualWriting(false);setCompactView('writing');}}}>
+  {drafting?<><Loader2 size={13} className="draft-starter-spin" aria-hidden="true"/>초안을 쓰고 있어요</>:<><Sparkles size={13} aria-hidden="true"/>경험으로 초안 받기</>}</button>;
+ const chatPanel=<AIChat key={q.id} question={q} chat={chat} draftId={activeId} draftText={work.text} reviewingId={aiReference?.id}
+  draftAction={draftAction} draftInChat={!showStarter}
+  onReview={message=>guard(()=>{reviewCandidate(message);setCompactView('writing')})}/>;
  return <div className="editor-page">
   <nav className="editor-view-switch" aria-label="작성 화면 보기">
    <a className="editor-mobile-back" href={'#'+backPath} aria-label={backLabel}><ArrowLeft size={16} aria-hidden="true"/></a>
@@ -298,17 +383,17 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
      <BackLink className="editor-applications-link" to={backPath}><span className={leftOpen?undefined:'visually-hidden'}>{backLabel}</span></BackLink>
      <div><IconButton label={overviewOpen?'버전별 기록 보기':'전체 버전 그래프'} aria-pressed={overviewOpen} onClick={()=>{setOverviewOpen(!overviewOpen);setLeftOpen(true)}}><PanelGlyph kind={overviewOpen?'shrink':'expand'}/></IconButton><IconButton label={leftOpen?'왼쪽 패널 접기':'왼쪽 패널 펼치기'} onClick={()=>setLeftOpen(!leftOpen)}><PanelGlyph kind={leftOpen?'left':'right'}/></IconButton></div>
     </div>
-    {leftOpen&&(overviewOpen?<VersionGraph question={q} selected={selected} onSelect={key=>{selectOverview(key);setCompactView('writing')}} onPreview={setSourcePreview} expanded/>:<OptionHistory question={q} activeId={activeId} selected={selected} onChoose={id=>{chooseBranch(id);setCompactView('writing')}} onSelect={key=>{select(key);setCompactView('writing')}} onAdd={()=>setModal('option')} onRename={id=>{setRenamingId(id);setModal('rename-option')}}/>)}
+    {leftOpen&&(overviewOpen?<VersionGraph question={q} selected={selected} onSelect={key=>guard(()=>{selectOverview(key);setCompactView('writing')})} onPreview={setSourcePreview} expanded/>:<OptionHistory question={q} activeId={activeId} selected={selected} onChoose={id=>guard(()=>{chooseBranch(id);setCompactView('writing')})} onSelect={key=>guard(()=>{select(key);setCompactView('writing')})} onAdd={()=>setModal('option')} onRename={id=>{setRenamingId(id);setModal('rename-option')}}/>)}
    </aside>
    {leftOpen&&<PanelResizer side="left" value={overviewOpen?overviewWidth:lw} min={200} max={620} controls="history-panel" onChange={v=>overviewOpen?setOverviewWidth(v):onPreferences({...preferences,leftWidth:v})}/>}
 
-   <main className="writing-panel" id="writing-panel"><div className="editor-toolbar"><nav className="question-tabs" aria-label="자소서 문항">{a.questions.map((n,i)=><button key={n.id} className={n.id===q.id?'active':''} aria-current={n.id===q.id?'page':undefined} onClick={()=>navigate('/write/'+a.id+'/'+n.id)}>Q{i+1}</button>)}<IconButton label="문항 추가·수정" onClick={essayTemplate?onEditTemplateQuestions:()=>navigate('/posting/'+a.id)}><Plus size={16}/></IconButton></nav>
-    <div className="editor-actions">{!essayTemplate&&<button type="button" className="text-button" onClick={onOpenEssayTemplate}><FileText size={15} aria-hidden="true"/>내 공통 자소서</button>}
-     {(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>비교하기</button>}
+   <main className="writing-panel" id="writing-panel"><div className="editor-toolbar"><nav className="question-tabs" aria-label="자소서 문항">{a.questions.map((n,i)=><button key={n.id} className={n.id===q.id?'active':''} aria-current={n.id===q.id?'page':undefined} onClick={()=>guard(()=>navigate('/write/'+a.id+'/'+n.id))}>Q{i+1}</button>)}<IconButton label="문항 추가·수정" onClick={essayTemplate?onEditTemplateQuestions:()=>navigate('/posting/'+a.id)}><Plus size={16}/></IconButton></nav>
+    <div className="editor-actions">{!essayTemplate&&<button type="button" className="text-button" onClick={()=>guard(onOpenEssayTemplate)}><FileText size={15} aria-hidden="true"/>내 공통 자소서</button>}
+     {(comparing||(mode==='read'&&selected!==defaultRecordKey(q,activeId)))&&<button className="text-button return-writing" onClick={returnToWrite}><ArrowLeft size={14}/>작성으로</button>}{!comparing&&!aiReference&&<button className="text-button compare-action" onClick={openCompare}><Columns2 size={16}/>비교하기</button>}
      <IconButton label="새 버전" onClick={()=>{setError('');setModal('option')}}><Plus size={18}/></IconButton><IconButton label="합쳐서 새 버전 만들기" disabled={!!aiReference} onClick={advancedMerge}><MergeIcon size={18} className="downward-icon flow-action-icon"/></IconButton>
-     <button className="button small primary snapshot-action" disabled={mode==='read'||(comparing&&right.kind!=='draft')||!activeBranch.draft.dirty||!work.text.trim()} onClick={()=>{setError('');setModal('snapshot')}}><Camera size={15}/>스냅샷</button>
+     <button className="button small primary snapshot-action" disabled={!!aiReference||mode==='read'||(comparing&&right.kind!=='draft')||!activeBranch.draft.dirty||!work.text.trim()} onClick={()=>{setError('');setModal('snapshot')}}><Camera size={15}/>스냅샷</button>
     </div></div>
-    <div className={'writing-content'+(comparing?' is-comparing':'')}>
+    <div className={'writing-content'+(comparing||aiReference?' is-comparing':'')}>
      <div className="essay-context">
       <div className="essay-company"><strong>{a.company}</strong>
        <span>{essayTemplate?'다른 공고에서는 문항별 현재 작성 버전을 불러와요.':a.role}</span>
@@ -323,44 +408,76 @@ export default function Editor({application:a,question:q,navigate,onSave,onOpenE
       </div>}
      </div>
      <div className="question-heading">
-     <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&<span className={limit!=null&&shown.text.length>limit?'over-limit':''}>{count(shown.text)}</span>}</div>
-    </div>{error&&<Notice type="error">{error}</Notice>}{comparing&&<p className="comparison-hint">{right.kind==='draft'?'달라진 문장을 누르면 오른쪽 내 본문에 반영되고, 다시 누르면 취소돼요.':'스냅샷끼리 비교 중'}</p>}
+     <div className="essay-question-title"><h1>{q.prompt}</h1>{!comparing&&!aiReference&&<span className={limit!=null&&shown.text.length>limit?'over-limit':''}>{count(shown.text)}</span>}</div>
+     {/* 본문 도구는 문항 제목 줄 오른쪽에 둬서 본문 위에 따로 한 줄을 쓰지 않는다. */}
+     {!comparing&&!aiReference&&<div className="record-tools">
+      {!essayTemplate&&<button type="button" className="text-button submission-star" disabled={!shown.text.trim()}
+       aria-disabled={isCurrentSubmission||undefined} data-designated={isCurrentSubmission} onClick={()=>designateShown()}>
+       <Star size={15} fill={isCurrentSubmission?'currentColor':'none'} aria-hidden="true"/>
+       {isCurrentSubmission?'현재 제출본':'제출본 지정'}
+      </button>}
+      {mode==='read'&&<button type="button" className="text-button snapshot-details-button" aria-label="스냅샷 정보" onClick={()=>setModal('snapshot-details')}>
+       <Info size={14} aria-hidden="true"/>정보
+      </button>}
+      {mode==='write'&&<>
+       <IconButton label={'되돌리기 ('+mod+'Z)'} disabled={!canUndo} onClick={()=>stepHistory(-1)}><Undo2 size={14}/></IconButton>
+       <IconButton label={'다시 실행 ('+(mod==='⌘'?'⇧⌘Z':'Ctrl+Y')+')'} disabled={!canRedo} onClick={()=>stepHistory(1)}><Redo2 size={14}/></IconButton></>}
+      <IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>
+      {shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}
+     </div>}
+    </div>{error&&<Notice type="error">{error}</Notice>}
+     {aiReference?<AIReview key={aiReference.id} message={aiReference} draftText={work.text} limit={limit} canSnapshot={canSnapshotDraft}
+      onApply={applyReview} onCancel={()=>setAiReference(null)} onDirtyChange={setReviewDirty}/>:<>
+     {comparing&&<p className="comparison-hint">{right.kind==='draft'?'달라진 문장을 누르면 오른쪽 내 본문에 반영되고, 다시 누르면 취소돼요.':'스냅샷끼리 비교 중'}</p>}
      {!comparing&&sources.length>0&&<div className="option-sources"><span>참고한 버전</span>{sources.map((item,i)=><button key={i} onClick={()=>setSourcePreview(item)}>{item.optionName} · {sourceName(item)}</button>)}</div>}
      <div className={'body-columns '+(comparing?'comparing':'')}>
-      <section className="body-column"><div className="record-heading">
-       {(comparing||mode==='write')&&<div>
-        {comparing?(aiReference?<strong>AI 수정안</strong>:<RecordSelect question={q} value={referenceKey}
-         onChange={changeReference} label="참고할 기록"/>):<>
-         <strong>{activeBranch.snapshotIds.length?work.label:'본문'}</strong>
-         <div className="record-context"><Dropdown label="작성할 버전" value={activeId} onChange={chooseBranch}
-          options={q.branches.map(b=>({value:b.id,label:b.name+' · 작성 중'}))}/></div>
-        </>}
-       </div>}
-       {!essayTemplate&&!comparing&&<button type="button" className="text-button submission-star" disabled={!shown.text.trim()}
-        aria-disabled={isCurrentSubmission||undefined} data-designated={isCurrentSubmission} onClick={()=>designateShown()}>
-        <Star size={15} fill={isCurrentSubmission?'currentColor':'none'} aria-hidden="true"/>
-        {isCurrentSubmission?'현재 제출본':'제출본 지정'}
-       </button>}
-       {mode==='read'&&<button type="button" className="text-button snapshot-details-button" aria-label="스냅샷 정보" onClick={()=>setModal('snapshot-details')}>
-       <Info size={14} aria-hidden="true"/>정보
-      </button>}{comparing&&<small>{source.text.length.toLocaleString()}자</small>}<IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton>{shown.kind==='snapshot'&&<IconButton label={deletable?'스냅샷 삭제':'스냅샷 삭제 · 뒤에 이어진 기록이나 분기를 먼저 삭제하세요'} disabled={!deletable} onClick={()=>setModal('delete-snapshot')}><Trash2 size={15}/></IconButton>}</div>
+      <section className="body-column">{comparing&&<div className="record-heading">
+       <div><RecordSelect question={q} value={referenceKey} onChange={changeReference} label="참고할 기록"/></div>
+       <small>{source.text.length.toLocaleString()}자</small><IconButton label="본문 복사" onClick={copyBody}><Copy size={14}/></IconButton></div>}
        {copied&&<small className="copy-notice" role="status">복사했어요</small>}
        {comparing?(right.kind==='draft'?<>
         <div className="compare-tabs"><div role="tablist" aria-label="참고본 보기">{[['all','전체'],['part','부분']].map(([key,name])=><button key={key} type="button" role="tab" aria-selected={compareTab===key} onClick={()=>setCompareTab(key)}>{name}</button>)}</div><button type="button" className="text-button" disabled={!liveChanges.length} onClick={applyAll}>{allApplied?'일괄 취소':'일괄 반영'}</button></div>
         {compareTab==='all'?<div className="document-body version-text left">{source.text}</div>:<ChangeCards state={comparison} onToggle={toggleSentence}/>}
-       </>:<div className="document-body version-text left">{source.text}</div>):mode==='write'?<textarea className="body-editor" aria-label="자소서 본문" value={work.text} onChange={e=>writeDraft(e.target.value)} placeholder="본문을 작성하세요." spellCheck={false}/>:<textarea className="body-editor" aria-label="자소서 본문" value={record.text} onChange={e=>editRecord(e.target.value)} spellCheck={false}/>}
+       </>:<div className="document-body version-text left">{source.text}</div>):mode==='write'&&showStarter?<Suspense fallback={null}><DraftStarter application={a} question={q} busy={!!chat.pending}
+        error={chat.failure?.request.payload.kind==='draft'?chat.failure.message:''} onDraft={makeDraft} onWrite={()=>setManualWriting(true)}/></Suspense>:<>
+        {mode==='write'&&insertedDraft?.id===activeId&&<div className="inserted-draft">
+         {work.text===insertedDraft.text&&<p className="inserted-draft-note"><Sparkles size={14} aria-hidden="true"/>AI 초안을 넣었어요
+          <button type="button" className="text-button" onClick={undoDraft}><Undo2 size={14} aria-hidden="true"/>되돌리기</button></p>}
+         <button type="button" className="inserted-draft-used" aria-expanded={usedOpen} onClick={()=>setUsedOpen(!usedOpen)}>
+          사용한 경험 <strong>{insertedDraft.titles[0]}</strong>{insertedDraft.titles.length>1?' 외 '+(insertedDraft.titles.length-1):''}<ChevronRight size={13} aria-hidden="true"/></button>
+         {usedOpen&&<ul className="inserted-draft-list">{insertedDraft.titles.map(title=><li key={title}>{title}</li>)}</ul>}
+        </div>}
+        {/* 스냅샷을 고치면 작성 중 본문으로 넘어간다. 같은 입력 칸을 그대로 써야 초점과 커서가 유지된다. */}
+        <textarea className="body-editor" aria-label="자소서 본문" value={mode==='write'?work.text:record.text} spellCheck={false}
+         onChange={e=>mode==='write'?writeDraft(e.target.value):editRecord(e.target.value)} onKeyDown={mode==='write'?e=>historyKeys.current(e):undefined}
+         placeholder={mode==='write'?'본문을 작성하세요.':undefined}/></>}
       </section>
       {comparing&&<section className="body-column current-draft-column"><div className="record-heading"><RecordSelect question={q} value={target} onChange={changeTarget} label="비교 대상"/><small>{count(right.text)}</small></div>{right.kind==='draft'?<MergeDraft className="compare-draft" text={right.text} onChange={typeComparison} highlights={draftHighlights(draftMarks,applied)} flash={applied}/>:<><button className="text-button snapshot-edit-action" onClick={()=>changeTarget('draft:'+right.branchId)}>이 버전 편집</button><VersionText state={comparison} side="right"/></>}</section>}
 
-     </div>
+     </div></>}
     </div>
    </main>
    {rightOpen&&<PanelResizer side="right" value={rw} min={260} max={500} controls="chat-panel" onChange={v=>onPreferences({...preferences,rightWidth:v})}/>}
-   <aside className="chat-panel" id="chat-panel"><div className="panel-toolbar"><IconButton label={rightOpen?'AI 채팅 접기':'AI 채팅 펼치기'} onClick={()=>setRightOpen(!rightOpen)}><PanelGlyph kind={rightOpen?'right':'left'}/></IconButton>{rightOpen&&<><strong>AI 채팅</strong><small>Q{qi+1}</small></>}</div>{rightOpen&&<AIChat key={q.id} question={q} application={a} record={mode==='read'?record:work} onSave={onSave} onCandidate={candidate=>{compareCandidate(candidate);setCompactView('writing')}}/>}</aside>
+   <aside className="chat-panel" id="chat-panel">
+    <div className="panel-toolbar"><IconButton label={rightOpen?'AI 채팅 접기':'AI 채팅 펼치기'}
+     onClick={()=>setRightOpen(!rightOpen)}><PanelGlyph kind={rightOpen?'right':'left'}/></IconButton>
+     {rightOpen&&<><strong>AI 채팅</strong><small>Q{qi+1}</small></>}
+    </div>
+    <div className="editor-chat-content" hidden={!rightOpen}>{chatPanel}</div>
+   </aside>
   </div>
   {modal==='submission'&&<QuestionSubmissions application={a} currentQuestion={q}
    initialKey={mode==='write'?'draft:'+activeId:comparing?target:recordKey(record)}
    onSave={onSave} onClose={()=>setModal('')}/>}
+  {draftDialog&&<Suspense fallback={null}><ExperienceDraftDialog application={a} question={q}
+   onDraft={experiences=>{setDraftDialog(false);makeDraft(experiences);}} onClose={()=>setDraftDialog(false)}/></Suspense>}
+  {pendingLeave&&<Modal title="검토 중인 내용을 버릴까요?" onClose={()=>setPendingLeave(null)}>
+   <p>반영하거나 그대로 두기로 고른 내용은 적용하지 않으면 사라져요.</p>
+   <div className="form-actions">
+    <button type="button" className="button" onClick={()=>setPendingLeave(null)}>계속 검토</button>
+    <button type="button" className="button primary" onClick={()=>{const {run}=pendingLeave;setPendingLeave(null);setReviewDirty(false);setAiReference(null);run();}}>버리고 이동</button>
+   </div>
+  </Modal>}
   {modal==='replace-submission'&&<Modal title="제출본 교체" onClose={()=>setModal('')}>
    <p>이 문항의 현재 제출본을 지금 보고 있는 본문으로 교체할까요?</p>
    <div className="form-actions">

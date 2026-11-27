@@ -277,7 +277,7 @@ function App() {
     } else if (kind === 'submissions') {
       content = <Submissions key={aid} application={application} onSave={saveApplication}/>;
     } else if (question && (kind === 'write' || kind === 'essay-template')) {
-      content = <Editor key={application.id + question.id + search} application={application} question={question} query={query}
+      content = <Editor key={application.id + question.id + search} application={application} question={question} query={query} profile={store.profile}
         navigate={navigate} onSave={saveQuestion} onOpenEssayTemplate={openEssayTemplate} preferences={store.preferences || {}}
         essayTemplate={templateRoute} onEditTemplateQuestions={() => setTemplateQuestionsOpen(true)} templateReturnPath={templateReturnPath}
         onPreferences={preferences => setStore(previous => ({...previous, preferences: {...previous.preferences, ...preferences}}))}/>;
