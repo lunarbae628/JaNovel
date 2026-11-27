@@ -16,6 +16,7 @@ import {
 } from './essay-template.js';
 import {BackLink, Modal, Field, Notice, Empty, useHashRoute} from './components/UI.jsx';
 import {loadStore, saveStore, downloadBackup, STORE_KEY} from './storage.js';
+import {useServerSync} from './use-server-sync.js';
 import {addComparisonSample} from './comparison-sample.js';
 import {validateStore, errorMessage, updateQuestion} from './model.js';
 import {usePreviewState} from './community-preview.js';
@@ -62,6 +63,7 @@ function App() {
 
   const [saveBlocked, setSaveBlocked] = useState(Boolean(initial.error));
   const [storageError, setStorageError] = useState(initial.error);
+  const serverSync = useServerSync({store, setStore, enabled: !saveBlocked});
   const [settings, setSettings] = useState(false);
   const [templateQuestionsOpen, setTemplateQuestionsOpen] = useState(false);
   const [templateLoadFailed, setTemplateLoadFailed] = useState(false);
@@ -266,7 +268,11 @@ function App() {
   } else if (application) {
     if (kind === 'application' || (!question && (kind === 'write' || kind === 'merge'))) {
       content = <Detail key={aid} application={application} navigate={navigate} onSave={saveApplication}
-        onDelete={id => setStore(previous => ({...previous, applications: previous.applications.filter(item => item.id !== id)}))}
+        onDelete={id => setStore(previous => {
+          const removed = previous.applications.find(item => item.id === id);
+          return {...previous, applications: previous.applications.filter(item => item.id !== id),
+            ...(removed?.server ? {serverDeletes: [...(previous.serverDeletes || []), removed.server.id]} : {})};
+        })}
         onSaveQuestion={saveQuestion}/>;
     } else if (kind === 'submissions') {
       content = <Submissions key={aid} application={application} onSave={saveApplication}/>;
@@ -287,6 +293,16 @@ function App() {
       <button onClick={() => downloadBackup(store)}>백업 받기</button>
       {saveBlocked && <button onClick={openSettings}>저장 설정</button>}
     </div>}
+    {serverSync.conflicts.length > 0 && <div className="storage-banner" role="alert">
+      {store.applications.filter(item => serverSync.conflicts.includes(item.id)).map(item => item.company).join(', ')}
+      {' '}지원 건이 다른 곳에서 먼저 바뀌어 서버 저장을 멈췄어요.
+      <button onClick={serverSync.reloadConflicts}>최신 내용 불러오기</button>
+    </div>}
+    {serverSync.phase === 'offline' && <div className="storage-banner" role="status">
+      서버에 연결하지 못해 이 브라우저에만 저장하고 있어요.
+      <button onClick={serverSync.retry}>다시 시도</button>
+    </div>}
+    {serverSync.error && <div className="storage-banner" role="alert">서버에 저장하지 못했어요. {serverSync.error}</div>}
     <Suspense fallback={<div className="page" role="status">불러오는 중</div>}>{content || <Empty title="페이지를 찾을 수 없어요"
       action={<button className="button" onClick={() => navigate('/applications')}>지원 현황</button>}/>}</Suspense>
     {inboxOpen && <Suspense fallback={null}>
@@ -297,7 +313,7 @@ function App() {
         onSave={questions => { changeTemplateQuestions(() => questions); setTemplateQuestionsOpen(false); }}/>
     </Modal>}
     {settings && <Modal title="설정 및 백업" onClose={() => {setSettings(false); setImported(null);}}>
-      <Notice>자소서와 지원 정보는 이 브라우저에 저장합니다. 기기 간 동기화와 실제 인증은 연결 전입니다.</Notice>
+      <Notice>지원 건과 자소서 문항은 서버에도 저장합니다. 자소서 본문·일정·제출본은 아직 이 브라우저에만 저장하고, 실제 인증은 연결 전입니다.</Notice>
       {!store.profile?.name && <a className="button full" href="#/login" onClick={() => {setSettings(false); setImported(null);}}>로그인 화면</a>}
       <button className="button full" onClick={() => downloadBackup(store)}>JSON 백업 내려받기</button>
       <Field label="백업 불러오기" hint="첨부 이미지와 답변 녹음은 현재 브라우저에 보관되며 JSON에 포함되지 않습니다.">

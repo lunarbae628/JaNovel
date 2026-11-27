@@ -94,6 +94,7 @@ export function validateStore(data){
   str(answer.label)&&str(answer.text)&&object(answer.source)&&['draft','snapshot'].includes(answer.source.kind)&&str(answer.source.id);
  check(object(data)&&data.version===1&&list(data.applications));
  check(unique(data.applications.map(a=>a?.id)));
+ if(data.serverDeletes!==undefined)check(list(data.serverDeletes)&&data.serverDeletes.every(Number.isInteger));
  if(data.preferences){check(object(data.preferences));for(const k of ['leftWidth','rightWidth'])if(data.preferences[k]!==undefined)check(Number.isFinite(data.preferences[k])&&data.preferences[k]>=100&&data.preferences[k]<=1000);}
  if(data.profile)check(object(data.profile)&&str(data.profile.name)&&(!data.profile.email||str(data.profile.email)));
  if(data.scheduleItems!==undefined)check(list(data.scheduleItems)&&data.scheduleItems.every(isScheduleItem)&&unique(data.scheduleItems.map(item=>item.id)));
@@ -104,6 +105,9 @@ export function validateStore(data){
     section.title.length<=100&&str(section.body)));
   if(a.interview!==undefined)check(isInterview(a.interview));
   if(a.lastQuestionId!==undefined)check(str(a.lastQuestionId));
+  // 서버와 마지막으로 맞춘 상태. server-sync.js가 쓴다.
+  if(a.server!==undefined)check(object(a.server)&&Number.isInteger(a.server.id)&&Number.isInteger(a.server.version)&&
+   list(a.server.stageIds)&&object(a.server.questions)&&object(a.server.synced));
   check(unique(a.questions.map(q=>q?.id))&&unique(a.events.map(e=>e?.id))&&unique(a.submissions.map(s=>s?.id)));
   if(a.deadlineDetails!==undefined){
    const details=a.deadlineDetails;

@@ -39,18 +39,20 @@ public class ApplicationService {
     private final EssayQuestionRepository questionRepository;
     private final UserRepository userRepository;
     private final WritingHistory writingHistory;
+    private final ApplicationChanges changes;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               ApplicationSectionRepository sectionRepository,
                               ApplicationStageRepository stageRepository,
                               EssayQuestionRepository questionRepository, UserRepository userRepository,
-                              WritingHistory writingHistory) {
+                              WritingHistory writingHistory, ApplicationChanges changes) {
         this.applicationRepository = applicationRepository;
         this.sectionRepository = sectionRepository;
         this.stageRepository = stageRepository;
         this.questionRepository = questionRepository;
         this.userRepository = userRepository;
         this.writingHistory = writingHistory;
+        this.changes = changes;
     }
 
     @Transactional
@@ -90,8 +92,8 @@ public class ApplicationService {
     }
 
     @Transactional
-    public ApplicationDetail update(long userId, long applicationId, ApplicationUpdate request) {
-        var application = lock(userId, applicationId);
+    public ApplicationDetail update(long userId, long applicationId, Long expectedVersion, ApplicationUpdate request) {
+        var application = changes.begin(userId, applicationId, expectedVersion);
         application.setCompany(request.company());
         application.setRole(request.role());
         var deadline = request.deadline();
@@ -108,8 +110,9 @@ public class ApplicationService {
      * 종료를 풀면 종료 기록을 지운다.
      */
     @Transactional
-    public ApplicationDetail changeProgress(long userId, long applicationId, ApplicationProgress request) {
-        var application = lock(userId, applicationId);
+    public ApplicationDetail changeProgress(long userId, long applicationId, Long expectedVersion,
+                                            ApplicationProgress request) {
+        var application = changes.begin(userId, applicationId, expectedVersion);
         var stages = stageRepository.findAllByApplicationIdOrderByPosition(applicationId);
         ApplicationStage current = null;
         if (request.currentStageId() != null) {
@@ -132,22 +135,23 @@ public class ApplicationService {
     }
 
     @Transactional
-    public List<ApplicationDetail.Section> replaceSections(long userId, long applicationId,
-                                                           List<ApplicationRegistration.Section> sections) {
-        var application = lock(userId, applicationId);
+    public Versioned<List<ApplicationDetail.Section>> replaceSections(long userId, long applicationId,
+            Long expectedVersion, List<ApplicationRegistration.Section> sections) {
+        var application = changes.begin(userId, applicationId, expectedVersion);
         sectionRepository.deleteAllByApplicationId(applicationId);
-        return sectionRepository.saveAll(IntStream.range(0, sections.size())
+        return new Versioned<>(sectionRepository.saveAll(IntStream.range(0, sections.size())
                         .mapToObj(index -> new ApplicationSection(application, sections.get(index).title(),
                                 sections.get(index).body(), index + 1))
                         .toList()).stream()
                 .map(section -> new ApplicationDetail.Section(section.getId(), section.getTitle(), section.getBody()))
-                .toList();
+                .toList(), application.getVersion());
     }
 
     /** 번호가 있는 전형은 유지해 현재 전형 선택을 지키고, 빠진 전형만 지운다. */
     @Transactional
-    public List<ApplicationDetail.Stage> updateStages(long userId, long applicationId, List<StagesUpdate.Stage> request) {
-        var application = lock(userId, applicationId);
+    public Versioned<List<ApplicationDetail.Stage>> updateStages(long userId, long applicationId, Long expectedVersion,
+                                                                 List<StagesUpdate.Stage> request) {
+        var application = changes.begin(userId, applicationId, expectedVersion);
         var existing = stageRepository.findAllByApplicationIdOrderByPosition(applicationId).stream()
                 .collect(Collectors.toMap(ApplicationStage::getId, Function.identity()));
         var keptIds = request.stream().map(StagesUpdate.Stage::id).filter(Objects::nonNull).toList();
@@ -175,18 +179,14 @@ public class ApplicationService {
         }).toList();
         stageRepository.saveAllAndFlush(stages);
         stageRepository.checkPositions();
-        return stages.stream().map(stage -> new ApplicationDetail.Stage(stage.getId(), stage.getName())).toList();
+        return new Versioned<>(stages.stream().map(stage -> new ApplicationDetail.Stage(stage.getId(), stage.getName()))
+                .toList(), application.getVersion());
     }
 
     @Transactional
-    public void delete(long userId, long applicationId) {
-        lock(userId, applicationId);
+    public void delete(long userId, long applicationId, Long expectedVersion) {
+        changes.begin(userId, applicationId, expectedVersion);
         applicationRepository.deleteDirectly(applicationId);
-    }
-
-    private Application lock(long userId, long applicationId) {
-        return applicationRepository.findWithLockByIdAndUserId(applicationId, userId)
-                .orElseThrow(() -> new CustomException(ApplicationErrorCode.APPLICATION_NOT_FOUND));
     }
 
     private ApplicationDetail detail(Application application) {

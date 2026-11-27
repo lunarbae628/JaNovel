@@ -1,6 +1,8 @@
 package com.janovel.domain.application.api;
 
 import com.janovel.domain.application.app.ApplicationService;
+import com.janovel.domain.application.app.ApplicationVersion;
+import com.janovel.domain.application.app.Versioned;
 import com.janovel.domain.application.dto.ApplicationDetail;
 import com.janovel.domain.application.dto.ApplicationProgress;
 import com.janovel.domain.application.dto.ApplicationRegistration;
@@ -56,7 +58,7 @@ public class ApplicationController {
             @Valid @RequestBody ApplicationRegistration request) {
         var detail = applications.register(userId(authorization), request);
         return ResponseEntity.created(URI.create("/api/applications/" + detail.id()))
-                .cacheControl(CacheControl.noStore()).body(detail);
+                .cacheControl(CacheControl.noStore()).eTag(ApplicationVersion.tag(detail.version())).body(detail);
     }
 
     @Operation(summary = "지원 건 목록", description = "내 지원 건을 최근에 등록한 순서로 반환한다.")
@@ -77,75 +79,99 @@ public class ApplicationController {
     public ResponseEntity<ApplicationDetail> find(
             @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable long id) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(applications.find(userId(authorization), id));
+        return versioned(applications.find(userId(authorization), id));
     }
 
     @Operation(summary = "지원 건 기본 정보 수정",
             description = "회사, 직무, 마감, 공고 주소·원문을 보낸 값으로 바꾼다. 생략하거나 `null`인 마감·주소·원문은 지운다. 항목·전형·문항은 각자의 API로 고친다.")
     @ApiResponse(responseCode = "200", description = "수정한 지원 건 상세")
-    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 필수값 누락, 길이·형식·마감 조합 오류")
+    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 필수값 누락, 길이·형식·마감 조합 오류. `INVALID_VERSION`: `If-Match`가 버전 번호가 아니다")
     @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
     @ApiResponse(responseCode = "404", description = "`APPLICATION_NOT_FOUND`: 없거나 내 것이 아닌 지원 건")
+    @ApiResponse(responseCode = "409", description = "`APPLICATION_CONFLICT`: 다른 곳에서 먼저 바뀌어 `If-Match` 버전이 지금 버전과 다르다")
     @PutMapping("/{id}")
     public ResponseEntity<ApplicationDetail> update(
             @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Parameter(description = "상세 조회 때 받은 지원 건 버전. 지금 버전과 다르면 409로 거절한다. 생략하면 확인하지 않는다.")
+            @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @PathVariable long id, @Valid @RequestBody ApplicationUpdate request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(applications.update(userId(authorization), id, request));
+        return versioned(applications.update(userId(authorization), id, ApplicationVersion.parse(ifMatch), request));
     }
 
     @Operation(summary = "지원 상태와 현재 전형 변경",
             description = "상태와 현재 전형을 함께 바꾼다. 전형 순서로 상태를 추측하지 않는다. `closed`로 바꾸면 그때의 현재 전형 이름을 `outcomeStageName`에 남기고, 다른 상태로 바꾸면 지운다.")
     @ApiResponse(responseCode = "200", description = "변경한 지원 건 상세")
-    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 상태 누락·오류. `STAGE_MISMATCH`: 이 지원 건의 전형이 아니다")
+    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 상태 누락·오류. `STAGE_MISMATCH`: 이 지원 건의 전형이 아니다. `INVALID_VERSION`: `If-Match`가 버전 번호가 아니다")
     @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
     @ApiResponse(responseCode = "404", description = "`APPLICATION_NOT_FOUND`: 없거나 내 것이 아닌 지원 건")
+    @ApiResponse(responseCode = "409", description = "`APPLICATION_CONFLICT`: 다른 곳에서 먼저 바뀌어 `If-Match` 버전이 지금 버전과 다르다")
     @PutMapping("/{id}/progress")
     public ResponseEntity<ApplicationDetail> changeProgress(
             @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Parameter(description = "상세 조회 때 받은 지원 건 버전. 지금 버전과 다르면 409로 거절한다. 생략하면 확인하지 않는다.")
+            @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @PathVariable long id, @Valid @RequestBody ApplicationProgress request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(applications.changeProgress(userId(authorization), id, request));
+        return versioned(applications.changeProgress(userId(authorization), id, ApplicationVersion.parse(ifMatch),
+                request));
     }
 
     @Operation(summary = "공고 항목 교체", description = "공고 항목을 보낸 목록으로 통째 바꾼다. 항목 번호는 새로 매겨진다.")
     @ApiResponse(responseCode = "200", description = "새 공고 항목. 보낸 순서")
-    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 항목 제목 누락, 길이·개수 오류")
+    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 항목 제목 누락, 길이·개수 오류. `INVALID_VERSION`: `If-Match`가 버전 번호가 아니다")
     @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
     @ApiResponse(responseCode = "404", description = "`APPLICATION_NOT_FOUND`: 없거나 내 것이 아닌 지원 건")
+    @ApiResponse(responseCode = "409", description = "`APPLICATION_CONFLICT`: 다른 곳에서 먼저 바뀌어 `If-Match` 버전이 지금 버전과 다르다")
     @PutMapping("/{id}/sections")
     public ResponseEntity<List<ApplicationDetail.Section>> replaceSections(
             @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Parameter(description = "상세 조회 때 받은 지원 건 버전. 지금 버전과 다르면 409로 거절한다. 생략하면 확인하지 않는다.")
+            @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @PathVariable long id, @Valid @RequestBody SectionsReplacement request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(applications.replaceSections(userId(authorization), id, request.sections()));
+        return versioned(applications.replaceSections(userId(authorization), id, ApplicationVersion.parse(ifMatch),
+                request.sections()));
     }
 
     @Operation(summary = "채용 전형 수정",
             description = "보낸 목록이 새 전형 목록이 된다. 번호가 있는 전형은 이름과 순서를 바꾸고, 번호가 없으면 새로 만들며, 빠진 전형은 지운다. 현재 전형을 지우면 현재 전형 선택이 비워진다.")
     @ApiResponse(responseCode = "200", description = "새 전형 목록. 보낸 순서")
-    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 이름 누락, 길이·개수 오류. `STAGE_MISMATCH`: 모르는 번호나 겹치는 번호")
+    @ApiResponse(responseCode = "400", description = "`INVALID_REQUEST`: 이름 누락, 길이·개수 오류. `STAGE_MISMATCH`: 모르는 번호나 겹치는 번호. `INVALID_VERSION`: `If-Match`가 버전 번호가 아니다")
     @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
     @ApiResponse(responseCode = "404", description = "`APPLICATION_NOT_FOUND`: 없거나 내 것이 아닌 지원 건")
+    @ApiResponse(responseCode = "409", description = "`APPLICATION_CONFLICT`: 다른 곳에서 먼저 바뀌어 `If-Match` 버전이 지금 버전과 다르다")
     @PutMapping("/{id}/stages")
     public ResponseEntity<List<ApplicationDetail.Stage>> updateStages(
             @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Parameter(description = "상세 조회 때 받은 지원 건 버전. 지금 버전과 다르면 409로 거절한다. 생략하면 확인하지 않는다.")
+            @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @PathVariable long id, @Valid @RequestBody StagesUpdate request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(applications.updateStages(userId(authorization), id, request.stages()));
+        return versioned(applications.updateStages(userId(authorization), id, ApplicationVersion.parse(ifMatch),
+                request.stages()));
     }
 
     @Operation(summary = "지원 건 삭제", description = "지원 건과 항목·전형·문항·작성본·제출 답안을 모두 지운다. 되돌릴 수 없다.")
     @ApiResponse(responseCode = "204", description = "삭제했다.")
+    @ApiResponse(responseCode = "400", description = "`INVALID_VERSION`: `If-Match`가 버전 번호가 아니다")
     @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
     @ApiResponse(responseCode = "404", description = "`APPLICATION_NOT_FOUND`: 없거나 내 것이 아닌 지원 건")
+    @ApiResponse(responseCode = "409", description = "`APPLICATION_CONFLICT`: 다른 곳에서 먼저 바뀌어 `If-Match` 버전이 지금 버전과 다르다")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
             @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Parameter(description = "상세 조회 때 받은 지원 건 버전. 지금 버전과 다르면 409로 거절한다. 생략하면 확인하지 않는다.")
+            @RequestHeader(name = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @PathVariable long id) {
-        applications.delete(userId(authorization), id);
+        applications.delete(userId(authorization), id, ApplicationVersion.parse(ifMatch));
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
+    private static ResponseEntity<ApplicationDetail> versioned(ApplicationDetail detail) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag(ApplicationVersion.tag(detail.version()))
+                .body(detail);
+    }
+
+    private static <T> ResponseEntity<T> versioned(Versioned<T> result) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag(ApplicationVersion.tag(result.version()))
+                .body(result.body());
     }
 
     private long userId(String authorization) {

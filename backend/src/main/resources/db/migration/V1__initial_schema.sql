@@ -47,7 +47,8 @@ CREATE TABLE "applications" (
   "current_stage_id" bigint,
   "outcome_option_id" bigint,
   "outcome_stage_name" text,
-  "last_question_id" bigint
+  "last_question_id" bigint,
+  "version" bigint NOT NULL DEFAULT 0
 );
 
 CREATE TABLE "application_sections" (

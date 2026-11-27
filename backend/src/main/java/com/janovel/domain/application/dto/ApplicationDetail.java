@@ -22,7 +22,8 @@ public record ApplicationDetail(
         @Schema(description = "공고 항목. 등록한 순서") List<Section> sections,
         @Schema(description = "채용 전형. 등록한 순서") List<Stage> stages,
         @Schema(description = "자소서 문항. 등록한 순서") List<Question> questions,
-        @Schema(description = "마지막으로 연 문항 번호. 없으면 첫 문항을 연다.", nullable = true) Long lastQuestionId) {
+        @Schema(description = "마지막으로 연 문항 번호. 없으면 첫 문항을 연다.", nullable = true) Long lastQuestionId,
+        @Schema(description = "지원 건 버전. 고칠 때 `If-Match`로 보낸다.") long version) {
 
     public static ApplicationDetail of(Application application, List<ApplicationSection> sections,
                                        List<ApplicationStage> stages, List<EssayQuestion> questions) {
@@ -34,7 +35,8 @@ public record ApplicationDetail(
                         .toList(),
                 stages.stream().map(stage -> new Stage(stage.getId(), stage.getName())).toList(),
                 questions.stream().map(question -> new Question(question.getId(), question.getPrompt(),
-                        question.getCharLimit())).toList(), application.getLastQuestionId());
+                        question.getCharLimit())).toList(), application.getLastQuestionId(),
+                application.getVersion());
     }
 
     @Schema(name = "ApplicationSection", description = "공고 항목")

@@ -7,7 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "지원 건 목록 항목")
 public record ApplicationSummary(long id, String company, String role, ApplicationStatus status,
                                  @Schema(description = "마감. 모르면 `null`") Deadline deadline,
-                                 @Schema(description = "마지막으로 연 문항 번호. 없으면 첫 문항을 연다.", nullable = true) Long lastQuestionId) {
+                                 @Schema(description = "마지막으로 연 문항 번호. 없으면 첫 문항을 연다.", nullable = true) Long lastQuestionId,
+                                 @Schema(description = "지원 건 버전. 고칠 때 `If-Match`로 보낸다.") long version) {
 
     public static ApplicationSummary from(Application application) {
         return new ApplicationSummary(
@@ -16,7 +17,8 @@ public record ApplicationSummary(long id, String company, String role, Applicati
                 application.getRole(),
                 application.getStatus(),
                 deadlineOf(application),
-                application.getLastQuestionId()
+                application.getLastQuestionId(),
+                application.getVersion()
         );
     }
 

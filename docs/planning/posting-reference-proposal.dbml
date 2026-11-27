@@ -58,6 +58,7 @@ Table "applications" {
   "outcome_option_id" bigint
   "outcome_stage_name" text
   "last_question_id" bigint [note: '마지막으로 연 문항. 문항을 지우면 NULL']
+  "version" bigint [not null, default: 0, note: '낙관적 잠금 버전. 지원 건·항목·전형·문항을 고칠 때마다 1씩 오른다']
 
   Indexes {
     user_id

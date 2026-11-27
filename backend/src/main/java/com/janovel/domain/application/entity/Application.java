@@ -79,6 +79,10 @@ public class Application {
     @Column(name = "last_question_id")
     private Long lastQuestionId;
 
+    /** 낙관적 잠금 버전. 지원 건과 항목·전형·문항을 고칠 때마다 1씩 오른다. 마지막 문항 기억은 올리지 않는다. */
+    @Column(nullable = false)
+    private long version;
+
     protected Application() {
     }
 
@@ -210,5 +214,13 @@ public class Application {
 
     public void setLastQuestionId(Long lastQuestionId) {
         this.lastQuestionId = lastQuestionId;
+    }
+
+    public long getVersion() {
+        return version;
+    }
+
+    public void increaseVersion() {
+        version++;
     }
 }

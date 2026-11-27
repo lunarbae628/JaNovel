@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 public enum ApplicationErrorCode implements ErrorCode {
     APPLICATION_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "접근 키를 확인해 주세요."),
     APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "지원 건을 찾을 수 없어요."),
+    APPLICATION_CONFLICT(HttpStatus.CONFLICT, "다른 곳에서 먼저 바뀐 지원 건이에요. 최신 내용을 불러와 주세요."),
+    INVALID_VERSION(HttpStatus.BAD_REQUEST, "If-Match에는 지원 건 버전 번호를 보내 주세요."),
     STAGE_MISMATCH(HttpStatus.BAD_REQUEST, "이 지원 건의 전형 번호를 한 번씩만 보내 주세요."),
     QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "자소서 문항을 찾을 수 없어요."),
     QUESTION_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "자소서 문항은 지원 건마다 30개까지 둘 수 있어요."),
