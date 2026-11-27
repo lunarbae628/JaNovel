@@ -55,7 +55,7 @@ curl --request POST 'http://127.0.0.1:8080/api/postings/import' \
 
 Gradle 빌드와 프로젝트 설정은 Groovy DSL로 관리한다. [build.gradle](build.gradle) · [settings.gradle](settings.gradle)
 
-JDK 21과 실행 중인 Docker가 필요하다. 저장소 루트에서 다음과 같이 실행한다.
+JDK 21과 실행 중인 Docker가 필요하다. 개발 DB는 [compose.yaml](compose.yaml)로 이 컴퓨터(`127.0.0.1`)에만 열리는 임의 포트에 뜬다. 저장소 루트에서 다음과 같이 실행한다.
 
 ```sh
 cd backend
