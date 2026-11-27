@@ -7,9 +7,11 @@ import com.janovel.domain.writing.dao.SnapshotParentRepository;
 import com.janovel.domain.writing.dao.SnapshotRepository;
 import com.janovel.domain.writing.dao.SubmissionAnswerRepository;
 import com.janovel.domain.writing.dao.WritingVersionRepository;
+import com.janovel.domain.writing.dto.CombinationCreate;
 import com.janovel.domain.writing.dto.DraftWrite;
 import com.janovel.domain.writing.dto.SnapshotCreate;
 import com.janovel.domain.writing.dto.SnapshotUpdate;
+import com.janovel.domain.writing.dto.SubmissionChange;
 import com.janovel.domain.writing.dto.VersionCreate;
 import com.janovel.domain.writing.dto.VersionUpdate;
 import com.janovel.domain.writing.dto.WritingHistoryDetail;
@@ -17,6 +19,7 @@ import com.janovel.domain.writing.entity.EssayQuestion;
 import com.janovel.domain.writing.entity.Snapshot;
 import com.janovel.domain.writing.entity.SnapshotParent;
 import com.janovel.domain.writing.entity.SnapshotParentId;
+import com.janovel.domain.writing.entity.SubmissionAnswer;
 import com.janovel.domain.writing.entity.WritingVersion;
 import com.janovel.domain.writing.exception.DraftConflictException;
 import com.janovel.domain.writing.exception.WritingErrorCode;
@@ -40,6 +43,7 @@ public class WritingHistory {
 
     static final String DEFAULT_VERSION_NAME = "기본";
     private static final String NEW_VERSION_NAME = "새 버전";
+    private static final String COMBINED_VERSION_NAME = "합친 버전";
     private static final int NAME_BASE_LENGTH = 90;
 
     private final WritingVersionRepository versionRepository;
@@ -92,10 +96,7 @@ public class WritingHistory {
         var version = lockVersion(userId, versionId);
         var base = baseSnapshot(version);
         requireRevision(version, base, request.revision());
-        if (request.body().codePoints().allMatch(codePoint ->
-                Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) || codePoint == '﻿')) {
-            throw new CustomException(WritingErrorCode.EMPTY_TEXT);
-        }
+        requireText(request.body());
         if (base != null && base.getVersionId() == versionId && base.getBody().equals(request.body())) {
             throw new CustomException(WritingErrorCode.NO_CHANGES);
         }
@@ -241,6 +242,91 @@ public class WritingHistory {
         return history(questionRepository.findById(questionId).orElseThrow());
     }
 
+    /**
+     * 두 본문을 조합한 결과로 독립된 새 버전과 첫 스냅샷을 한 번에 만든다. 출처 버전과 연결하지 않고 출처 본문도
+     * 저장하지 않는다. 첫 스냅샷은 버전 이름·설명을 쓰고 새 버전이 현재 버전이 된다.
+     */
+    @Transactional
+    public WritingHistoryDetail.Version combine(long userId, long questionId, CombinationCreate request) {
+        var question = lockQuestion(userId, questionId);
+        requireText(request.body());
+        var taken = versionRepository.findNamesByQuestionIdExcept(questionId, 0L);
+        String name = request.name() == null ? defaultName(COMBINED_VERSION_NAME, taken) : requireFreeName(request.name(), taken);
+        var version = new WritingVersion(question, name, versionRepository.maxPosition(questionId) + 1);
+        version.setDescription(request.description());
+        versionRepository.save(version);
+
+        var snapshot = new Snapshot(questionId, version.getId(), snapshotRepository.maxNumber(questionId) + 1, request.body());
+        snapshot.setTitle(name);
+        snapshot.setDescription(request.description());
+        snapshotRepository.save(snapshot);
+        version.writeDraft(request.body());
+        version.setBaseSnapshotId(snapshot.getId());
+        question.setActiveVersionId(version.getId());
+        return versionDetail(version, snapshot, List.of(snapshotDetail(snapshot, List.of())));
+    }
+
+    /** 작성 화면에서 연 버전을 문항의 현재 버전으로, 그 문항을 지원 건의 마지막 문항으로 기억한다. */
+    @Transactional
+    public void openVersion(long userId, long questionId, long versionId) {
+        var question = lockQuestion(userId, questionId);
+        var version = versionRepository.findById(versionId)
+                .filter(candidate -> candidate.getQuestion().getId() == questionId)
+                .orElseThrow(() -> new CustomException(WritingErrorCode.VERSION_MISMATCH));
+        question.setActiveVersionId(version.getId());
+        question.getApplication().setLastQuestionId(questionId);
+    }
+
+    /**
+     * 문항당 하나인 제출본을 지정·교체하거나 본문만 직접 고친다. 스냅샷과 초안은 그 시점 본문을 복사하므로
+     * 원본 버전을 고쳐도 제출본은 바뀌지 않는다. 직접 고치면 출처는 두고 이름만 `직접 수정`이 된다.
+     */
+    @Transactional
+    public WritingHistoryDetail.Submission changeSubmission(long userId, long questionId, SubmissionChange request) {
+        var question = lockQuestion(userId, questionId);
+        var existing = submissionRepository.findById(questionId);
+        String body;
+        Long sourceVersionId;
+        Long sourceSnapshotId;
+        String label;
+        if (request.snapshotId() != null) {
+            var snapshot = snapshotRepository.findById(request.snapshotId())
+                    .filter(candidate -> candidate.getQuestionId() == questionId)
+                    .orElseThrow(() -> new CustomException(WritingErrorCode.SNAPSHOT_MISMATCH));
+            body = snapshot.getBody();
+            sourceVersionId = snapshot.getVersionId();
+            sourceSnapshotId = snapshot.getId();
+            label = snapshot.getTitle();
+        } else if (request.versionId() != null) {
+            var version = versionRepository.findById(request.versionId())
+                    .filter(candidate -> candidate.getQuestion().getId() == questionId)
+                    .orElseThrow(() -> new CustomException(WritingErrorCode.VERSION_MISMATCH));
+            body = version.getDraftBody();
+            sourceVersionId = version.getId();
+            sourceSnapshotId = null;
+            label = "초안 · " + version.getName();
+        } else {
+            var current = existing.orElseThrow(() -> new CustomException(WritingErrorCode.SUBMISSION_REQUIRED));
+            if (current.getBody().equals(request.body())) {
+                return submissionDetail(current);
+            }
+            body = request.body();
+            sourceVersionId = current.getSourceVersionId();
+            sourceSnapshotId = current.getSourceSnapshotId();
+            label = "직접 수정";
+        }
+        requireText(body);
+        var answer = existing.orElseGet(() -> new SubmissionAnswer(question, body));
+        answer.replace(body, sourceVersionId, sourceSnapshotId, label);
+        return submissionDetail(submissionRepository.saveAndFlush(answer));
+    }
+
+    @Transactional
+    public void clearSubmission(long userId, long questionId) {
+        lockQuestion(userId, questionId);
+        submissionRepository.findById(questionId).ifPresent(submissionRepository::delete);
+    }
+
     private WritingHistoryDetail history(EssayQuestion question) {
         long questionId = question.getId();
         var snapshots = snapshotRepository.findAllByQuestionIdOrderByNumber(questionId);
@@ -255,11 +341,21 @@ public class WritingHistory {
                 .map(version -> versionDetail(version, snapshotById.get(version.getBaseSnapshotId()),
                         snapshotsByVersion.getOrDefault(version.getId(), List.of())))
                 .toList();
-        var submission = submissionRepository.findById(questionId)
-                .map(answer -> new WritingHistoryDetail.Submission(answer.getBody(), answer.getSourceVersionId(),
-                        answer.getSourceSnapshotId(), answer.getLabel(), answer.getUpdatedAt()))
-                .orElse(null);
+        var submission = submissionRepository.findById(questionId).map(WritingHistory::submissionDetail).orElse(null);
         return new WritingHistoryDetail(questionId, question.getActiveVersionId(), versions, submission);
+    }
+
+    private static WritingHistoryDetail.Submission submissionDetail(SubmissionAnswer answer) {
+        return new WritingHistoryDetail.Submission(answer.getBody(), answer.getSourceVersionId(),
+                answer.getSourceSnapshotId(), answer.getLabel(), answer.getUpdatedAt());
+    }
+
+    /** 공백·BOM(U+FEFF)만 있는 본문은 스냅샷·조합·제출본으로 남기지 않는다. */
+    private static void requireText(String body) {
+        if (body.codePoints().allMatch(codePoint ->
+                Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) || codePoint == 0xFEFF)) {
+            throw new CustomException(WritingErrorCode.EMPTY_TEXT);
+        }
     }
 
     /** 프론트와 같은 기본 스냅샷 이름. 화면에는 v번호 대신 이 이름이 보인다. */

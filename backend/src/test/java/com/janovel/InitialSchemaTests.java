@@ -207,4 +207,19 @@ class InitialSchemaTests {
         rejects("INSERT INTO writing_versions (question_id, name, position) VALUES (41, '겹침', 1)");
         assertEquals(0L, jdbc.queryForObject("SELECT draft_revision FROM writing_versions WHERE id = 51", Long.class));
     }
+
+    @Test
+    @DisplayName("지원 건의 마지막 문항은 그 지원 건의 문항만 가리키고 문항을 지우면 비워진다")
+    void keepsLastQuestionInsideApplication() {
+        jdbc.update("INSERT INTO applications (id, user_id, company, role) VALUES (11, 1, '다른 회사', '백엔드')");
+        jdbc.update("""
+                INSERT INTO essay_questions (id, application_id, prompt, position)
+                VALUES (41, 10, '지원 동기', 1), (42, 11, '협업 경험', 1)
+                """);
+
+        assertEquals(1, jdbc.update("UPDATE applications SET last_question_id = 41 WHERE id = 10"));
+        rejects("UPDATE applications SET last_question_id = 42 WHERE id = 10");
+        jdbc.update("DELETE FROM essay_questions WHERE id = 41");
+        assertNull(jdbc.queryForObject("SELECT last_question_id FROM applications WHERE id = 10", Long.class));
+    }
 }

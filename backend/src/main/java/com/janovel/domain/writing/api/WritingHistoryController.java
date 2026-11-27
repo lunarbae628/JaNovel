@@ -2,10 +2,13 @@ package com.janovel.domain.writing.api;
 
 import com.janovel.domain.user.app.PreviewUsers;
 import com.janovel.domain.writing.app.WritingHistory;
+import com.janovel.domain.writing.dto.ActiveVersionChange;
+import com.janovel.domain.writing.dto.CombinationCreate;
 import com.janovel.domain.writing.dto.DraftConflictResponse;
 import com.janovel.domain.writing.dto.DraftWrite;
 import com.janovel.domain.writing.dto.SnapshotCreate;
 import com.janovel.domain.writing.dto.SnapshotUpdate;
+import com.janovel.domain.writing.dto.SubmissionChange;
 import com.janovel.domain.writing.dto.VersionCreate;
 import com.janovel.domain.writing.dto.VersionUpdate;
 import com.janovel.domain.writing.dto.WritingHistoryDetail;
@@ -160,6 +163,62 @@ public class WritingHistoryController {
             @PathVariable long snapshotId) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(writing.deleteSnapshot(userId(authorization), snapshotId));
+    }
+
+    @Operation(summary = "조합해 새 버전 만들기",
+            description = "두 본문을 조합한 결과로 독립된 새 버전과 첫 스냅샷을 한 번에 만든다. 출처 버전과 연결하지 않고 출처 본문도 저장하지 않는다. 새 버전은 맨 뒤에 붙고 현재 버전이 된다.")
+    @ApiResponse(responseCode = "201", description = "만든 버전과 첫 스냅샷")
+    @ApiResponse(responseCode = "400", description = "`EMPTY_TEXT`: 빈 본문. `INVALID_REQUEST`: 길이·형식 오류")
+    @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
+    @ApiResponse(responseCode = "404", description = "`QUESTION_NOT_FOUND`: 없거나 내 것이 아닌 문항")
+    @ApiResponse(responseCode = "409", description = "`DUPLICATE_VERSION_NAME`: 같은 문항에 같은 이름의 버전이 있다")
+    @PostMapping("/questions/{questionId}/combinations")
+    public ResponseEntity<WritingHistoryDetail.Version> combine(
+            @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable long questionId, @Valid @RequestBody CombinationCreate request) {
+        return ResponseEntity.status(201).cacheControl(CacheControl.noStore())
+                .body(writing.combine(userId(authorization), questionId, request));
+    }
+
+    @Operation(summary = "연 버전 기억",
+            description = "작성 화면에서 연 버전을 이 문항의 현재 버전으로, 이 문항을 지원 건의 마지막 문항(`lastQuestionId`)으로 기억한다. 지원 건을 다시 열면 마지막 문항의 현재 버전으로 간다.")
+    @ApiResponse(responseCode = "204", description = "기억했다.")
+    @ApiResponse(responseCode = "400", description = "`VERSION_MISMATCH`: 이 문항의 버전이 아니다. `INVALID_REQUEST`: 버전 누락·형식 오류")
+    @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
+    @ApiResponse(responseCode = "404", description = "`QUESTION_NOT_FOUND`: 없거나 내 것이 아닌 문항")
+    @PutMapping("/questions/{questionId}/active-version")
+    public ResponseEntity<Void> openVersion(
+            @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable long questionId, @Valid @RequestBody ActiveVersionChange request) {
+        writing.openVersion(userId(authorization), questionId, request.versionId());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
+    @Operation(summary = "제출본 지정·교체·직접 수정",
+            description = "`snapshotId`나 `versionId`를 보내면 그 본문을 복사해 문항의 제출본으로 지정하거나 교체한다. `body`를 보내면 지정된 제출본의 본문만 고치고 이름이 `직접 수정`이 된다. 원본 버전을 고쳐도 제출본은 바뀌지 않는다.")
+    @ApiResponse(responseCode = "200", description = "제출본")
+    @ApiResponse(responseCode = "400", description = "`EMPTY_TEXT`: 빈 본문. `SNAPSHOT_MISMATCH`·`VERSION_MISMATCH`: 이 문항의 기록이 아니다. `INVALID_REQUEST`: 셋 중 하나만 보내지 않았거나 형식 오류")
+    @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
+    @ApiResponse(responseCode = "404", description = "`QUESTION_NOT_FOUND`: 없거나 내 것이 아닌 문항")
+    @ApiResponse(responseCode = "409", description = "`SUBMISSION_REQUIRED`: 지정된 제출본이 없는데 본문만 고치려 했다")
+    @PutMapping("/questions/{questionId}/submission")
+    public ResponseEntity<WritingHistoryDetail.Submission> changeSubmission(
+            @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable long questionId, @Valid @RequestBody SubmissionChange request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(writing.changeSubmission(userId(authorization), questionId, request));
+    }
+
+    @Operation(summary = "제출본 해제", description = "문항의 제출본 지정을 푸다. 지정된 제출본이 없어도 같은 응답이다.")
+    @ApiResponse(responseCode = "204", description = "해제했다.")
+    @ApiResponse(responseCode = "401", description = "`APPLICATION_UNAUTHORIZED`: 접근 키 누락 또는 형식 오류")
+    @ApiResponse(responseCode = "404", description = "`QUESTION_NOT_FOUND`: 없거나 내 것이 아닌 문항")
+    @DeleteMapping("/questions/{questionId}/submission")
+    public ResponseEntity<Void> clearSubmission(
+            @Parameter(hidden = true) @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable long questionId) {
+        writing.clearSubmission(userId(authorization), questionId);
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 
     @ExceptionHandler(DraftConflictException.class)

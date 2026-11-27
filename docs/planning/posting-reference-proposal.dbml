@@ -57,6 +57,7 @@ Table "applications" {
   "current_stage_id" bigint
   "outcome_option_id" bigint
   "outcome_stage_name" text
+  "last_question_id" bigint [note: '마지막으로 연 문항. 문항을 지우면 NULL']
 
   Indexes {
     user_id
@@ -112,6 +113,7 @@ Table "essay_questions" {
 
   Indexes {
     (application_id, position) [unique]
+    (application_id, id) [unique]
   }
 }
 
@@ -249,6 +251,8 @@ Ref: "applications"."id" < "application_stages"."application_id" [delete: cascad
 Ref: "applications"."id" < "essay_questions"."application_id" [delete: cascade]
 
 Ref: "application_stages".("application_id", "id") < "applications".("id", "current_stage_id") [delete: no action]
+
+Ref: "essay_questions".("application_id", "id") < "applications".("id", "last_question_id") [delete: set null]
 
 Ref: "application_outcome_options".("user_id", "id") < "applications".("user_id", "outcome_option_id") [delete: no action]
 

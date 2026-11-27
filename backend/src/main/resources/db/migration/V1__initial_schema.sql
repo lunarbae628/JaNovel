@@ -46,7 +46,8 @@ CREATE TABLE "applications" (
   "status" application_status NOT NULL DEFAULT 'interested',
   "current_stage_id" bigint,
   "outcome_option_id" bigint,
-  "outcome_stage_name" text
+  "outcome_stage_name" text,
+  "last_question_id" bigint
 );
 
 CREATE TABLE "application_sections" (
@@ -143,6 +144,8 @@ CREATE INDEX ON "application_outcome_options" ("user_id", "position");
 
 CREATE UNIQUE INDEX ON "essay_questions" ("application_id", "position");
 
+CREATE UNIQUE INDEX ON "essay_questions" ("application_id", "id");
+
 CREATE UNIQUE INDEX ON "writing_versions" ("question_id", "id");
 
 CREATE UNIQUE INDEX ON "writing_versions" ("question_id", "position");
@@ -166,6 +169,8 @@ ALTER TABLE "application_stages" ADD FOREIGN KEY ("application_id") REFERENCES "
 ALTER TABLE "essay_questions" ADD FOREIGN KEY ("application_id") REFERENCES "applications" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "applications" ADD FOREIGN KEY ("id", "current_stage_id") REFERENCES "application_stages" ("application_id", "id") ON DELETE SET NULL ("current_stage_id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "applications" ADD FOREIGN KEY ("id", "last_question_id") REFERENCES "essay_questions" ("application_id", "id") ON DELETE SET NULL ("last_question_id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "applications" ADD FOREIGN KEY ("user_id", "outcome_option_id") REFERENCES "application_outcome_options" ("user_id", "id") ON DELETE NO ACTION DEFERRABLE INITIALLY IMMEDIATE;
 

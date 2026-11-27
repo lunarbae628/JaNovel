@@ -75,6 +75,10 @@ public class Application {
     @Column(name = "outcome_stage_name", columnDefinition = "text")
     private String outcomeStageName;
 
+    /** 마지막으로 연 문항. 지원 건을 다시 열면 이 문항으로 간다. 문항을 지우면 비워진다. */
+    @Column(name = "last_question_id")
+    private Long lastQuestionId;
+
     protected Application() {
     }
 
@@ -198,5 +202,13 @@ public class Application {
 
     public void setOutcomeStageName(String outcomeStageName) {
         this.outcomeStageName = outcomeStageName;
+    }
+
+    public Long getLastQuestionId() {
+        return lastQuestionId;
+    }
+
+    public void setLastQuestionId(Long lastQuestionId) {
+        this.lastQuestionId = lastQuestionId;
     }
 }

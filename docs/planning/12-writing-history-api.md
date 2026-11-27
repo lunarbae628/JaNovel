@@ -22,6 +22,7 @@
 - `snapshots`: `number`(문항 안 순번, 유니크)를 더한다. 스냅샷을 지워도 다른 번호는 바뀌지 않는다. 화면에는 번호 대신 스냅샷 이름을 보이고, 이름을 비우면 프론트와 같은 `스냅샷 N`을 저장한다.
 - `snapshot_parents`: 같은 버전 안의 앞 스냅샷과, 갈라진 버전의 첫 스냅샷이 시작한 스냅샷을 연결한다.
 - `essay_questions`: `active_version_id`(마지막으로 연 버전)를 더한다.
+- `applications`: `last_question_id`(마지막으로 연 문항)를 더한다. 같은 지원 건의 문항만 가리키고 문항을 지우면 비운다. 지원 건을 다시 열면 이 문항의 현재 버전으로 간다.
 - `submission_answers`: `source_snapshot_id`, `source_version_id`, `label`을 더한다.
 - 문항을 만들 때 "기본" 버전을 함께 만들고 현재 버전으로 지정한다.
 
@@ -39,9 +40,10 @@
 | 새 버전 (빈 버전 또는 스냅샷에서 시작) `{name?, description?, fromSnapshotId?}` | `POST /api/questions/{qid}/versions` | `400 SNAPSHOT_MISMATCH`, `409 DUPLICATE_VERSION_NAME` |
 | 버전 이름·설명 수정 `{name?, description?}` → `{id, name, description}` | `PATCH /api/versions/{vid}` | `404 VERSION_NOT_FOUND`, `409 DUPLICATE_VERSION_NAME` |
 | 버전 삭제 (그 버전 스냅샷을 부모로 둔 기록은 남은 조상으로 다시 잇는다) | `DELETE /api/versions/{vid}` | `409 LAST_VERSION` |
-| 조합 `{body, name, description?}` | `POST /api/questions/{qid}/combinations` | `400 EMPTY_TEXT` |
-| 현재 버전 지정 | `PUT /api/questions/{qid}/active-version` | |
-| 제출본 지정·교체·직접 수정, 해제 | `PUT`·`DELETE /api/questions/{qid}/submission` | |
+| 조합 `{body, name?, description?}` | `POST /api/questions/{qid}/combinations` | `400 EMPTY_TEXT`, `409 DUPLICATE_VERSION_NAME` |
+| 연 버전 기억 `{versionId}` (문항 현재 버전과 지원 건 마지막 문항) | `PUT /api/questions/{qid}/active-version` | `400 VERSION_MISMATCH` |
+| 제출본 지정·교체·직접 수정 `{snapshotId}`·`{versionId}`·`{body}` 중 하나 | `PUT /api/questions/{qid}/submission` | `400 EMPTY_TEXT`·`SNAPSHOT_MISMATCH`·`VERSION_MISMATCH`, `409 SUBMISSION_REQUIRED` |
+| 제출본 해제 | `DELETE /api/questions/{qid}/submission` | |
 
 초안을 저장하면 갱신된 초안을 돌려준다. 스냅샷을 남기면 `201`과 함께 새 `snapshot`과 갱신된 `draft`를 돌려준다. 둘 다 성공할 때마다 초안의 저장 번호가 1 증가한다. 새 스냅샷은 초안의 기준이 되며, 이전 기준이 있으면 부모로 연결된다. 본문은 문항에 설정할 수 있는 최대 길이인 100,000자까지 저장한다.
 
@@ -52,6 +54,9 @@
 - **버전 삭제:** 마지막 버전은 지울 수 없다. 다른 스냅샷의 부모나 다른 버전의 시작·기준이 지운 스냅샷이면, 지운 스냅샷을 건너뛰며 부모를 따라 올라가 처음 만나는 남는 스냅샷으로 다시 잇는다. 현재 버전을 지우면 남은 첫 버전이 현재 버전이 된다.
 - **스냅샷 삭제:** 버전의 마지막 스냅샷이고, 그 스냅샷을 부모로 둔 스냅샷이나 시작·기준으로 쓰는 다른 버전이 없을 때만 지운다. 초안의 기준이었으면 지운 스냅샷의 부모가 기준이 된다. 다른 스냅샷 번호는 그대로다.
 - **기준이 바뀜 때의 저장 번호:** 두 삭제로 어느 버전의 초안 기준이 바뀌면 본문은 그대로 두고 그 버전의 `revision`을 올린다. 이전 기준을 보던 화면의 저장과 스냅샷 요청은 `409 DRAFT_CONFLICT`로 거절된다.
+- **조합:** 본문으로 독립된 새 버전과 첫 스냅샷을 한 번에 만들고 새 버전이 현재 버전이 된다. 이름을 비우면 `합친 버전`이고 첫 스냅샷은 버전 이름·설명을 쓴다.
+- **연 버전 기억:** 작성 화면에서 버전을 열 때 부른다. 그 버전을 문항의 현재 버전으로, 그 문항을 지원 건의 마지막 문항으로 저장한다. 지원 건 목록·상세 응답의 `lastQuestionId`로 다시 열 문항을 정한다.
+- **제출본:** 스냅샷이나 버전의 지금 초안 본문을 복사하므로 원본을 고쳐도 바뀌지 않는다. 표시 이름은 스냅샷 이름 또는 `초안 · <버전 이름>`이다. 본문만 고치면 출처는 두고 이름이 `직접 수정`이 되며, 지정된 제출본이 없으면 `409 SUBMISSION_REQUIRED`다.
 - 두 삭제는 다시 이어진 결과를 반영한 작성 이력 전체를 `200`으로 돌려준다. 프론트는 이 응답으로 화면을 바꾼다.
 
 ## 구현 순서
@@ -61,8 +66,8 @@
 1. 스키마·엔티티, 문항 생성 시 기본 버전 — 완료
 2. 이력 조회, 초안 저장, 스냅샷 남기기 — 완료
 3. 버전 만들기·수정·삭제와 스냅샷 수정·삭제 — 완료
-4. 조합
-5. 제출본과 현재 버전
+4. 조합 — 완료
+5. 제출본과 현재 버전, 지원 건의 마지막 문항 — 완료
 
 ## 프론트 연결 때 할 일
 
