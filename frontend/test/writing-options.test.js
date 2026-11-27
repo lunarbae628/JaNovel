@@ -12,10 +12,22 @@ test('주제별 새 작성안은 빈 본문과 독립된 기록으로 시작한�
  assert.deepEqual(q,before);assert.deepEqual(next.branches[0],q.branches[0]);
  const b=next.branches.at(-1);assert.equal(b.name,'협업 경험');assert.equal(b.draft.text,'');assert.deepEqual(b.fromIds,[]);assert.deepEqual(b.draft.baseIds,[]);assert.equal(next.activeBranchId,b.id);validate(next);
 });
-test('작성안 이름을 바꿔도 본문과 스냅샷은 보존하며 이름 중복을 피한다',()=>{
+test('작성안 이름을 바꿔도 본문과 스냅샷은 보존하고 다른 버전과 같은 이름은 번호를 붙이지 않고 거절한다',()=>{
  let q=createQuestion();q=save(q,q.branches[0].id,'기존 본문');q=options.createWritingOption(q,'협업');
- const id=q.branches[0].id,next=options.renameWritingOption(q,id,'협업','새 설명');
- assert.equal(next.branches[0].name,'협업 2');assert.deepEqual(next.snapshots,q.snapshots);assert.deepEqual(next.branches[0].draft,q.branches[0].draft);
+ const id=q.branches[0].id;
+ assert.throws(()=>options.renameWritingOption(q,id,' 협업 ','새 설명'),/DUPLICATE_VERSION_NAME/);
+ const next=options.renameWritingOption(q,id,'리더십','새 설명');
+ assert.equal(next.branches[0].name,'리더십');assert.deepEqual(next.snapshots,q.snapshots);assert.deepEqual(next.branches[0].draft,q.branches[0].draft);
+ assert.equal(options.renameWritingOption(next,id,'  ','설명만').branches[0].name,'리더십');
+ assert.equal(options.renameWritingOption(next,id,'리더십','같은 이름').branches[0].name,'리더십');
+});
+test('새 버전은 입력한 이름이 겹치면 거절하고 이름을 비우거나 화면이 정한 이름이면 번호를 붙인다',()=>{
+ let q=createQuestion();
+ assert.throws(()=>options.createWritingOption(q,'기본'),/DUPLICATE_VERSION_NAME/);
+ q=options.createWritingOption(q,'');q=options.createWritingOption(q,'  ');
+ assert.deepEqual(q.branches.map(b=>b.name),['기본','새 버전','새 버전 2']);
+ q=options.createWritingOption(q,'기본 다른 안','',{auto:true});q=options.createWritingOption(q,'기본 다른 안','',{auto:true});
+ assert.deepEqual(q.branches.slice(3).map(b=>b.name),['기본 다른 안','기본 다른 안 2']);
 });
 test('과거 기록 편집은 같은 작성안에 초안을 만들고 기존 미저장 초안과 충돌하면 보호한다',()=>{
  let q=createQuestion();const id=q.branches[0].id;q=save(q,id,'과거');const old=q.snapshots[0];q=save(q,id,'최신');

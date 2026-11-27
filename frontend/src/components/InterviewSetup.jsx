@@ -4,7 +4,7 @@ import {ArrowRight, ClipboardList, FileText, Plus, Upload, Volume2, X} from 'luc
 import {Field, IconButton, Notice} from './UI.jsx';
 import {materialExcerpts, materialKinds, materialQuestions, practiceModeLabels} from '../interview.js';
 import {readMaterialFile} from '../interview-material-file.js';
-import {uid} from '../model.js';
+import {uid, answerLabel} from '../model.js';
 
 export default function InterviewSetup({application, source, designated, questions, questionsPath, initialMode, expired, onStart}) {
   const [mode, setMode] = useState(initialMode);
@@ -71,7 +71,7 @@ export default function InterviewSetup({application, source, designated, questio
       {designated.length > 0 && <div className="practice-designated">
         <label><input type="checkbox" checked={includeDesignated} onChange={event => setIncludeDesignated(event.target.checked)}/>
           지정한 문항 제출본 사용 <span>{designated.length}개</span></label>
-        <ul>{designated.map(answer => <li key={answer.questionId}>문항 {answer.number} · {answer.label}</li>)}</ul>
+        <ul>{designated.map(answer => <li key={answer.questionId}>문항 {answer.number} · {answerLabel(answer.label)}</li>)}</ul>
       </div>}
       <div className="practice-upload">
         <Dropdown field label="자료 종류" value={kind} disabled={reading} options={materialKinds} onChange={setKind}/>

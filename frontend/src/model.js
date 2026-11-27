@@ -15,6 +15,10 @@ const fail=message=>{throw new Error(message)};
 const branch=(q,id)=>q.branches.find(b=>b.id===id)||fail('BRANCH_NOT_FOUND');
 const commit=(q,id)=>q.snapshots.find(s=>s.id===id)||fail('SNAPSHOT_NOT_FOUND');
 export const recordKey=r=>r.kind+':'+r.id;
+// 화면에 보일 기록 이름. 스냅샷은 v번호 대신 스냅샷 이름을, 초안은 '마지막 본문'·'작성 중'을 쓴다.
+export const recordName=r=>r.kind==='snapshot'?r.title:r.label;
+// 제출본 출처 이름. 예전에 저장한 이름은 `v3 · 스냅샷 3`처럼 v번호가 앞에 있어 보여 줄 때 떼어 낸다.
+export const answerLabel=label=>String(label||'').replace(/^v\d+ · /,'');
 export function parseKey(key){if(typeof key==='object')return key;const cut=key.indexOf(':');return cut<0?{kind:'snapshot',id:key}:{kind:key.slice(0,cut),id:key.slice(cut+1)};}
 export function resolveRecord(q,key){const r=parseKey(key);if(r.kind==='draft'){const b=branch(q,r.id);return {...b.draft,id:b.id,kind:'draft',branchId:b.id,label:b.draft.closed||!b.draft.dirty?'마지막 본문':'작성 중',title:b.name,parentIds:b.draft.baseIds};}const s=commit(q,r.id);return {...s,kind:'snapshot'};}
 export function createQuestion(prompt='새 문항',limit=1000){const id=uid('branch');return{id:uid('question'),prompt,limit:Number(limit)||1000,snapshots:[],branches:[{id,name:'기본',color:colors[0],order:0,createdAt:now(),snapshotIds:[],fromIds:[],draft:{text:'',baseIds:[],dirty:false,closed:true,updatedAt:now()}}],messages:[]};}
@@ -30,8 +34,11 @@ export function updateDraft(question,branchId,text){
  return q;
 }
 export function snapshot(question,branchId,title='',description=''){const q=clone(question),b=branch(q,branchId);if(!b.draft.text.trim())fail('EMPTY_TEXT');if(b.snapshotIds.length&&!b.draft.dirty&&b.draft.baseIds.length===1)fail('NO_CHANGES');const order=Math.max(-1,...q.snapshots.map(s=>s.order))+1;const s={id:uid('snapshot'),branchId,label:'v'+(order+1),title:title.trim()||'스냅샷 '+(order+1),description:description.trim(),text:b.draft.text,parentIds:[...new Set(b.draft.baseIds)],createdAt:now(),order};q.snapshots.push(s);b.snapshotIds.push(s.id);b.draft={text:s.text,baseIds:[s.id],dirty:false,closed:true,updatedAt:now()};delete b.autoFromId;return q;}
+// 사용자가 입력한 버전 이름은 바꾸지 않는다. 같은 문항의 다른 버전과 같으면 거절해 입력 창에서 알린다. 서버도 같은 규칙이다.
+export function requireFreeName(q,name,exceptId=null){const title=name.trim();if(q.branches.some(b=>b.id!==exceptId&&b.name===title))fail('DUPLICATE_VERSION_NAME');return title;}
+// 이름을 비워 프로그램이 정하는 기본 이름은 겹치면 ' 2', ' 3'을 붙인다.
 export function uniqueBranchName(q,name){const base=(name.trim()||'새 분기').slice(0,90);let title=base,n=2;while(q.branches.some(b=>b.name===title))title=base+' '+n++;return title;}
-export function branchFrom(question,snapshotId,name='',description=''){const q=clone(question),s=commit(q,snapshotId),order=Math.max(-1,...q.branches.map(b=>b.order))+1;q.branches.push({id:uid('branch'),name:uniqueBranchName(q,name||s.label+'에서 시작'),description,color:colors[order%colors.length],order,createdAt:now(),snapshotIds:[],fromIds:[s.id],draft:{text:s.text,baseIds:[s.id],dirty:false,closed:true,updatedAt:now()}});return q;}
+export function branchFrom(question,snapshotId,name='',description=''){const q=clone(question),s=commit(q,snapshotId),order=Math.max(-1,...q.branches.map(b=>b.order))+1;q.branches.push({id:uid('branch'),name:uniqueBranchName(q,name||s.title+'에서 시작'),description,color:colors[order%colors.length],order,createdAt:now(),snapshotIds:[],fromIds:[s.id],draft:{text:s.text,baseIds:[s.id],dirty:false,closed:true,updatedAt:now()}});return q;}
 export function editSnapshot(question,snapshotId,text,{forceBranch=false}={}){const source=commit(question,snapshotId);if(source.text===text)return{question,branchId:source.branchId,changed:false};const b=branch(question,source.branchId),latest=b.snapshotIds.at(-1)===snapshotId;if(latest&&!forceBranch){if(b.draft.dirty&&b.draft.text!==text)fail('DRAFT_CONFLICT');return{question:updateDraft(question,b.id,text),branchId:b.id,changed:true};}let q=branchFrom(question,snapshotId);const created=q.branches.at(-1);created.autoFromId=source.id;q=updateDraft(q,created.id,text);return{question:q,branchId:created.id,changed:true};}
 function capture(question,key){const r=parseKey(key);if(r.kind==='snapshot')return{question,id:commit(question,r.id).id};const b=branch(question,r.id);if(!b.draft.dirty&&b.draft.baseIds.length===1&&b.snapshotIds.at(-1)===b.draft.baseIds[0])return{question,id:b.draft.baseIds[0]};const q=snapshot(question,b.id,'병합 전 초안');return{question:q,id:q.snapshots.at(-1).id};}
 export function mergeDraft(question,{leftId,rightId,text,name='병합안',description='',mode='new',branchId,overwrite=false}){if(!text.trim())fail('EMPTY_TEXT');let q=clone(question);if(mode==='existing'){const b=branch(q,branchId);if(b.draft.dirty&&!overwrite)fail('DRAFT_CONFLICT');}const a=capture(q,leftId);q=a.question;const b=capture(q,rightId);q=b.question;const fromId=resolveRecord(q,rightId).branchId;if(mode!=='existing'||fromId!==branchId){const from=branch(q,fromId);if(from.draft.dirty&&from.draft.text.trim())q=snapshot(q,fromId,'병합 후 원본 초안');branch(q,fromId).draft.closed=true;}const parents=[...new Set([a.id,b.id])];let target;if(mode==='existing')target=branch(q,branchId);else{const order=Math.max(-1,...q.branches.map(b=>b.order))+1;target={id:uid('branch'),name:uniqueBranchName(q,name),description,order,color:colors[order%colors.length],createdAt:now(),snapshotIds:[],fromIds:parents,draft:{}};q.branches.push(target);}target.draft={text,baseIds:parents,dirty:true,updatedAt:now()};q.activeBranchId=target.id;q=snapshot(q,target.id,name,description);return{question:q,branchId:target.id,snapshotId:q.snapshots.at(-1).id};}
@@ -40,7 +47,7 @@ function freezeSubmissionAnswer(question, key, draftLabel) {
  const record = resolveRecord(question, key);
  if (!record.text.trim()) fail('EMPTY_TEXT');
  const {kind, id} = parseKey(key);
- const label = (kind === 'draft' && draftLabel ? draftLabel : record.label) + ' · ' + record.title;
+ const label = kind === 'snapshot' ? record.title : (draftLabel || record.label) + ' · ' + record.title;
  return {questionId: question.id, prompt: question.prompt, limit: question.limit,
   source: {kind, id}, label, text: record.text};
 }
@@ -220,7 +227,7 @@ export function importPostingText(text){
  return result;
 }
 export function safeUrl(value){try{const u=new URL(value);return['http:','https:'].includes(u.protocol)?u.href:''}catch{return ''}}
-export function errorMessage(error){return({SNAPSHOT_IN_USE:'이 기록 뒤에 이어진 기록이나 분기가 있어요. 끝 기록부터 삭제해 주세요.',LAST_BRANCH:'마지막 분기는 삭제할 수 없어요.',DRAFT_CONFLICT:'이미 작성 중인 초안이 있어요.',EMPTY_TEXT:'본문을 입력해 주세요.',NO_CHANGES:'이전 스냅샷과 달라진 내용이 없어요.',SELECTION_REQUIRED:'문항별 버전을 선택해 주세요.',INVALID_BACKUP:'지원하는 백업 형식이 아니거나 기록 연결이 손상됐어요.',INVALID_GRAPH:'기록 연결을 확인할 수 없어요.',BRANCH_NOT_FOUND:'분기를 찾을 수 없어요.',SNAPSHOT_NOT_FOUND:'기록을 찾을 수 없어요.'})[error.message]||'처리하지 못했어요. 입력한 내용을 확인해 주세요.';}
+export function errorMessage(error){return({DUPLICATE_VERSION_NAME:'같은 이름의 버전이 있어요. 다른 이름을 입력해 주세요.',SNAPSHOT_IN_USE:'이 기록 뒤에 이어진 기록이나 분기가 있어요. 끝 기록부터 삭제해 주세요.',LAST_BRANCH:'마지막 분기는 삭제할 수 없어요.',DRAFT_CONFLICT:'이미 작성 중인 초안이 있어요.',EMPTY_TEXT:'본문을 입력해 주세요.',NO_CHANGES:'이전 스냅샷과 달라진 내용이 없어요.',SELECTION_REQUIRED:'문항별 버전을 선택해 주세요.',INVALID_BACKUP:'지원하는 백업 형식이 아니거나 기록 연결이 손상됐어요.',INVALID_GRAPH:'기록 연결을 확인할 수 없어요.',BRANCH_NOT_FOUND:'분기를 찾을 수 없어요.',SNAPSHOT_NOT_FOUND:'기록을 찾을 수 없어요.'})[error.message]||'처리하지 못했어요. 입력한 내용을 확인해 주세요.';}
 export function updateQuestion(store,applicationId,questionId,update){return{...store,applications:store.applications.map(a=>a.id===applicationId?{...a,questions:a.questions.map(q=>q.id===questionId?(typeof update==='function'?update(q):update):q)}:a)};}
 export function activateBranch(question,branchId){branch(question,branchId);return {...question,activeBranchId:branchId};}
 export function visibleGraphRecords(question){return graphRecords(question).filter(r=>r.kind!=='draft'||(r.dirty&&!r.closed));}

@@ -8,7 +8,8 @@ import {overviewGraphQuestion} from '../overview-graph.js';
 import {IconButton} from './UI.jsx';
 
 const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
-const label=r=>r.kind==='draft'?'작성 중 · '+r.title:r.label+' · '+r.title;
+// 스냅샷은 v번호 대신 이름으로 보인다. 초안은 '작성 중'과 버전 이름이다.
+const label=r=>r.kind==='draft'?'작성 중 · '+r.title:r.title;
 function recordTitle(r,branch){return `${label(r)}\n${r.description||''}${r.description?'\n':''}${branch?.name||''}`;}
 function graphData(original){
  const question=overviewGraphQuestion(original);
@@ -35,7 +36,7 @@ function HistoryLog({data,selected,onSelect}){
     </svg>
     {rows.map(row=><button key={row.key} className={'graph-record '+(selected===row.key?'selected':'')} style={{'--branch-color':row.color}} aria-label={label(row)} aria-current={selected===row.key?'true':undefined} title={recordTitle(row,row.branch)} onClick={()=>onSelect(row.key)}>
      <span className={'log-dot '+(row.kind==='draft'?'draft':'')} style={{left:points.get(row.key).x}}/>
-     <span className="log-version">{row.kind==='draft'?'작성 중':row.label}</span><span className="log-title">{row.title}</span>
+     {row.kind==='draft'&&<span className="log-version">작성 중</span>}<span className="log-title">{row.title}</span>
     </button>)}
    </div>
   </div>
@@ -46,7 +47,7 @@ function MapNode({data}){
  const row=data.row;
  return <button className={'map-record nodrag nopan '+(data.active?'selected':'')} style={{'--node-color':row.color}} title={recordTitle(row,row.branch)} aria-label={label(row)} aria-current={data.active?'true':undefined} onClick={e=>{e.stopPropagation();data.onSelect(row.key)}}>
   <Handle type="target" position={Position.Top}/><Handle type="source" position={Position.Bottom}/>
-  <span className={'map-dot '+(row.kind==='draft'?'draft':'')}/><strong>{row.kind==='draft'?'작성 중':row.label}</strong><small>{row.title}</small>
+  <span className={'map-dot '+(row.kind==='draft'?'draft':'')}/><strong>{row.kind==='draft'?'작성 중':row.title}</strong>{row.kind==='draft'&&<small>{row.title}</small>}
  </button>;
 }
 function HistoryEdge({id,targetX:tx,targetY:ty,style,data}){

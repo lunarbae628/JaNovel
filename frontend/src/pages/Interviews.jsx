@@ -6,7 +6,7 @@ import AnswerRecording from '../components/AnswerRecording.jsx';
 import InterviewSetup from '../components/InterviewSetup.jsx';
 import {deleteAttachment} from '../storage.js';
 import {interviewFor, patchInterviewQuestion, practiceModeLabels, timecode} from '../interview.js';
-import {designatedSubmissionAnswers, uid, writingPath} from '../model.js';
+import {designatedSubmissionAnswers, uid, writingPath, answerLabel} from '../model.js';
 import {saveApplicationEvent, todayKey} from '../schedule.js';
 import {EventForm} from './Applications.jsx';
 
@@ -163,7 +163,7 @@ function Materials({application, designated, source, onChange, onClose, navigate
       {designated.length > 0 && <div className="interview-designated">
         <h3>문항별 제출본</h3>
         {designated.map(answer => <details key={answer.questionId}>
-          <summary>문항 {answer.number} · {answer.label}</summary>
+          <summary>문항 {answer.number} · {answerLabel(answer.label)}</summary>
           <p>{answer.text}</p>
         </details>)}
       </div>}

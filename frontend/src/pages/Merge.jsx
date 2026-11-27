@@ -14,7 +14,7 @@ export default function Merge({application:a,question:q,query,navigate,onSave,es
  const[right,setRight]=useState(valid(query.get('right')||('draft:'+(q.branches[1]?.id||q.branches[0].id))));
  const l=resolveRecord(q,left),r=resolveRecord(q,right);
  const[session,setSession]=useState(()=>createMergeState(l.text,r.text));
- const[name,setName]=useState('합친 버전'),[description,setDescription]=useState('');
+ const[name,setName]=useState('합친 버전'),[description,setDescription]=useState(''),[nameError,setNameError]=useState('');
  const[error,setError]=useState(''),[confirm,setConfirm]=useState(false),[pending,setPending]=useState(null);
  function changeSource(side,key){
   if((side==='left'?left:right)===key)return;
@@ -29,7 +29,7 @@ export default function Merge({application:a,question:q,query,navigate,onSave,es
   try{
    const result=combineWritingOptions(q,{leftId:left,rightId:right,text:session.text,name,description});
    onSave(result.question);navigate(`/write/${a.id}/${q.id}?record=${encodeURIComponent('snapshot:'+result.snapshotId)}`);
-  }catch(e){setError(errorMessage(e));setConfirm(false);}
+  }catch(e){if(e.message==='DUPLICATE_VERSION_NAME'){setNameError(errorMessage(e));return;}setError(errorMessage(e));setConfirm(false);}
  }
  const choose=side=>id=>setSession(current=>chooseMergeRegion(current,id,side));
  const chooseAll=side=>setSession(current=>chooseAllRegions(current,side));
@@ -51,7 +51,7 @@ export default function Merge({application:a,question:q,query,navigate,onSave,es
     <section aria-label="오른쪽 본문"><div className="record-heading"><RecordSelect question={q} value={right} onChange={key=>changeSource('right',key)} label="함께 참고할 기록"/><small>{r.text.length.toLocaleString()}자</small></div><div className="merge-pane-body"><VersionText state={session} side="right" onChoose={choose('right')}/></div></section>
    </div>
   </main>
-  {confirm&&<Modal title="합쳐서 새 버전 만들기" onClose={()=>setConfirm(false)}><form onSubmit={e=>{e.preventDefault();finish()}}><Field label="버전 이름"><input aria-label="새 버전 이름" value={name} onChange={e=>setName(e.target.value)} maxLength={100}/></Field><Field label="설명 · 선택"><textarea aria-label="버전 설명" value={description} onChange={e=>setDescription(e.target.value)} maxLength={2000} rows={3}/></Field><Notice>원본 두 본문은 그대로 두고 새 버전과 첫 스냅샷을 만듭니다.</Notice><div className="form-actions"><button className="button" type="button" onClick={()=>setConfirm(false)}>취소</button><button className="button primary" type="submit">새 버전 만들기</button></div></form></Modal>}
+  {confirm&&<Modal title="합쳐서 새 버전 만들기" onClose={()=>setConfirm(false)}><form onSubmit={e=>{e.preventDefault();finish()}}><Field label="버전 이름"><input aria-label="새 버전 이름" value={name} onChange={e=>{setName(e.target.value);setNameError('');}} maxLength={100}/></Field>{nameError&&<Notice type="error">{nameError}</Notice>}<Field label="설명 · 선택"><textarea aria-label="버전 설명" value={description} onChange={e=>setDescription(e.target.value)} maxLength={2000} rows={3}/></Field><Notice>원본 두 본문은 그대로 두고 새 버전과 첫 스냅샷을 만듭니다.</Notice><div className="form-actions"><button className="button" type="button" onClick={()=>setConfirm(false)}>취소</button><button className="button primary" type="submit">새 버전 만들기</button></div></form></Modal>}
   {pending&&<Modal title="비교할 버전 변경" onClose={()=>setPending(null)}><p>선택한 구절과 직접 수정한 결과를 초기화하고 새 버전을 비교합니다.</p><div className="form-actions"><button className="button" onClick={()=>setPending(null)}>계속 편집</button><button className="button primary" onClick={()=>resetSource(pending.side,pending.key)}>버전 변경</button></div></Modal>}
  </>;
 }

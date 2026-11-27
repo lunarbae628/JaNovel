@@ -109,3 +109,33 @@ test('공고 원문에서 접수 기간과 마감일 제목 아래의 날짜를 
   assert.equal(period.sections[0].body, '2026.11.20 ~ 2026.12.03');
   assert.equal(importPostingText('지원 마감일\n2026-12-03\n우대 사항\nSQL 경험').deadline, '2026-12-03');
 });
+
+test('스냅샷은 v번호 대신 이름으로 보이고 갈라진 버전과 제출본 출처도 스냅샷 이름을 쓴다', async () => {
+ const {recordName} = await import('../src/model.js');
+ const {sourceName} = await import('../src/writing-options.js');
+ let q = createQuestion('지원 동기', 500);
+ const main = q.branches[0].id;
+ q = snapshot(updateDraft(q, main, '첫 답변'), main, '제출 전');
+ const saved = q.snapshots[0];
+ assert.equal(recordName({...saved, kind: 'snapshot'}), '제출 전');
+
+ q = branchFrom(q, saved.id);
+ assert.equal(q.branches.at(-1).name, '제출 전에서 시작');
+ const answer = designateQuestionSubmission(q, 'snapshot:' + saved.id).submissionHistory.at(-1);
+ assert.equal(answer.label, '제출 전');
+ assert.doesNotMatch(answer.label, /\bv\d+\b/);
+ const drafted = designateQuestionSubmission(q, 'draft:' + main).submissionHistory.at(-1);
+ assert.equal(drafted.label, '초안 · 기본');
+
+ assert.equal(sourceName({recordKey: 'snapshot:' + saved.id, label: 'v1', title: '제출 전'}), '제출 전');
+ assert.equal(sourceName({recordKey: 'draft:' + main, label: '작성 중', title: '기본'}), '작성 중');
+});
+
+test('예전에 v번호와 함께 저장한 제출본 출처 이름은 v번호를 떼고 보여 준다', async () => {
+ const {answerLabel} = await import('../src/model.js');
+ assert.equal(answerLabel('v3 · 스냅샷 3'), '스냅샷 3');
+ assert.equal(answerLabel('v12 · 제출 전'), '제출 전');
+ assert.equal(answerLabel('초안 · 기본'), '초안 · 기본');
+ assert.equal(answerLabel('직접 수정'), '직접 수정');
+ assert.equal(answerLabel(undefined), '');
+});
