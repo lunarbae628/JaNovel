@@ -1,5 +1,7 @@
 package com.janovel.domain.user.app;
 
+import com.janovel.domain.application.exception.ApplicationErrorCode;
+import com.janovel.global.exception.CustomException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -33,6 +35,13 @@ public class PreviewUsers {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
+    }
+
+    /** Authorization 헤더의 접근 키로 사용자를 찾고 없으면 만든다. 키가 없거나 형식이 틀리면 401이다. */
+    @Transactional
+    public long requireUserId(String authorization) {
+        return userId(accessKey(authorization)
+                .orElseThrow(() -> new CustomException(ApplicationErrorCode.APPLICATION_UNAUTHORIZED)));
     }
 
     @Transactional

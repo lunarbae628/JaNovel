@@ -4,9 +4,7 @@ import com.janovel.domain.application.app.ApplicationQuestionService;
 import com.janovel.domain.application.dto.ApplicationDetail;
 import com.janovel.domain.application.dto.ApplicationRegistration;
 import com.janovel.domain.application.dto.QuestionOrder;
-import com.janovel.domain.application.exception.ApplicationErrorCode;
 import com.janovel.domain.user.app.PreviewUsers;
-import com.janovel.global.exception.CustomException;
 import com.janovel.global.openapi.OpenApiConfig;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -98,7 +96,6 @@ public class ApplicationQuestionController {
     }
 
     private long userId(String authorization) {
-        return previewUsers.userId(previewUsers.accessKey(authorization)
-                .orElseThrow(() -> new CustomException(ApplicationErrorCode.APPLICATION_UNAUTHORIZED)));
+        return previewUsers.requireUserId(authorization);
     }
 }
