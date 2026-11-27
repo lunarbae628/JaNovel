@@ -1,6 +1,7 @@
 package com.janovel.global.exception;
 
 import com.janovel.domain.application.exception.PostingErrorCode;
+import com.janovel.global.web.RequestBodyTooLargeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -20,8 +21,19 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.from(exception.getErrorCode()));
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
-            MissingServletRequestPartException.class})
+    /** 길이를 알리지 않은 본문이 읽는 도중 2MB를 넘으면 JSON 변환 오류로 감싸져 온다. 400이 아니라 413으로 돌려준다. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof RequestBodyTooLargeException) {
+                return ResponseEntity.status(CommonErrorCode.REQUEST_TOO_LARGE.getStatus())
+                        .body(ErrorResponse.from(CommonErrorCode.REQUEST_TOO_LARGE));
+            }
+        }
+        return handleInvalidRequest();
+    }
+
+    @ExceptionHandler({MethodArgumentNotValidException.class, MissingServletRequestPartException.class})
     public ResponseEntity<ErrorResponse> handleInvalidRequest() {
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "요청 내용을 확인해 주세요.", "INVALID_REQUEST"));

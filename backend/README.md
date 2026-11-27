@@ -39,6 +39,8 @@ Flyway는 빈 PostgreSQL에 [통합 V1 스키마](src/main/resources/db/migratio
 
 새 API는 컨트롤러에 `@Tag`, `@Operation`, 성공·오류 `@ApiResponse`를 달고 요청·응답 DTO에 `@Schema`로 설명을 적는다. 일반 오류는 자동으로 `ErrorResponse` 형식으로 표시된다. 초안 저장 충돌은 최신 초안이 포함된 `DraftConflictResponse`로 표시된다. 이름이 같은 중첩 DTO는 `@Schema(name = ...)`로 구분한다. 접근 키가 필요한 API는 `@SecurityRequirement(name = OpenApiConfig.PREVIEW_KEY)`를 단다. 배포하기 전에 Swagger UI를 끄도록 설정한다.
 
+파일 업로드가 아닌 요청 본문은 2MB로 제한한다. 넘으면 접근 키 검사와 JSON 파싱 전에 `413 REQUEST_TOO_LARGE`로 거절한다. 파일 업로드는 11MB 제한을 따른다. [요청 크기 제한](src/main/java/com/janovel/global/web/RequestSizeLimitFilter.java)
+
 ### 요청 확인
 
 컨트롤러의 요청과 응답은 `src/test/java/com/janovel/domain/*/api`의 `MockMvc` 테스트로 검증하며 `./gradlew test`로 실행한다. 새 API를 만들면 성공 응답, 주요 오류 응답과 사용자별 접근 차단을 같은 방식으로 추가한다. 외부 사이트나 모델에 의존하는 부분은 클라이언트를 목으로 바꿔 검증한다.
