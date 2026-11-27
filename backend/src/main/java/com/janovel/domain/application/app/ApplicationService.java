@@ -15,6 +15,7 @@ import com.janovel.domain.application.entity.ApplicationStage;
 import com.janovel.domain.application.exception.ApplicationErrorCode;
 import com.janovel.domain.application.model.ApplicationStatus;
 import com.janovel.domain.user.dao.UserRepository;
+import com.janovel.domain.writing.app.WritingHistory;
 import com.janovel.domain.writing.dao.EssayQuestionRepository;
 import com.janovel.domain.writing.entity.EssayQuestion;
 import com.janovel.global.exception.CustomException;
@@ -37,16 +38,19 @@ public class ApplicationService {
     private final ApplicationStageRepository stageRepository;
     private final EssayQuestionRepository questionRepository;
     private final UserRepository userRepository;
+    private final WritingHistory writingHistory;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               ApplicationSectionRepository sectionRepository,
                               ApplicationStageRepository stageRepository,
-                              EssayQuestionRepository questionRepository, UserRepository userRepository) {
+                              EssayQuestionRepository questionRepository, UserRepository userRepository,
+                              WritingHistory writingHistory) {
         this.applicationRepository = applicationRepository;
         this.sectionRepository = sectionRepository;
         this.stageRepository = stageRepository;
         this.questionRepository = questionRepository;
         this.userRepository = userRepository;
+        this.writingHistory = writingHistory;
     }
 
     @Transactional
@@ -74,6 +78,7 @@ public class ApplicationService {
                 .mapToObj(index -> new EssayQuestion(application, request.questions().get(index).prompt(),
                         request.questions().get(index).limit(), index + 1))
                 .toList());
+        writingHistory.start(questions);
         return ApplicationDetail.of(application, sections, stages, questions);
     }
 

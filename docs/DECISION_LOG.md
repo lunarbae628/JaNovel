@@ -1,6 +1,56 @@
 # JaNovel 의사결정 로그
 
 ---
+### [2026-11-27] 작성 이력 API 리뷰 반영 (Codex 리뷰·`/code-review`)
+- **배경 및 문제점 (Problem):** 작성 이력 1~3단계 작업 트리를 Codex 리뷰와 `/code-review`로 검토했다. 지적 중 아래 결함은 재현하거나 코드로 확인했다.
+  1. 스냅샷 삭제와 버전 삭제가 다른 버전의 초안 기준 스냅샷을 바꿔도 `draft_revision`을 올리지 않았다. 그래서 지운 스냅샷을 기준으로 보던 탭의 초안 저장·스냅샷 요청이 `409` 없이 통과했고, 새 스냅샷이 사용자가 보지 못한 스냅샷을 부모로 이었다. 둘 다 지적했다.
+  2. 버전 이름을 보내지 않고 설명만 고쳐도 기존 이름이 90자로 잘리면서 붙어 있던 ` 2`가 사라졌다. Codex가 지적했다.
+  3. 이름·설명 정규화가 Java `strip()`이라 줄바꿈 없는 공백(U+00A0)과 BOM만 넣은 값이 빈 값으로 처리되지 않았다. 프론트 `trim()`은 이를 공백으로 본다. Codex가 지적했다.
+  4. 버전 수정·삭제가 한 버전의 스냅샷만 필요한데 문항의 모든 스냅샷 본문을 읽어 지원 건 잠금을 오래 잡았다. 둘 다 지적했다.
+  5. `SnapshotParent`가 직접 정한 복합 키라서 `save()`가 merge로 처리되어 연결마다 SELECT가 한 번 더 실행됐다. `/code-review`가 지적했다.
+  6. `fromSnapshotId` 설명이 "스냅샷 번호"라서 v번호를 보내도록 오해하게 했다. 실제로는 id를 받는다. `/code-review`가 지적했다.
+  7. Swagger 설명 두 곳에 "겹치면"이 "겜치면"으로 잘못 적혀 있었다. `/code-review`가 지적했다.
+  8. 접근 키로 사용자를 찾는 코드가 컨트롤러 세 곳에 복사되어 있었다. `/code-review`가 지적했다.
+- **고려한 대안 (Alternatives):**
+  - **V1 직접 수정 (둘 다 P1):** 첫 배포 전에는 V1만 두기로 한 결정에 따른 것이라 고치지 않았다. 대신 지침과 문서의 "적용된 마이그레이션은 새 마이그레이션으로" 규칙에 배포 전 예외를 적었다.
+  - **갈라진 버전의 첫 스냅샷이 시작 스냅샷과 같아도 만들어지는 것:** 프론트의 `snapshot()`도 스냅샷이 없는 버전에서는 허용해 그대로 뒀다.
+  - **스냅샷 번호 재사용:** 마지막 스냅샷을 지우면 그 번호가 다시 쓰인다. 화면에서 v번호를 없애기로 해 별도 번호 칸을 두지 않았다.
+  - **`OpenApiConfig`의 DTO 이름 하드코딩:** 지금은 동작에 문제가 없어 나중에 정리한다.
+- **해결 및 변경 사항 (Solution):**
+  - **1번:** `WritingVersion.moveBase`가 기준이 실제로 바뀔 때만 기준과 `revision`을 함께 바꾼다. 두 삭제 경로가 이 메서드를 쓴다.
+  - **2번:** 이름을 보낸 경우에만 정규화와 중복 번호를 적용한다.
+  - **3번:** `OptionalText`가 `Character.isWhitespace`, `isSpaceChar`, U+FEFF를 공백으로 본다.
+  - **4번:** `findAllByVersionIdOrderByNumber`와 `findIdsByVersionId`로 한 버전 범위만 읽는다.
+  - **5번:** `SnapshotParent`를 `Persistable`로 바꿔 새 연결을 바로 persist한다.
+  - **6·7번:** Swagger 설명을 고쳤다.
+  - **8번:** `PreviewUsers.requireUserId`로 모았다.
+  - [작성 이력 서비스](../backend/src/main/java/com/janovel/domain/writing/app/WritingHistory.java)
+- **결과 및 트레이드오프 (Result & Trade-off):**
+  - **회귀 테스트:** 1번은 `revision`을 올리지 않던 동작으로 되돌리면 실패하는 테스트 두 개를 확인한 뒤 고쳤다. 2·3번도 회귀 테스트를 더했다. 4·5번은 쿼리 수와 범위만 바뀌어 기존 테스트로 동작이 같은지 확인했다.
+  - **검증:** 전체 153개 테스트가 통과했다.
+  - **남은 제약:** 기준이 바뀐 버전을 열어 둔 탭은 다음 저장에서 충돌 안내를 받는다.
+
+---
+### [2026-11-27] 작성 버전 만들기·수정·삭제와 스냅샷 수정·삭제 API 추가
+- **배경 및 문제점 (Problem):** 서버에는 기본 버전의 초안 저장과 스냅샷 남기기만 있어 버전을 더 만들거나 스냅샷에서 갈라지거나 지울 수 없었다. 버전을 지우면 DB가 그 버전 스냅샷을 연쇄 삭제하면서, 그 스냅샷을 부모로 둔 다른 버전 스냅샷의 연결과 다른 버전의 시작·기준 스냅샷이 모두 비어 이력 그래프가 끊겼다.
+- **고려한 대안 (Alternatives):** 끊긴 참조를 비운 채 두는 방식은 프론트의 `deleteBranch`가 남은 조상으로 다시 잇는 동작과 달라 쓰지 않았다. 삭제 뒤 `204`만 돌려주는 방식은 다시 이어진 결과를 프론트가 다시 조회해야 해서 바뀐 작성 이력 전체를 돌려주게 했다.
+- **해결 및 변경 사항 (Solution):** [작성 이력 서비스](../backend/src/main/java/com/janovel/domain/writing/app/WritingHistory.java)에 버전 만들기(`POST /api/questions/{qid}/versions`), 이름·설명 수정(`PATCH /api/versions/{vid}`), 삭제(`DELETE /api/versions/{vid}`), 스냅샷 이름·설명 수정(`PATCH /api/snapshots/{sid}`), 삭제(`DELETE /api/snapshots/{sid}`)를 더했다. 모든 변경은 지원 건 행을 잠근 뒤 처리한다. 버전 이름은 프론트의 `uniqueBranchName`과 같이 기본 이름·90자 자르기·` 2` 붙이기를 따른다. 버전을 지우기 전에 지울 스냅샷을 건너뛰며 부모를 따라 올라가 처음 만나는 남는 스냅샷으로 부모 연결과 시작·기준 스냅샷을 다시 잇고, 현재 버전이면 남은 첫 버전으로 옮긴 뒤 JPQL로 지운다. 스냅샷은 버전의 마지막이고 참조가 없을 때만 지우고 초안 기준을 그 부모로 옮긴다. 다른 문항 스냅샷에서 갈라지면 `SNAPSHOT_MISMATCH`, 참조 중인 스냅샷은 `SNAPSHOT_IN_USE`, 마지막 버전은 `LAST_VERSION`이다. 스냅샷 남기기의 이름·설명도 앞뒤 공백을 없애고 비면 `null`로 저장하게 맞췄다.
+- **결과 및 트레이드오프 (Result & Trade-off):** `WritingVersionControllerTests` 11개로 빈 버전과 이름 규칙, 스냅샷에서 갈라지기와 부모 연결, 잘못된 시작 스냅샷, 이름·설명 수정, 마지막 버전 보호와 현재 버전 이동, 두 단계를 건너뛰는 재연결, 스냅샷 삭제 조건과 기준 이동, 다른 사용자 차단, Swagger 응답 표시를 확인했고 전체 149개 테스트가 통과했다. 마지막 스냅샷을 지운 뒤 새로 남기면 그 번호를 다시 쓰며 프론트도 같다. 스냅샷에서 갈라진 버전도 현재 버전이 되는데, 프론트의 `branchFrom`은 현재 버전을 바꾸지 않으므로 연결할 때 맞춰야 한다.
+
+---
+### [2026-11-27] 작성 이력 조회·초안 저장·스냅샷 생성 API 추가
+- **배경 및 문제점 (Problem):** 두 탭이 같은 초안을 열고 차례로 저장하면 뒤에 도착한 요청이 먼저 저장한 본문을 덮어쓸 수 있다. 스냅샷을 남기는 도중 초안이나 상위 문항이 바뀌면 사용자가 본문을 확인한 시점과 저장 결과도 어긋날 수 있다.
+- **해결 및 변경 사항 (Solution):** [작성 이력 서비스](../backend/src/main/java/com/janovel/domain/writing/app/WritingHistory.java)는 지원 건 잠금을 획득한 뒤 최신 초안의 `revision`을 검사한다. 오래된 요청에는 `409 DRAFT_CONFLICT`와 최신 초안 `currentDraft`를 돌려준다. 스냅샷 생성은 본문과 부모 관계를 저장하고 초안의 기준과 저장 번호를 같은 트랜잭션에서 갱신한다. 이력 조회는 한 트랜잭션에서 동일한 DB 시점의 버전·스냅샷·제출본을 읽는다. [API 설계](planning/12-writing-history-api.md)에 실제 응답을 반영했다.
+- **결과 및 트레이드오프 (Result & Trade-off):** 같은 번호로 동시에 요청했을 때 한 건만 저장되는 것과 최신 초안 반환, 스냅샷 본문과 부모 보존, 사용자별 접근 차단을 PostgreSQL·MockMvc 테스트로 확인했다. 문항의 최대 길이인 100,000자까지 저장할 수 있고, UTF-8로 저장하는 중에 바뀔 수 있는 잘못된 유니코드 입력은 거절한다. 지원 건의 기존 잠금을 공유하므로 한 지원 건 안에서는 서로 다른 문항의 초안 저장도 차례로 처리한다. 자동 저장과 충돌 화면은 프론트 연결 단계에서 구현한다.
+
+---
+### [2026-11-27] 작성 이력 스키마를 프론트 버전 모델에 맞추고 문항마다 기본 버전 생성
+- **배경 및 문제점 (Problem):** 프론트는 버전마다 설명·순서·시작 스냅샷·초안 기준 스냅샷·저장 시각을, 스냅샷마다 v번호를, 문항마다 현재 버전을 쓰지만 서버 스키마의 `writing_versions`에는 이름과 초안 본문만, `snapshots`에는 번호가 없었다. 제출본은 출처를 남기지 않았고 문항을 만들어도 버전이 없어 바로 작성할 수 없었다. 작성본·스냅샷 API를 만들기 전에 저장 구조를 먼저 맞춰야 했다.
+- **고려한 대안 (Alternatives):** 조합 출처 본문을 담는 `version_sources` 테이블은 조합 버전의 "참고한 버전" 보기를 없애기로 해 만들지 않았다. 초안 기준 스냅샷을 여러 개 두는 연결 테이블은 조합 스냅샷을 지운 뒤에만 필요해 열 하나로 줄였다. 초안 저장 번호에 JPA `@Version`을 쓰면 버전 이름 변경도 초안 충돌로 잡혀 초안 저장 때만 올리는 열을 따로 두었다.
+- **해결 및 변경 사항 (Solution):** 배포 전이라 [V1](../backend/src/main/resources/db/migration/V1__initial_schema.sql)을 고쳤다. `writing_versions`에 `description`, `position`(문항 안 유니크), `created_at`, `from_snapshot_id`, `base_snapshot_id`, `draft_revision`, `draft_updated_at`을, `snapshots`에 `number`(문항 안 유니크)를, `essay_questions`에 `active_version_id`를, `submission_answers`에 `source_version_id`·`source_snapshot_id`·`label`을 더했다. 새 참조는 모두 `(question_id, id)` 복합 외래 키라 같은 문항의 기록만 가리키고, 대상이 지워지면 `ON DELETE SET NULL (열)`로 그 열만 비운다. 엔티티를 맞추고 초안 저장은 `WritingVersion.writeDraft`가 본문·저장 번호·저장 시각을 함께 바꾸게 했다. 지원 건 등록과 문항 추가는 [WritingHistory](../backend/src/main/java/com/janovel/domain/writing/app/WritingHistory.java)로 문항마다 빈 "기본" 버전을 만들어 현재 버전으로 지정한다. 문항 삭제는 같은 트랜잭션에 읽어 둔 버전이 지운 문항을 가리켜 플러시가 실패해 JPQL 삭제로 바꿨다. [DBML](planning/posting-reference-proposal.dbml)과 [설계 문서](planning/12-writing-history-api.md)를 함께 맞췄다.
+- **결과 및 트레이드오프 (Result & Trade-off):** 다른 문항 기록을 가리키는 참조 거절, 스냅샷·버전 삭제 때 참조만 비우기, 문항 안 번호 중복 거절을 `InitialSchemaTests`로, 새 열의 매핑을 `AdditionalEntityMappingsTests`로, 등록·추가한 문항마다 기본 버전이 생기는 것을 `WritingHistoryStartTests`로 확인했고 전체 테스트가 통과했다. V1을 고쳐 기존 개발 DB는 Flyway 검증에 실패하므로 초기화해야 한다. 스냅샷을 지울 때 기준 스냅샷을 앞 스냅샷으로 옮기고 버전 삭제 때 부모를 다시 잇는 규칙은 DB가 아니라 다음 단계 서비스에서 처리한다.
+
+---
 ### [2026-11-27] 비교 카드 반영 직후 강조와 스크롤이 이전 차이 표시에 가려지는 문제 수정
 - **배경 및 문제점 (Problem):** 비교하기에서 문장 카드를 누르면 오른쪽 내 본문의 반영한 곳을 강조하고 칸 밖이면 그 자리로 스크롤해야 한다. 그러나 참고본과 다른 곳 표시는 입력을 멈추고 250ms 뒤에 다시 계산되고, 그 전에는 이전 표시를 편집 위치에 맞춰 옮겨 쓴다. 옮겨진 이전 표시가 반영한 자리와 겹치면 `MergeDraft`가 겹친 표시 중 앞의 것만 그려 반영한 곳 표시(`.flash`)가 빠졌다. 스크롤 효과는 `flash`가 바뀔 때 한 번만 실행되어, 250ms 뒤 강조가 나타나도 스크롤하지 않았다. 예시 본문의 카드 5개 중 4개에서 재현했다.
 - **해결 및 변경 사항 (Solution):** `draftHighlights(marks, applied)`를 [선택 상태](../frontend/src/merge-state.js)에 두어, 반영한 범위와 겹치는 이전 차이 표시를 빼고 반영한 곳 표시를 넣는다. [작성 화면](../frontend/src/pages/Editor.jsx)은 이 결과를 `MergeDraft`에 넘긴다.

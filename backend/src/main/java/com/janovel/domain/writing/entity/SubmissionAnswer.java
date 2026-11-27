@@ -24,6 +24,18 @@ public class SubmissionAnswer {
     @Column(nullable = false, columnDefinition = "text")
     private String body;
 
+    /** 본문을 가져온 버전. 초안에서 가져왔거나 그 버전이 지워지면 비어 있다. */
+    @Column(name = "source_version_id")
+    private Long sourceVersionId;
+
+    /** 본문을 가져온 스냅샷. 초안에서 가져왔거나 그 스냅샷이 지워지면 비어 있다. */
+    @Column(name = "source_snapshot_id")
+    private Long sourceSnapshotId;
+
+    /** 화면에 보일 출처 이름. 예: `v3 · 기본`, `직접 수정` */
+    @Column(columnDefinition = "text")
+    private String label;
+
     @MapsId
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "question_id", nullable = false)
@@ -51,6 +63,26 @@ public class SubmissionAnswer {
 
     public void setBody(String body) {
         this.body = Objects.requireNonNull(body, "body");
+    }
+
+    public Long getSourceVersionId() {
+        return sourceVersionId;
+    }
+
+    public Long getSourceSnapshotId() {
+        return sourceSnapshotId;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    /** 본문과 출처를 함께 바꾼다. 직접 고친 본문은 출처 없이 이름만 남긴다. */
+    public void replace(String body, Long sourceVersionId, Long sourceSnapshotId, String label) {
+        this.body = Objects.requireNonNull(body, "body");
+        this.sourceVersionId = sourceVersionId;
+        this.sourceSnapshotId = sourceSnapshotId;
+        this.label = label;
     }
 
     public EssayQuestion getQuestion() {

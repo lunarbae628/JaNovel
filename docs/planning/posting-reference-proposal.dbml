@@ -108,6 +108,7 @@ Table "essay_questions" {
   "prompt" text [not null]
   "char_limit" integer [check: `char_limit BETWEEN 1 AND 100000`, note: '글자 수를 모르면 NULL']
   "position" integer [not null]
+  "active_version_id" bigint [note: '마지막으로 연 버전']
 
   Indexes {
     (application_id, position) [unique]
@@ -118,10 +119,18 @@ Table "writing_versions" {
   "id" BIGINT [pk, increment]
   "question_id" bigint [not null]
   "name" varchar [not null]
+  "description" text
+  "position" integer [not null, note: '문항 안의 순번']
+  "created_at" timestamptz [not null, default: `now()`]
+  "from_snapshot_id" bigint [note: '갈라져 나온 스냅샷. 빈 버전과 조합 버전은 NULL']
   "draft_body" text [not null, default: '']
+  "base_snapshot_id" bigint [note: '초안이 이어 쓰는 스냅샷']
+  "draft_revision" bigint [not null, default: 0, note: '초안 저장 번호. 오래된 화면의 저장을 거절한다']
+  "draft_updated_at" timestamptz [not null, default: `now()`]
 
   Indexes {
     (question_id, id) [unique]
+    (question_id, position) [unique]
   }
 }
 
@@ -129,6 +138,7 @@ Table "snapshots" {
   "id" BIGINT [pk, increment]
   "question_id" bigint [not null]
   "version_id" bigint [not null]
+  "number" integer [not null, note: '문항 안의 v번호. 삭제해도 다른 번호는 유지']
   "title" text
   "description" text
   "body" text [not null]
@@ -136,12 +146,16 @@ Table "snapshots" {
 
   Indexes {
     (question_id, id) [unique]
+    (question_id, number) [unique]
   }
 }
 
 Table "submission_answers" {
   "question_id" bigint [pk]
   "body" text [not null]
+  "source_version_id" bigint [note: '본문을 가져온 버전']
+  "source_snapshot_id" bigint [note: '본문을 가져온 스냅샷']
+  "label" text [note: '출처 표시 이름']
   "updated_at" timestamptz [not null, default: `now()`]
 }
 
@@ -247,6 +261,16 @@ Ref: "essay_questions"."id" < "submission_answers"."question_id" [delete: cascad
 Ref: "snapshots".("question_id", "id") < "snapshot_parents".("question_id", "child_snapshot_id") [delete: cascade]
 
 Ref: "snapshots".("question_id", "id") < "snapshot_parents".("question_id", "parent_snapshot_id") [delete: cascade]
+
+Ref: "writing_versions".("question_id", "id") < "essay_questions".("id", "active_version_id") [delete: set null]
+
+Ref: "snapshots".("question_id", "id") < "writing_versions".("question_id", "from_snapshot_id") [delete: set null]
+
+Ref: "snapshots".("question_id", "id") < "writing_versions".("question_id", "base_snapshot_id") [delete: set null]
+
+Ref: "writing_versions".("question_id", "id") < "submission_answers".("question_id", "source_version_id") [delete: set null]
+
+Ref: "snapshots".("question_id", "id") < "submission_answers".("question_id", "source_snapshot_id") [delete: set null]
 
 Ref: "shared_posting_question_sets"."id" < "shared_posting_question_reports"."question_set_id"
 

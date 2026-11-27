@@ -119,10 +119,10 @@ class InitialSchemaTests {
                 INSERT INTO essay_questions (id, application_id, prompt, char_limit, position)
                 VALUES (41, 10, '지원 동기', 500, 1), (42, 10, '프로젝트 경험', 500, 2)
                 """);
-        jdbc.update("INSERT INTO writing_versions (id, question_id, name) VALUES (51, 41, '초안'), (52, 42, '초안')");
+        jdbc.update("INSERT INTO writing_versions (id, question_id, name, position) VALUES (51, 41, '초안', 1), (52, 42, '초안', 1)");
         jdbc.update("""
-                INSERT INTO snapshots (id, question_id, version_id, body)
-                VALUES (61, 41, 51, '동기 답변'), (62, 42, 52, '경험 답변'), (63, 41, 51, '동기 답변 초안')
+                INSERT INTO snapshots (id, question_id, version_id, number, body)
+                VALUES (61, 41, 51, 1, '동기 답변'), (62, 42, 52, 1, '경험 답변'), (63, 41, 51, 2, '동기 답변 초안')
                 """);
 
         String insertParent = """
@@ -131,5 +131,80 @@ class InitialSchemaTests {
                 """;
         assertEquals(1, jdbc.update(insertParent, 63L));
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.update(insertParent, 62L));
+    }
+
+    /** 거절되는 문장을 세이브포인트 안에서 실행해, 실패 뒤에도 같은 트랜잭션에서 다음 문장을 실행한다. */
+    private void rejects(String sql) {
+        jdbc.execute("SAVEPOINT rejected");
+        try {
+            assertThrows(DataIntegrityViolationException.class, () -> jdbc.update(sql));
+        } finally {
+            jdbc.execute("ROLLBACK TO SAVEPOINT rejected");
+        }
+    }
+
+    private void createTwoQuestionsWithHistory() {
+        jdbc.update("""
+                INSERT INTO essay_questions (id, application_id, prompt, char_limit, position)
+                VALUES (41, 10, '지원 동기', 500, 1), (42, 10, '프로젝트 경험', 500, 2)
+                """);
+        jdbc.update("INSERT INTO writing_versions (id, question_id, name, position) VALUES (51, 41, '기본', 1), (52, 42, '기본', 1)");
+        jdbc.update("""
+                INSERT INTO snapshots (id, question_id, version_id, number, body)
+                VALUES (61, 41, 51, 1, '동기 답변'), (62, 42, 52, 1, '경험 답변')
+                """);
+    }
+
+    @Test
+    @DisplayName("버전의 시작·기준 스냅샷, 현재 버전, 제출본 출처는 같은 문항의 기록만 가리킨다")
+    void keepsWritingReferencesInsideQuestion() {
+        createTwoQuestionsWithHistory();
+
+        assertEquals(1, jdbc.update("UPDATE writing_versions SET from_snapshot_id = 61, base_snapshot_id = 61 WHERE id = 51"));
+        rejects("UPDATE writing_versions SET from_snapshot_id = 62 WHERE id = 51");
+        rejects("UPDATE writing_versions SET base_snapshot_id = 62 WHERE id = 51");
+        assertEquals(1, jdbc.update("UPDATE essay_questions SET active_version_id = 51 WHERE id = 41"));
+        rejects("UPDATE essay_questions SET active_version_id = 52 WHERE id = 41");
+        rejects("""
+                INSERT INTO submission_answers (question_id, body, source_version_id, source_snapshot_id)
+                VALUES (41, '제출본', 52, 62)
+                """);
+    }
+
+    @Test
+    @DisplayName("스냅샷을 지우면 그 스냅샷을 가리키던 참조만 비우고 버전을 지우면 현재 버전 지정만 비운다")
+    void clearsWritingReferencesOnDeletion() {
+        createTwoQuestionsWithHistory();
+        jdbc.update("INSERT INTO writing_versions (id, question_id, name, position, from_snapshot_id, base_snapshot_id) VALUES (53, 41, '짧은 안', 2, 61, 61)");
+        jdbc.update("UPDATE writing_versions SET base_snapshot_id = 61 WHERE id = 51");
+        jdbc.update("UPDATE essay_questions SET active_version_id = 53 WHERE id = 41");
+        jdbc.update("""
+                INSERT INTO submission_answers (question_id, body, source_version_id, source_snapshot_id, label)
+                VALUES (41, '동기 답변', 51, 61, 'v1 · 기본')
+                """);
+
+        jdbc.update("DELETE FROM snapshots WHERE id = 61");
+
+        assertEquals(2, jdbc.queryForObject("""
+                SELECT count(*) FROM writing_versions WHERE question_id = 41 AND from_snapshot_id IS NULL AND base_snapshot_id IS NULL
+                """, Integer.class));
+        assertEquals(51L, jdbc.queryForObject("SELECT source_version_id FROM submission_answers WHERE question_id = 41", Long.class));
+        assertNull(jdbc.queryForObject("SELECT source_snapshot_id FROM submission_answers WHERE question_id = 41", Long.class));
+        assertEquals("동기 답변", jdbc.queryForObject("SELECT body FROM submission_answers WHERE question_id = 41", String.class));
+
+        jdbc.update("DELETE FROM writing_versions WHERE id = 53");
+        assertNull(jdbc.queryForObject("SELECT active_version_id FROM essay_questions WHERE id = 41", Long.class));
+        jdbc.update("DELETE FROM writing_versions WHERE id = 51");
+        assertNull(jdbc.queryForObject("SELECT source_version_id FROM submission_answers WHERE question_id = 41", Long.class));
+    }
+
+    @Test
+    @DisplayName("같은 문항 안에서 스냅샷 번호와 버전 순번은 겹칠 수 없지만 다른 문항과는 같아도 된다")
+    void keepsNumbersUniqueInsideQuestion() {
+        createTwoQuestionsWithHistory();
+
+        rejects("INSERT INTO snapshots (question_id, version_id, number, body) VALUES (41, 51, 1, '겹침')");
+        rejects("INSERT INTO writing_versions (question_id, name, position) VALUES (41, '겹침', 1)");
+        assertEquals(0L, jdbc.queryForObject("SELECT draft_revision FROM writing_versions WHERE id = 51", Long.class));
     }
 }

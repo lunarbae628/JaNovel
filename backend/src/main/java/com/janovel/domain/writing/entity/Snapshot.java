@@ -30,6 +30,10 @@ public class Snapshot {
     @Column(name = "version_id", nullable = false, updatable = false)
     private long versionId;
 
+    /** 문항 안의 v번호. 스냅샷을 지워도 다른 번호는 바뀌지 않는다. */
+    @Column(nullable = false, updatable = false)
+    private int number;
+
     @Column(nullable = false, updatable = false, columnDefinition = "text")
     private String body;
 
@@ -40,9 +44,10 @@ public class Snapshot {
     protected Snapshot() {
     }
 
-    public Snapshot(long questionId, long versionId, String body) {
+    public Snapshot(long questionId, long versionId, int number, String body) {
         this.questionId = questionId;
         this.versionId = versionId;
+        this.number = number;
         this.body = Objects.requireNonNull(body, "body");
     }
 
@@ -72,6 +77,10 @@ public class Snapshot {
 
     public long getVersionId() {
         return versionId;
+    }
+
+    public int getNumber() {
+        return number;
     }
 
     public String getBody() {

@@ -33,6 +33,10 @@ public class EssayQuestion {
     @Column(nullable = false)
     private int position;
 
+    /** 마지막으로 연 버전. 작성 화면을 다시 열 때 이 버전으로 시작한다. */
+    @Column(name = "active_version_id")
+    private Long activeVersionId;
+
     protected EssayQuestion() {
     }
 
@@ -77,5 +81,13 @@ public class EssayQuestion {
 
     public void setPosition(int position) {
         this.position = position;
+    }
+
+    public Long getActiveVersionId() {
+        return activeVersionId;
+    }
+
+    public void setActiveVersionId(Long activeVersionId) {
+        this.activeVersionId = activeVersionId;
     }
 }

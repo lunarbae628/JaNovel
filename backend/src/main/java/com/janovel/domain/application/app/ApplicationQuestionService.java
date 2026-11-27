@@ -5,6 +5,7 @@ import com.janovel.domain.application.dto.ApplicationDetail;
 import com.janovel.domain.application.dto.ApplicationRegistration;
 import com.janovel.domain.application.entity.Application;
 import com.janovel.domain.application.exception.ApplicationErrorCode;
+import com.janovel.domain.writing.app.WritingHistory;
 import com.janovel.domain.writing.dao.EssayQuestionRepository;
 import com.janovel.domain.writing.entity.EssayQuestion;
 import com.janovel.global.exception.CustomException;
@@ -24,11 +25,13 @@ public class ApplicationQuestionService {
 
     private final ApplicationRepository applicationRepository;
     private final EssayQuestionRepository questionRepository;
+    private final WritingHistory writingHistory;
 
     public ApplicationQuestionService(ApplicationRepository applicationRepository,
-                                      EssayQuestionRepository questionRepository) {
+                                      EssayQuestionRepository questionRepository, WritingHistory writingHistory) {
         this.applicationRepository = applicationRepository;
         this.questionRepository = questionRepository;
+        this.writingHistory = writingHistory;
     }
 
     @Transactional
@@ -39,6 +42,7 @@ public class ApplicationQuestionService {
         }
         var question = questionRepository.save(new EssayQuestion(application, request.prompt(), request.limit(),
                 questionRepository.maxPosition(applicationId) + 1));
+        writingHistory.start(List.of(question));
         return toResponse(question);
     }
 
@@ -56,7 +60,7 @@ public class ApplicationQuestionService {
     @Transactional
     public void delete(long userId, long applicationId, long questionId) {
         lockApplication(userId, applicationId);
-        questionRepository.delete(findQuestion(applicationId, questionId));
+        questionRepository.deleteDirectly(findQuestion(applicationId, questionId).getId());
     }
 
     @Transactional
