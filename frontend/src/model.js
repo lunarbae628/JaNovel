@@ -5,9 +5,11 @@ export const colors=['#274690','#39816F','#A4753E','#8869A4','#63758C','#657D55'
 export function branchColor(b){if(!previousColors.includes(b.color)&&!colors.includes(b.color))return b.color;return colors[b.order]||`hsl(${Math.round(b.order*137.508)%360} 30% 44%)`;}
 
 export const uid=(prefix='id')=>prefix+'-'+crypto.randomUUID();
+// 지원 건을 열면 마지막으로 쓰던 문항으로 간다. 그 문항이 지워졌거나 기록이 없으면 첫 문항이다.
+// 문항 안에서는 그 문항의 현재 버전(activeBranchId)으로 열린다.
 export function writingPath(application) {
- const first = application.questions[0];
- return first ? '/write/' + application.id + '/' + first.id : '/posting/' + application.id;
+ const question = application.questions.find(q => q.id === application.lastQuestionId) || application.questions[0];
+ return question ? '/write/' + application.id + '/' + question.id : '/posting/' + application.id;
 }
 const now=()=>new Date().toISOString();
 const clone=value=>structuredClone(value);
@@ -101,6 +103,7 @@ export function validateStore(data){
    a.sections.every(section=>object(section)&&str(section.id)&&section.id&&str(section.title)&&section.title.trim()&&
     section.title.length<=100&&str(section.body)));
   if(a.interview!==undefined)check(isInterview(a.interview));
+  if(a.lastQuestionId!==undefined)check(str(a.lastQuestionId));
   check(unique(a.questions.map(q=>q?.id))&&unique(a.events.map(e=>e?.id))&&unique(a.submissions.map(s=>s?.id)));
   if(a.deadlineDetails!==undefined){
    const details=a.deadlineDetails;

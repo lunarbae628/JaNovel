@@ -1,6 +1,18 @@
 # JaNovel 의사결정 로그
 
 ---
+### [2026-11-27] 조합·제출본·연 버전 API를 더하고 지원 건이 마지막으로 쓰던 문항으로 열리게 함
+- **배경 및 문제점 (Problem):** 작성 이력 API에 조합(4단계), 제출본·현재 버전(5단계)이 남아 있었다. 지원 목록·최근 작성·사이드바에서 지원 건을 누르면 `writingPath`가 항상 첫 문항으로 보냈다. 그래서 Q3을 쓰다 나가도 Q1이 열렸다. 문항 안에서는 마지막 버전(`activeBranchId`)으로 열렸지만 지원 건마다 마지막 문항은 기억하지 않았다.
+- **해결 및 변경 사항 (Solution):** 프론트는 작성 화면을 열 때 지원 건에 `lastQuestionId`를 저장하고, [`writingPath`](../frontend/src/model.js)가 그 문항으로 보낸다. 지워진 문항이면 첫 문항으로 간다. 서버는 V1의 `applications`에 `last_question_id`를 더했다. `(id, last_question_id) → essay_questions(application_id, id)` 복합 외래 키로 같은 지원 건 문항만 가리키고, 문항을 지우면 `ON DELETE SET NULL`로 비운다. 지원 건 목록·상세 응답에 `lastQuestionId`를 넣었다. [작성 이력 서비스](../backend/src/main/java/com/janovel/domain/writing/app/WritingHistory.java)에는 네 가지를 더했다.
+  - **조합**(`POST /api/questions/{qid}/combinations`): 출처 없이 새 버전과 첫 스냅샷을 한 번에 만들고 현재 버전으로 지정한다.
+  - **연 버전 기억**(`PUT .../active-version`): 문항의 현재 버전과 지원 건의 마지막 문항을 함께 저장한다.
+  - **제출본 지정·교체·직접 수정**(`PUT .../submission`): 스냅샷 또는 버전 초안 본문을 복사한다. 직접 수정이면 출처를 두고 이름만 `직접 수정`이 된다.
+  - **제출본 해제**(`DELETE .../submission`)
+  - 다른 문항의 버전·스냅샷이면 `VERSION_MISMATCH`·`SNAPSHOT_MISMATCH`(400), 지정된 제출본 없이 본문만 고치면 `SUBMISSION_REQUIRED`(409)다.
+  - 빈 본문 검사는 `requireText`로 모았다. 이때 소스에 보이지 않는 BOM 문자로 들어 있던 U+FEFF 비교를 `0xFEFF`로 바꿨다.
+- **결과 및 트레이드오프 (Result & Trade-off):** `WritingCombinationAndSubmissionTests` 6개로 조합·연 버전 기억·제출본 지정·교체·직접 수정·해제와 오류, 다른 사용자 차단, 문항 삭제 시 마지막 문항 비우기를 확인했다. `InitialSchemaTests`로 다른 지원 건 문항을 가리키면 거절되는지 확인했고 백엔드 160개 테스트가 통과했다. 프론트는 `writingPath` 회귀 테스트를 더해 129개와 빌드가 통과했다. 프론트는 아직 서버에 연결되지 않아 마지막 문항을 브라우저에만 저장하고, 연결할 때 `active-version` 호출로 바꾼다. V1이 다시 바뀌어 개발 DB 초기화가 필요하다.
+
+---
 ### [2026-11-27] 버전 이름 중복은 번호를 붙이지 않고 거절하고, 이름 수정 응답을 이름·설명으로 줄임
 - **배경 및 문제점 (Problem):** 서버와 프론트 모두 사용자가 입력한 버전 이름이 다른 버전과 같으면 몰래 ` 2`를 붙였다. 사용자는 입력한 이름과 다른 이름이 저장된 걸 알기 어려웠다. 또 버전·스냅샷 이름을 바꾸는 API가 응답을 채우려고 버전의 스냅샷 목록과 초안 기준 스냅샷, 스냅샷 본문과 부모 연결까지 읽었다. 중복 확인을 위해 다른 버전을 초안 본문까지 통째로 읽었다. 이름 수정은 이것들을 바꾸지 않는다.
 - **해결 및 변경 사항 (Solution):** 사용자가 입력한 이름이 같은 문항의 다른 버전과 같으면 `409 DUPLICATE_VERSION_NAME`으로 거절한다. 이름을 비워 기본 이름(`새 버전`, `<스냅샷 이름>에서 시작`)을 쓰거나 화면이 정한 이름(`기본 다른 안`)을 쓸 때만 번호를 붙인다. 입력한 이름은 90자로 자르지 않는다. 프론트의 `requireFreeName`도 같은 규칙으로 [`createWritingOption`·`renameWritingOption`](../frontend/src/writing-options.js)에서 오류를 던진다. 버전 만들기·수정 창과 합치기 창은 창을 닫지 않고 그 안에 "같은 이름의 버전이 있어요"를 보여 준다. 서버는 이름 중복을 `findNamesByQuestionIdExcept`로 이름만 읽어 확인한다. 버전 수정은 `{id, name, description}`, 스냅샷 수정은 `{id, title, description}`만 돌려준다. 공백만 입력하면 `새 버전`이 아니라 `새 분기`가 되던 프론트 문제도 함께 고쳤다.

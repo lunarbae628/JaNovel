@@ -154,17 +154,22 @@ function App() {
     if (kind !== 'interviews' || qid !== 'practice') setPracticeSession(null);
   }, [kind, aid, qid]);
 
+  // 작성 화면을 열면 최근 작성한 지원 건과 그 지원 건에서 마지막으로 연 문항을 기억한다.
   useEffect(() => {
     if (kind !== 'write' || !application || templateRoute) return;
     setStore(previous => {
       const recent = previous.preferences?.recentApplications ?? [];
-      if (recent[0] === aid) return previous;
+      const current = previous.applications.find(item => item.id === aid);
+      const remembers = !qid || !current?.questions.some(question => question.id === qid) || current.lastQuestionId === qid;
+      if (recent[0] === aid && remembers) return previous;
       return {
         ...previous,
+        applications: remembers ? previous.applications
+          : previous.applications.map(item => item.id === aid ? {...item, lastQuestionId: qid} : item),
         preferences: {...previous.preferences, recentApplications: [aid, ...recent.filter(id => id !== aid)].slice(0, 2)},
       };
     });
-  }, [kind, aid, Boolean(application), templateRoute]);
+  }, [kind, aid, qid, Boolean(application), templateRoute]);
 
   useEffect(() => {
     if (!legacySocialRoute) return;
